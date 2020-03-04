@@ -1,0 +1,14 @@
+# this is a sample parameter file
+
+Main:
+  ## lattice_size = [Lx, Ly, Lz, Lt]
+  lattice_size             : [8,8,8,16]
+  ## NB. an empty grid_size [] leads to automatic adjustment
+  grid_size                : [1,1,1,1]
+  number_of_thread         : 4
+  number_of_color          : 3
+  ## log_filename = {stdout, or "filename"}
+  log_filename             : stdout
+  ildg_log_filename        : stdout
+  ## verbose_level = {Crucial,General,Detailed,Paranoiac}
+  verbose_level            : General

@@ -1,0 +1,39 @@
+# this is a test parameter file for redstar all-to-all propagator codesets
+
+Conf:
+  confname     : ../../bridge-1.5.3/build/tests/conf_04040408.txt
+  #confformat   : Text # {Text, ILDG}
+  confformat   : Text_4x4x4x8 # {Text, ILDG}
+  csw          : 1.1
+  kappa_ud     : 0.12
+  kappa_s      : 0.12
+  boundary     : [1,1,1,1] # boundary condition (1: periodic, 0: dirichlet)
+
+Noise:
+  noise_seed   : 1234567
+
+Eigensolver:
+  Precision    : 1.0e-24
+  Neig         : 10
+  Nworkv       : 100
+  Nmargin      : 30
+  Ncb          : 10
+  Lambda_th    : 0.2
+  Lambda_max   : 2.5
+  
+Inversion:
+  Precision    : 1.0e-24
+  
+
+CAA:
+  caa_grid     : [2,2,2] # 3 dim caa grid (translation)
+  Precision    : 9.0e-6
+  point_seed   : 810
+
+Smearing(sink): # assume using exp. smearing a * exp{-b * r} (r < threshold)
+  a            : 1.0
+  b            : 1.0
+  threshold    : 3.5
+
+File_io:
+  outdir       : ./test_output

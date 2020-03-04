@@ -1,0 +1,74 @@
+### definitions of variables ###
+# bridge++ library path
+bridge_lib_path = ../bridge-1.5.3/build
+a2a_base_path = .
+a2a_src_path = $(a2a_base_path)/src
+a2a_lib_path = $(a2a_src_path)/lib
+a2a_main_path = $(a2a_src_path)/Main
+a2a_build_path = $(a2a_base_path)/build
+a2a_include_path = $(a2a_src_path)/include
+# bridge++ alternative library path
+bridge_lib_alt_path = ../alternative3/build_mpi_high
+bridge_include_alt_path = $(bridge_lib_alt_path)/include/bridge $(bridge_lib_alt_path)/include/bridge/lib $(bridge_lib_alt_path)/include/bridge/lib_alt $(bridge_lib_alt_path)/include/bridge/lib_alt_Simd
+bridge_lib_alt_flag = -lbridge_alt
+# include compilation environment summary
+include $(bridge_lib_path)/make.inc
+
+exe = $(a2a_build_path)/redstar_a2a.elf
+#src = $(wildcard $(addsuffix /*/*.cpp, $(a2a_src_path)))
+src_lib = $(wildcard $(addsuffix /*.cpp, $(a2a_lib_path)))
+src_main = $(a2a_main_path)/main.cpp
+src = $(src_main) $(src_main_core) $(src_lib)
+obj = $(patsubst $(a2a_src_path)/%.cpp, $(a2a_build_path)/%.o, $(src))
+
+CXXFLAGS += -I$(a2a_include_path)
+CXXFLAGS += -mavx2 -mfma -DAVX2
+
+CXXFLAGS += $(addprefix -I, $(bridge_include_alt_path))
+#LDLIBS += -L$(bridge_lib_alt_path)
+LDLIBS = -lm -L/Users/redstar/work/work_bridge/work_a2a/bridge-1.5.3/build -lbridge -L../alternative3/build_mpi_high -lbridge_alt -L/Users/redstar/local/lib -lfftw3_mpi -lfftw3_omp -lfftw3 
+
+### definitions END ###
+
+### user modification part (determine which definition of main_core() is used) ###
+# main_core() is separatedly defined main_core_XXX.cpp files.
+# they are different in terms of choice of src op, sink op, diagrams, dilutions.
+src_main_core = $(a2a_main_path)/main_core_pik_box.cpp
+### user modification part END ###
+
+
+### Makefile main part ###
+.PHONY: all clean
+
+# make all
+all:	msg $(exe)
+
+# show messages 
+msg:	
+	@(\
+	echo; \
+	echo "===### REDSTAR-A2A codeset compilation ###===\n"; \
+	echo "CXX = " $(CXX); \
+	echo "CXXFLAGS = " $(CXXFLAGS); \
+	echo "LDLIBS = " $(LDLIBS); \
+	echo "LDFLAGS = " $(LDFLAGS); \
+	echo "sources: " $(src); \
+	echo "objects: " $(obj); \
+	echo; \
+	)
+
+# make execution file (main part)
+$(exe):	$(obj)
+	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	#$(CXX) $(CXXFLAGS) $(LDLIBS) $(LDFLAGS) $^ -o $@
+
+#$(obj):	$(src)
+#	$(CXX) $(CXXFLAGS) $(LDLIBS) $(LDFLAGS) -c $< -o $@
+
+$(a2a_build_path)/%.o: $(a2a_src_path)/%.cpp
+	$(CXX) $(CXXFLAGS) $(LDLIBS) $(LDFLAGS) -c $< -o $@
+
+# remove generated objects (*.o, exefile)
+clean:;	rm -f $(obj) $(a2a_build_path)/$(exe) 
+
+### Makefile main part END ###
