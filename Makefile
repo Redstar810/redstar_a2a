@@ -2,7 +2,7 @@
 
 ### User modification part ###
 # use Kanamori-san's alternative code (simd, MG solver, mixed prec) = {yes, no}
-use_alt = yes
+use_alt = no
 
 ### definitions of variables ###
 # bridge++ library path
@@ -18,7 +18,22 @@ a2a_include_path = $(a2a_src_path)/include
 
 # main_core() is separatedly defined main_core_XXX.cpp files.
 # they are different in terms of choice of src op, sink op, diagrams, dilutions.
-src_main_core = $(a2a_main_path)/main_core_pik_box_alt.cpp
+#src_main_core = $(a2a_main_path)/main_core_pik_box_alt.cpp
+#src_main_core = $(a2a_main_path)/main_core_pik_box.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_tri_wall.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_tri.cpp
+src_main_core = $(a2a_main_path)/main_core_pipi_tri_threadtest.cpp	
+#src_main_core = $(a2a_main_path)/main_core_pipi_sep.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_box1.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_box2.cpp
+#src_main_core = $(a2a_main_path)/main_core_pik_sepconn.cpp
+
+# for consistency check
+#src_main_core = $(a2a_main_path)/a2a_nexttesti1pisep_smrdsink.cpp
+#src_main_core = $(a2a_main_path)/a2a_nexttesti1tri_caasmrdsink.cpp
+#src_main_core = $(a2a_main_path)/a2a_nexttesti1pibox1_caasmrdsink.cpp
+#src_main_core = $(a2a_main_path)/a2a_nexttesti1pibox2_caasmrdsink.cpp
+
 
 # include compilation environment summary
 include $(bridge_lib_path)/make.inc

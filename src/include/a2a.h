@@ -192,6 +192,7 @@ namespace a2a
 
   // caa part (sink to sink prop, high-mode, fixed source point)
   int contraction_s2s_fxdpt(Field*, Field*, const Field_F*, const int*,  const Field_F*, const Field_F*, const int, const int);
+  int contraction_s2s_fxdpt_draft(Field*, Field*, const Field_F*, const int*,  const Field_F*, const Field_F*, const int, const int);
   int contraction_s2s_fxdpt_1dir(Field*, const Field_F*, const int*,  const Field_F*, const Field_F*, const int, const int, const int);
 
   // output NBS wave function in each source timeslice
@@ -209,6 +210,11 @@ namespace a2a
   int output_2ptcorr(const dcomplex*, const int, const int*, const string);
   // contraction (separated diagram)
   int contraction_separated(Field*, const Field_F*, const Field_F*, const Field_F*, const Field_F*,const int*, const int, const int);
+  int contraction_separated_1dir(Field*, const Field_F*, const Field_F*, const Field_F*, const Field_F*,const int*, const int, const int, const int);
+  int contraction_separated(Field*, Field*, const Field_F*, const Field_F*, const Field_F*, const Field_F*,const int*, const int, const int);
+
+  
+  
   // contraction (connected diagram)
   int contraction_connected(Field*, const Field_F*, const Field_F*, const Field_F*, const Field_F*,const int*, const int, const int);
 

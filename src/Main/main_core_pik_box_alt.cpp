@@ -262,24 +262,11 @@ int main_core(Parameters *params_conf_all)
   //delete[] tdil_noise;
   //delete[] tcdil_noise;
   delete[] tcddil_noise;
-  
-  //diltimer -> stop();
-    
-  //////////////////////////////////////////////////////
-  // ###  make one-end vectors  ###
-
-  GammaMatrixSet_Dirac *dirac = new GammaMatrixSet_Dirac();
-  GammaMatrix gm_5;
-  gm_5 = dirac->get_GM(dirac->GAMMA5);
-
-  // smearing the noise sources
-  //Field_F *dil_noise_smr = new Field_F[Nnoise*Ndil];
-  //a2a::smearing_exp(dil_noise_smr,dil_noise,Nnoise*Ndil,a,b);
 
   // source time slice determination
   vout.general("===== source time setup =====\n");
-  //int Nsrc_t = Lt/2; // #. of source time you use
-  int Nsrc_t = 1; // #. of source time you use 
+  int Nsrc_t = Lt/2; // #. of source time you use
+  //int Nsrc_t = 1; // #. of source time you use 
   int Ndil_red = Ndil / Lt * Nsrc_t; // reduced d.o.f. of noise vectors
   int Ndil_tslice = Ndil / Lt; // dilution d.o.f. on a single time slice
   string numofsrct = std::to_string(Nsrc_t);
@@ -309,6 +296,20 @@ int main_core(Parameters *params_conf_all)
     }
   }
   delete[] dil_noise_allt;
+  
+  //diltimer -> stop();
+    
+  //////////////////////////////////////////////////////
+  // ###  make one-end vectors  ###
+
+  GammaMatrixSet_Dirac *dirac = new GammaMatrixSet_Dirac();
+  GammaMatrix gm_5;
+  gm_5 = dirac->get_GM(dirac->GAMMA5);
+
+  // smearing the noise sources
+  //Field_F *dil_noise_smr = new Field_F[Nnoise*Ndil];
+  //a2a::smearing_exp(dil_noise_smr,dil_noise,Nnoise*Ndil,a,b);
+
   
   Field_F *xi_l = new Field_F[Nnoise*Ndil_red];
   Fopr_Clover_eo *fopr_l_eo = new Fopr_Clover_eo("Dirac");

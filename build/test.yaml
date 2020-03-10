@@ -14,11 +14,11 @@ Noise:
 
 Eigensolver:
   Precision    : 1.0e-24
-  Neig         : 10
+  Neig         : 100
   Nworkv       : 100
   Nmargin      : 30
   Ncb          : 10
-  Lambda_th    : 0.2
+  Lambda_th    : 0.4
   Lambda_max   : 2.5
   
 Inversion:
@@ -26,7 +26,7 @@ Inversion:
   
 
 CAA:
-  caa_grid     : [2,2,2] # 3 dim caa grid (translation)
+  caa_grid     : [1,1,1] # 3 dim caa grid (translation)
   Precision    : 9.0e-6
   point_seed   : 810
 
@@ -36,4 +36,5 @@ Smearing(sink): # assume using exp. smearing a * exp{-b * r} (r < threshold)
   threshold    : 3.5
 
 File_io:
-  outdir       : ./test_output
+  #outdir       : ./test_output
+  outdir       : ./consistency_check_i1pptri_threadtest

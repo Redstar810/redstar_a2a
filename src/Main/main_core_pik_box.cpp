@@ -189,7 +189,7 @@ int main_core(Parameters *params_conf_all)
 
   //////////////////////////////////////////////////////
   // ###  eigen solver (IR-Lanczos)  ###
-  /*  
+  
   Field_F *evec_in = new Field_F[Neigen];
   double *eval_in = new double[Neigen];
   
@@ -213,7 +213,7 @@ int main_core(Parameters *params_conf_all)
   Communicator::sync_global();
   delete fopr_cb;
   delete[] eval_pol;
-  */
+  
   //////////////////////////////////////////////////////
   // ###  generate diluted noises  ###
   
@@ -278,8 +278,8 @@ int main_core(Parameters *params_conf_all)
 
   // source time slice determination
   vout.general("===== source time setup =====\n");
-  //int Nsrc_t = Lt/2; // #. of source time you use
-  int Nsrc_t = 1; // #. of source time you use 
+  int Nsrc_t = Lt/2; // #. of source time you use
+  //int Nsrc_t = 1; // #. of source time you use 
   int Ndil_red = Ndil / Lt * Nsrc_t; // reduced d.o.f. of noise vectors
   int Ndil_tslice = Ndil / Lt; // dilution d.o.f. on a single time slice
   string numofsrct = std::to_string(Nsrc_t);
@@ -554,7 +554,7 @@ int main_core(Parameters *params_conf_all)
 
   ////////////////////////////////////////////////////////////////////////////////////
   /////////////// box diagram (eigen part) ////////////////////////
-  /*
+  
   Communicator::sync_global();
   dcomplex *Fbox_eig = new dcomplex[Nvol*Nsrc_t];
   // smearing
@@ -586,10 +586,10 @@ int main_core(Parameters *params_conf_all)
 
   // smeared sink
   delete[] evec_smrdsink;
-  */
+  
   ///////////////////////////////////////////////////////////////////////////////////////
   /////////////////// box diagram 1 (CAA algorithm, exact part) /////////////////////////
-  /*
+  
   int *srcpt_exa = new int[3]; // an array of the source points (x,y,z) (global) 
   dcomplex *Fbox_p2a = new dcomplex[Nvol*Nsrc_t];
   Field_F *point_src_exa = new Field_F[Nc*Nd*Lt]; // source vector for inversion
@@ -704,11 +704,11 @@ int main_core(Parameters *params_conf_all)
   // output NBS end
 
   delete[] Fbox_p2a;
-  */  
+    
 
   ////////////////////////////////////////////////////////////////////////////////////////////
   /////////////////// box diagram 1 (CAA algorithm, relaxed CG part) /////////////////////////
-  /*
+  
   int Nrelpt_x = caa_grid[0];
   int Nrelpt_y = caa_grid[1];
   int Nrelpt_z = caa_grid[2];
@@ -854,7 +854,7 @@ int main_core(Parameters *params_conf_all)
   delete[] chi_ll_smrdsink;
   delete smear;
   delete dirac;    
-  */  
+  
 
   //////////////////////////////////////////////////////
   // ###  finalize  ###
