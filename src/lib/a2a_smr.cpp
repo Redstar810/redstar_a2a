@@ -27,7 +27,15 @@ a2a::Exponential_smearing::Exponential_smearing()
   // initialize pointer variable
   m_smrfunc_mom = NULL;
   // construct the FFT instance
-  m_fft = new FFT_3d_parallel3d;
+  //m_fft = new FFT_3d_parallel3d;
+  // omp? (not sure whether this usage is correct or not...)
+#pragma omp parallel
+  {
+#pragma omp master
+    {
+      m_fft = new FFT_3d_parallel3d;
+    }
+  }
   // initialize other member variables
   m_a = 0.0;
   m_b = 0.0;
@@ -72,16 +80,15 @@ void a2a::Exponential_smearing::set_parameters(const double a, const double b, c
   // construct smearing function in momentum space
   Communicator::grid_coord(igrids,Communicator::nodeid());
   Field *smrfunc = new Field(2,Nxyz*Nt,1);
+  smrfunc->set(0.0);
+  
 #pragma omp parallel
   {
     int Nthread = ThreadManager_OpenMP::get_num_threads();
     int i_thread = ThreadManager_OpenMP::get_thread_id();
     int is = Nx * i_thread / Nthread;
     int ns =  Nx * (i_thread + 1) / Nthread;
-#pragma omp sigle
-    {
-  smrfunc->set(0.0);
-    }
+    //printf("Nthread = %d, ithread = %d, is = %d, ns = %d\n",Nthread, i_thread, is, ns);
     
   for(int t=0;t<Nt;t++){
     for(int z=0;z<Nz;z++){

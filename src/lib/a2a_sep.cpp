@@ -47,9 +47,12 @@ int a2a::contraction_separated(Field* of, const Field_F* isrcv11, const Field_F*
   Field *tmp2 = new Field;
   tmp1->reset(2,Nvol,Nsrc_time);
   tmp2->reset(2,Nvol,Nsrc_time);
-  tmp1->set(0.0);
-  tmp2->set(0.0);
-
+#pragma omp parallel
+  {
+    tmp1->set(0.0);
+    tmp2->set(0.0);
+  }
+  /*
   for(int t_src=0;t_src<Nsrc_time;t_src++){
     for(int t=0;t<Nt;t++){
       for(int i=0;i<Nex_tslice;i++){
@@ -60,20 +63,47 @@ int a2a::contraction_separated(Field* of, const Field_F* isrcv11, const Field_F*
               tmp2->add(0,vs+Nxyz*t,t_src,real(isrcv22[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0))));
               tmp1->add(1,vs+Nxyz*t,t_src,imag(isrcv12[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(isrcv11[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0))));
               tmp2->add(1,vs+Nxyz*t,t_src,imag(isrcv22[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0))));
-
+	      
             }
           }
         }
       }
     }
   }
+  */
+  // new impl.
+#pragma omp parallel for
+  for(int t_src=0;t_src<Nsrc_time;t_src++){
+    for(int t=0;t<Nt;t++){
+      for(int i=0;i<Nex_tslice;i++){
+        for(int vs=0;vs<Nxyz;vs++){
+          for(int d=0;d<Nd;d++){
+            for(int c=0;c<Nc;c++){
+              tmp1->add(0,vs+Nxyz*t,t_src,isrcv12[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_r(c,d,vs+Nxyz*t,0) * isrcv11[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_r(c,d,vs+Nxyz*t,0) + isrcv12[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_i(c,d,vs+Nxyz*t,0) * isrcv11[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_i(c,d,vs+Nxyz*t,0) );
+              tmp2->add(0,vs+Nxyz*t,t_src,isrcv22[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_r(c,d,vs+Nxyz*t,0) * isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_r(c,d,vs+Nxyz*t,0) + isrcv22[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_i(c,d,vs+Nxyz*t,0) * isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_i(c,d,vs+Nxyz*t,0) );
+              tmp1->add(1,vs+Nxyz*t,t_src,isrcv12[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_i(c,d,vs+Nxyz*t,0) * isrcv11[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_r(c,d,vs+Nxyz*t,0) - isrcv12[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_r(c,d,vs+Nxyz*t,0) * isrcv11[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_i(c,d,vs+Nxyz*t,0) );
+              tmp2->add(1,vs+Nxyz*t,t_src,isrcv22[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_i(c,d,vs+Nxyz*t,0) * isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_r(c,d,vs+Nxyz*t,0) - isrcv22[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_r(c,d,vs+Nxyz*t,0) * isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_i(c,d,vs+Nxyz*t,0) );
+	      
+            }
+          }
+        }
+      }
+    }
+  }
+  
 
   Field *tmp1_mom = new Field;
   Field *tmp2_mom = new Field;
   tmp1_mom->reset(2,Nvol,Nsrc_time);
   tmp2_mom->reset(2,Nvol,Nsrc_time);
-
-  FFT_3d_parallel3d *fft3 = new FFT_3d_parallel3d;
+  FFT_3d_parallel3d *fft3;
+#pragma omp parallel
+  {
+#pragma omp master
+    {
+      fft3 = new FFT_3d_parallel3d;
+    }
+  }
   fft3->fft(*tmp1_mom,*tmp1,FFT_3d_parallel3d::FORWARD);
   fft3->fft(*tmp2_mom,*tmp2,FFT_3d_parallel3d::BACKWARD);
   Communicator::sync_global();
@@ -84,15 +114,21 @@ int a2a::contraction_separated(Field* of, const Field_F* isrcv11, const Field_F*
 
   Fsep_mom->reset(2,Nvol,Nsrc_time);
   of->reset(2,Nvol,Nsrc_time);
-  Fsep_mom->set(0.0);
-  of->set(0.0);
+#pragma omp parallel
+  {
+    Fsep_mom->set(0.0);
+    of->set(0.0);
+  }
 
+#pragma omp parallel for
   for(int t_src=0;t_src<Nsrc_time;t_src++){
     for(int t=0;t<Nt;t++){
       for(int vs=0;vs<Nxyz;vs++){
-        dcomplex Fsep_value = cmplx(tmp1_mom->cmp(0,vs+Nxyz*t,t_src),tmp1_mom->cmp(1,vs+Nxyz*t,t_src)) * cmplx(tmp2_mom->cmp(0,vs+Nxyz*t,t_src),tmp2_mom->cmp(1,vs+Nxyz*t,t_src));
-        Fsep_mom->set(0,vs+Nxyz*t,t_src,real(Fsep_value));
-        Fsep_mom->set(1,vs+Nxyz*t,t_src,imag(Fsep_value));
+        //dcomplex Fsep_value = cmplx(tmp1_mom->cmp(0,vs+Nxyz*t,t_src),tmp1_mom->cmp(1,vs+Nxyz*t,t_src)) * cmplx(tmp2_mom->cmp(0,vs+Nxyz*t,t_src),tmp2_mom->cmp(1,vs+Nxyz*t,t_src));
+        //Fsep_mom->set(0,vs+Nxyz*t,t_src,real(Fsep_value));
+        //Fsep_mom->set(1,vs+Nxyz*t,t_src,imag(Fsep_value));
+	Fsep_mom->set(0,vs+Nxyz*t,t_src,tmp1_mom->cmp(0,vs+Nxyz*t,t_src)*tmp2_mom->cmp(0,vs+Nxyz*t,t_src) - tmp1_mom->cmp(1,vs+Nxyz*t,t_src)*tmp2_mom->cmp(1,vs+Nxyz*t,t_src));
+	Fsep_mom->set(1,vs+Nxyz*t,t_src,tmp1_mom->cmp(0,vs+Nxyz*t,t_src)*tmp2_mom->cmp(1,vs+Nxyz*t,t_src) + tmp1_mom->cmp(1,vs+Nxyz*t,t_src)*tmp2_mom->cmp(0,vs+Nxyz*t,t_src));
       }
     }
   } // for t_src                                                                                                                      

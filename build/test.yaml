@@ -37,4 +37,4 @@ Smearing(sink): # assume using exp. smearing a * exp{-b * r} (r < threshold)
 
 File_io:
   #outdir       : ./test_output
-  outdir       : ./consistency_check_i1pptri_threadtest
+  outdir       : ./consistency_check_pik_sepconn_threadtest

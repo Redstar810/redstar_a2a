@@ -18,15 +18,16 @@ a2a_include_path = $(a2a_src_path)/include
 
 # main_core() is separatedly defined main_core_XXX.cpp files.
 # they are different in terms of choice of src op, sink op, diagrams, dilutions.
+src_main_core = $(a2a_main_path)/main_core_pik_sepconn.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_box_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_box.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_tri_wall.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_tri.cpp
-src_main_core = $(a2a_main_path)/main_core_pipi_tri_threadtest.cpp	
+#src_main_core = $(a2a_main_path)/main_core_pipi_tri_threadtest.cpp	
 #src_main_core = $(a2a_main_path)/main_core_pipi_sep.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_box1.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_box2.cpp
-#src_main_core = $(a2a_main_path)/main_core_pik_sepconn.cpp
+
 
 # for consistency check
 #src_main_core = $(a2a_main_path)/a2a_nexttesti1pisep_smrdsink.cpp
@@ -65,10 +66,10 @@ endif
 ### definitions END ###
 
 ### Makefile main part ###
-.PHONY: all clean
+.PHONY: all clean program
 
 # make all
-all:	msg $(exe)
+all:	msg program
 
 # show messages 
 msg:	
@@ -86,16 +87,14 @@ msg:
 	)
 
 # make execution file (main part)
-$(exe):	$(obj)
-	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	#$(CXX) $(CXXFLAGS) $(LDLIBS) $(LDFLAGS) $^ -o $@
+program: $(obj)
+	$(LD) $(LDFLAGS) -o $(exe) $^ $(LDLIBS)
 
 #$(obj):	$(src)
 #	$(CXX) $(CXXFLAGS) $(LDLIBS) $(LDFLAGS) -c $< -o $@
 
 $(a2a_build_path)/%.o: $(a2a_src_path)/%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-	#$(CXX) $(CXXFLAGS) $(LDLIBS) $(LDFLAGS) -c $< -o $@
 
 # remove generated objects (*.o, exefile)
 clean:;	rm -f $(obj) $(exe) 

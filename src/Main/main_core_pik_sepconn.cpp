@@ -312,12 +312,21 @@ int main_core(Parameters *params_conf_all)
   // calc. local sum
   dcomplex *corr_local_pi = new dcomplex[Nt*Nsrc_t];
   dcomplex *corr_local_k = new dcomplex[Nt*Nsrc_t];
+#pragma omp parallel for
   for(int n=0;n<Nt*Nsrc_t;n++){
     corr_local_pi[n] = cmplx(0.0,0.0);
     corr_local_k[n] = cmplx(0.0,0.0);
   }
+#pragma omp parallel
+  {
+    int Nthread = ThreadManager_OpenMP::get_num_threads();
+    int i_thread = ThreadManager_OpenMP::get_thread_id();
+    int is = Nsrc_t * i_thread / Nthread;
+    int ns =  Nsrc_t * (i_thread + 1) / Nthread;
+    
   for(int r=0;r<Nnoise;r++){
-    for(int t_src=0;t_src<Nsrc_t;t_src++){
+    //for(int t_src=0;t_src<Nsrc_t;t_src++){
+    for(int t_src=is;t_src<ns;t_src++){
       for(int t=0;t<Nt;t++){
 	for(int i=0;i<Ndil_tslice;i++){
 	  for(int vs=0;vs<Nxyz;vs++){
@@ -327,8 +336,13 @@ int main_core(Parameters *params_conf_all)
 		//corr_local_k[t+Nt*t_src] += xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi_s[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0));
 
 		// smeared sink
-		corr_local_pi[t+Nt*t_src] += xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0));
-		corr_local_k[t+Nt*t_src] += xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi_s_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0));
+		//corr_local_pi[t+Nt*t_src] += xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0));
+		//corr_local_k[t+Nt*t_src] += xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi_s_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0));
+		corr_local_pi[t+Nt*t_src] += cmplx( xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) + xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0),
+						    xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) - xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) );
+		corr_local_k[t+Nt*t_src] += cmplx( xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_s_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) + xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_s_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0),
+						   xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_s_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) - xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_s_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) );
+		
 	      }
 	    }
 	  }
@@ -336,9 +350,13 @@ int main_core(Parameters *params_conf_all)
       }
     }
   }
+  
+  } // pragma omp parallel
+
+#pragma omp parallel for
   for(int n=0;n<Nt*Nsrc_t;n++){
-    corr_local_pi[n] /= Nnoise;
-    corr_local_k[n] /= Nnoise;
+    corr_local_pi[n] /= (double)Nnoise;
+    corr_local_k[n] /= (double)Nnoise;
   }
 
   //output 2pt correlator test
@@ -351,37 +369,49 @@ int main_core(Parameters *params_conf_all)
   delete[] corr_local_pi;  
   delete[] corr_local_k;  
   delete dirac;
-  
-  ///////////////////////////////////////////////////////////////////
-  // ### separated diagram ### //
-  Field *Fsep = new Field;
-  Fsep->reset(2,Nvol,Nsrc_t);
-  Fsep->set(0.0);
-  Field *Fsep_tmp = new Field;
-  Fsep_tmp->reset(2,Nvol,Nsrc_t);
-  Fsep_tmp->set(0.0);
 
   int idx_noise[2];
   int Nnoise_sample = 2;
+  
+  ///////////////////////////////////////////////////////////////////
+  // ### separated diagram ### //
+  /*
+  Field *Fsep = new Field;
+  Fsep->reset(2,Nvol,Nsrc_t);
+#pragma omp parallel
+  {
+    Fsep->set(0.0);
+  }
+  Field *Fsep_tmp = new Field;
+  Fsep_tmp->reset(2,Nvol,Nsrc_t);
+#pragma omp parallel
+  {
+    Fsep_tmp->set(0.0);
+  }
   // set noise vector indices
   idx_noise[0] = 0;
   idx_noise[1] = 1;
   //a2a::contraction_separated(Fsep_tmp, xi_l, xi_l, xi_s, xi_l, idx_noise, Ndil_tslice, Nsrc_t);
   // smeared sink
   a2a::contraction_separated(Fsep_tmp, xi_l_smrdsink, xi_l_smrdsink, xi_s_smrdsink, xi_l_smrdsink, idx_noise, Ndil_tslice, Nsrc_t);
-  axpy(*Fsep,1.0/(double)Nnoise_sample,*Fsep_tmp);
-
+#pragma omp parallel
+  {
+    axpy(*Fsep,1.0/(double)Nnoise_sample,*Fsep_tmp);
+  }
   idx_noise[0] = 1;
   idx_noise[1] = 0;
   //a2a::contraction_separated(Fsep_tmp, xi_l, xi_l, xi_s, xi_l, idx_noise, Ndil_tslice, Nsrc_t);
   // smeared sink
   a2a::contraction_separated(Fsep_tmp, xi_l_smrdsink, xi_l_smrdsink, xi_s_smrdsink, xi_l_smrdsink, idx_noise, Ndil_tslice, Nsrc_t);
-  axpy(*Fsep,1.0/(double)Nnoise_sample,*Fsep_tmp);
-
+#pragma omp parallel
+  {
+    axpy(*Fsep,1.0/(double)Nnoise_sample,*Fsep_tmp);
+  }
   delete Fsep_tmp;
 
   // output NBS data
   dcomplex *Fsep_o = new dcomplex[Nvol*Nsrc_t];
+#pragma omp parallel for
   for(int t_src=0;t_src<Nsrc_t;t_src++){
     for(int v=0;v<Nvol;v++){
       Fsep_o[v+Nvol*t_src] = cmplx(Fsep->cmp(0,v,t_src),Fsep->cmp(1,v,t_src));
@@ -393,31 +423,44 @@ int main_core(Parameters *params_conf_all)
   Communicator::sync_global();
   delete[] Fsep_o;
   delete Fsep;
-  
+  */
   //////////////////////////////////////////////
   // ### connected diagram ### //
+  
   Field *Fconn = new Field;
   Fconn->reset(2,Nvol,Nsrc_t);
-  Fconn->set(0.0);
-
+#pragma omp parallel
+  {
+    Fconn->set(0.0);
+  }
+   
   Field *Fconn_tmp = new Field;
   Fconn_tmp->reset(2,Nvol,Nsrc_t);
-  Fconn_tmp->set(0.0);
-
+#pragma omp parallel
+  {
+    Fconn_tmp->set(0.0);
+  }
+  
   idx_noise[0] = 0;
   idx_noise[1] = 1;
   //a2a::contraction_connected(Fconn_tmp, xi_l, xi_l, xi_s, xi_l, idx_noise, Ndil_tslice, Nsrc_t);
   // smeared sink
   a2a::contraction_connected(Fconn_tmp, xi_l_smrdsink, xi_l_smrdsink, xi_s_smrdsink, xi_l_smrdsink, idx_noise, Ndil_tslice, Nsrc_t);
-  axpy(*Fconn,1.0/(double)Nnoise_sample,*Fconn_tmp);
-
+#pragma omp parallel
+  {
+    axpy(*Fconn,1.0/(double)Nnoise_sample,*Fconn_tmp);
+  }
+  
   idx_noise[0] = 1;
   idx_noise[1] = 0;
   //a2a::contraction_connected(Fconn_tmp, xi_l, xi_l, xi_s, xi_l, idx_noise, Ndil_tslice, Nsrc_t);
   // smeared sink 
   a2a::contraction_connected(Fconn_tmp, xi_l_smrdsink, xi_l_smrdsink, xi_s_smrdsink, xi_l_smrdsink, idx_noise, Ndil_tslice, Nsrc_t);
-  axpy(*Fconn,1.0/(double)Nnoise_sample,*Fconn_tmp);
-
+#pragma omp parallel
+  {
+    axpy(*Fconn,1.0/(double)Nnoise_sample,*Fconn_tmp);
+  }
+  
   delete Fconn_tmp;
   //delete[] xi_l;
   //delete[] xi_s;
@@ -428,6 +471,7 @@ int main_core(Parameters *params_conf_all)
     
   // output NBS data
   dcomplex *Fconn_o = new dcomplex[Nvol*Nsrc_t];
+#pragma omp parallel for
   for(int t_src=0;t_src<Nsrc_t;t_src++){
     for(int v=0;v<Nvol;v++){
       Fconn_o[v+Nvol*t_src] = - cmplx(Fconn->cmp(0,v,t_src),Fconn->cmp(1,v,t_src));

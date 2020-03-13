@@ -247,6 +247,11 @@ int a2a::contraction_lowmode_s2s_1dir(Field* of, const Field_F* ievec, const dou
   int Nsrc = Nex_tslice * Nsrc_time;
 
   Timer cont_low("contraction(low mode)");
+  Timer cont_settmp("set tmp");
+  Timer cont_ffttmp("fft tmp");
+  //Timer cont_setfmom("set Fmom");
+  //Timer cont_fftfmom("fft Fmom");
+
 
   cont_low.start();
   // generate temporal matrices                      
@@ -262,13 +267,22 @@ int a2a::contraction_lowmode_s2s_1dir(Field* of, const Field_F* ievec, const dou
 
   Field F_mom;
   F_mom.reset(2,Nvol,1);
-
-  FFT_3d_parallel3d fft3;
-
+  
+  FFT_3d_parallel3d *fft3;
+#pragma omp parallel
+  {
+#pragma omp master
+    {
+      fft3 = new FFT_3d_parallel3d;
+    }
+  }
+  
+  //fft3 = new FFT_3d_parallel3d;
+  //FFT_3d_parallel3d fft3;
   for(int srct=0;srct<Nsrc_time;srct++){
     tmp1.set(0.0);
     tmp2.set(0.0);
-
+    /*
 #pragma omp parallel for
     for(int j=0;j<Neigen;j++){
       for(int i=0;i<Nex_tslice;i++){
@@ -288,14 +302,99 @@ int a2a::contraction_lowmode_s2s_1dir(Field* of, const Field_F* ievec, const dou
 	}
       }
     }
+    */
+    
+    // new impl. start
+    cont_settmp.start();
 #pragma omp parallel
     {
-      fft3.fft(tmp1_mom,tmp1,FFT_3d_parallel3d::FORWARD);
-      fft3.fft(tmp2_mom,tmp2,FFT_3d_parallel3d::BACKWARD);
+            
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();  
+      int is = Neigen * i_thread / Nthread;
+      int ns =  Neigen * (i_thread + 1) / Nthread;
+      //printf("thread id: %d, is=%d, ns=%d\n",i_thread, is, ns);
+      //for(int j=0;j<Neigen;j++){
+      for(int j=is;j<ns;j++){
+	for(int i=0;i<Nex_tslice;i++){
+	  for(int v=0;v<Nvol;v++){
+	    double tmp1_r, tmp1_i, tmp2_r, tmp2_i;
+	    tmp1_r =
+	      isrcv2[i+Nex_tslice*srct].cmp_r(0,0,v,0)*ievec[j].cmp_r(0,0,v,0)+isrcv2[i+Nex_tslice*srct].cmp_i(0,0,v,0)*ievec[j].cmp_i(0,0,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(1,0,v,0)*ievec[j].cmp_r(1,0,v,0)+isrcv2[i+Nex_tslice*srct].cmp_i(1,0,v,0)*ievec[j].cmp_i(1,0,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(2,0,v,0)*ievec[j].cmp_r(2,0,v,0)+isrcv2[i+Nex_tslice*srct].cmp_i(2,0,v,0)*ievec[j].cmp_i(2,0,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(0,1,v,0)*ievec[j].cmp_r(0,1,v,0)+isrcv2[i+Nex_tslice*srct].cmp_i(0,1,v,0)*ievec[j].cmp_i(0,1,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(1,1,v,0)*ievec[j].cmp_r(1,1,v,0)+isrcv2[i+Nex_tslice*srct].cmp_i(1,1,v,0)*ievec[j].cmp_i(1,1,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(2,1,v,0)*ievec[j].cmp_r(2,1,v,0)+isrcv2[i+Nex_tslice*srct].cmp_i(2,1,v,0)*ievec[j].cmp_i(2,1,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(0,2,v,0)*ievec[j].cmp_r(0,2,v,0)+isrcv2[i+Nex_tslice*srct].cmp_i(0,2,v,0)*ievec[j].cmp_i(0,2,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(1,2,v,0)*ievec[j].cmp_r(1,2,v,0)+isrcv2[i+Nex_tslice*srct].cmp_i(1,2,v,0)*ievec[j].cmp_i(1,2,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(2,2,v,0)*ievec[j].cmp_r(2,2,v,0)+isrcv2[i+Nex_tslice*srct].cmp_i(2,2,v,0)*ievec[j].cmp_i(2,2,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(0,3,v,0)*ievec[j].cmp_r(0,3,v,0)+isrcv2[i+Nex_tslice*srct].cmp_i(0,3,v,0)*ievec[j].cmp_i(0,3,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(1,3,v,0)*ievec[j].cmp_r(1,3,v,0)+isrcv2[i+Nex_tslice*srct].cmp_i(1,3,v,0)*ievec[j].cmp_i(1,3,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(2,3,v,0)*ievec[j].cmp_r(2,3,v,0)+isrcv2[i+Nex_tslice*srct].cmp_i(2,3,v,0)*ievec[j].cmp_i(2,3,v,0);
+
+	  tmp1_i =
+	    isrcv2[i+Nex_tslice*srct].cmp_r(0,0,v,0)*ievec[j].cmp_i(0,0,v,0)-isrcv2[i+Nex_tslice*srct].cmp_i(0,0,v,0)*ievec[j].cmp_r(0,0,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(1,0,v,0)*ievec[j].cmp_i(1,0,v,0)-isrcv2[i+Nex_tslice*srct].cmp_i(1,0,v,0)*ievec[j].cmp_r(1,0,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(2,0,v,0)*ievec[j].cmp_i(2,0,v,0)-isrcv2[i+Nex_tslice*srct].cmp_i(2,0,v,0)*ievec[j].cmp_r(2,0,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(0,1,v,0)*ievec[j].cmp_i(0,1,v,0)-isrcv2[i+Nex_tslice*srct].cmp_i(0,1,v,0)*ievec[j].cmp_r(0,1,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(1,1,v,0)*ievec[j].cmp_i(1,1,v,0)-isrcv2[i+Nex_tslice*srct].cmp_i(1,1,v,0)*ievec[j].cmp_r(1,1,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(2,1,v,0)*ievec[j].cmp_i(2,1,v,0)-isrcv2[i+Nex_tslice*srct].cmp_i(2,1,v,0)*ievec[j].cmp_r(2,1,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(0,2,v,0)*ievec[j].cmp_i(0,2,v,0)-isrcv2[i+Nex_tslice*srct].cmp_i(0,2,v,0)*ievec[j].cmp_r(0,2,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(1,2,v,0)*ievec[j].cmp_i(1,2,v,0)-isrcv2[i+Nex_tslice*srct].cmp_i(1,2,v,0)*ievec[j].cmp_r(1,2,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(2,2,v,0)*ievec[j].cmp_i(2,2,v,0)-isrcv2[i+Nex_tslice*srct].cmp_i(2,2,v,0)*ievec[j].cmp_r(2,2,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(0,3,v,0)*ievec[j].cmp_i(0,3,v,0)-isrcv2[i+Nex_tslice*srct].cmp_i(0,3,v,0)*ievec[j].cmp_r(0,3,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(1,3,v,0)*ievec[j].cmp_i(1,3,v,0)-isrcv2[i+Nex_tslice*srct].cmp_i(1,3,v,0)*ievec[j].cmp_r(1,3,v,0)
+	    +isrcv2[i+Nex_tslice*srct].cmp_r(2,3,v,0)*ievec[j].cmp_i(2,3,v,0)-isrcv2[i+Nex_tslice*srct].cmp_i(2,3,v,0)*ievec[j].cmp_r(2,3,v,0);
+
+	  tmp2_r =
+	    ievec[j].cmp_r(0,0,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(0,0,v,0)+ievec[j].cmp_i(0,0,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(0,0,v,0)
+	    +ievec[j].cmp_r(1,0,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(1,0,v,0)+ievec[j].cmp_i(1,0,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(1,0,v,0)
+	    +ievec[j].cmp_r(2,0,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(2,0,v,0)+ievec[j].cmp_i(2,0,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(2,0,v,0)
+	    +ievec[j].cmp_r(0,1,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(0,1,v,0)+ievec[j].cmp_i(0,1,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(0,1,v,0)
+	    +ievec[j].cmp_r(1,1,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(1,1,v,0)+ievec[j].cmp_i(1,1,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(1,1,v,0)
+	    +ievec[j].cmp_r(2,1,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(2,1,v,0)+ievec[j].cmp_i(2,1,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(2,1,v,0)
+	    +ievec[j].cmp_r(0,2,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(0,2,v,0)+ievec[j].cmp_i(0,2,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(0,2,v,0)
+	    +ievec[j].cmp_r(1,2,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(1,2,v,0)+ievec[j].cmp_i(1,2,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(1,2,v,0)
+	    +ievec[j].cmp_r(2,2,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(2,2,v,0)+ievec[j].cmp_i(2,2,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(2,2,v,0)
+	    +ievec[j].cmp_r(0,3,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(0,3,v,0)+ievec[j].cmp_i(0,3,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(0,3,v,0)
+	    +ievec[j].cmp_r(1,3,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(1,3,v,0)+ievec[j].cmp_i(1,3,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(1,3,v,0)
+	    +ievec[j].cmp_r(2,3,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(2,3,v,0)+ievec[j].cmp_i(2,3,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(2,3,v,0);
+	  tmp2_i =
+	    ievec[j].cmp_r(0,0,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(0,0,v,0)-ievec[j].cmp_i(0,0,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(0,0,v,0)
+	    +ievec[j].cmp_r(1,0,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(1,0,v,0)-ievec[j].cmp_i(1,0,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(1,0,v,0)
+	    +ievec[j].cmp_r(2,0,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(2,0,v,0)-ievec[j].cmp_i(2,0,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(2,0,v,0)
+	    +ievec[j].cmp_r(0,1,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(0,1,v,0)-ievec[j].cmp_i(0,1,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(0,1,v,0)
+	    +ievec[j].cmp_r(1,1,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(1,1,v,0)-ievec[j].cmp_i(1,1,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(1,1,v,0)
+	    +ievec[j].cmp_r(2,1,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(2,1,v,0)-ievec[j].cmp_i(2,1,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(2,1,v,0)
+	    +ievec[j].cmp_r(0,2,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(0,2,v,0)-ievec[j].cmp_i(0,2,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(0,2,v,0)
+	    +ievec[j].cmp_r(1,2,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(1,2,v,0)-ievec[j].cmp_i(1,2,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(1,2,v,0)
+	    +ievec[j].cmp_r(2,2,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(2,2,v,0)-ievec[j].cmp_i(2,2,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(2,2,v,0)
+	    +ievec[j].cmp_r(0,3,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(0,3,v,0)-ievec[j].cmp_i(0,3,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(0,3,v,0)
+	    +ievec[j].cmp_r(1,3,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(1,3,v,0)-ievec[j].cmp_i(1,3,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(1,3,v,0)
+	    +ievec[j].cmp_r(2,3,v,0)*isrcv1[i+Nex_tslice*srct].cmp_i(2,3,v,0)-ievec[j].cmp_i(2,3,v,0)*isrcv1[i+Nex_tslice*srct].cmp_r(2,3,v,0);
+	      
+	  tmp1.set(0,v,i+Nex_tslice*j,tmp1_r / ieval[j]);
+	  tmp1.set(1,v,i+Nex_tslice*j,tmp1_i / ieval[j]);
+	  tmp2.set(0,v,i+Nex_tslice*j,tmp2_r);
+	  tmp2.set(1,v,i+Nex_tslice*j,tmp2_i);
+	}
+      }
     }
+    } // new imple end
+    cont_settmp.stop();
+    cont_ffttmp.start();
+    //FFT_3d_parallel3d *fft3_tmp;
+    fft3->fft(tmp1_mom,tmp1,FFT_3d_parallel3d::FORWARD);
+    fft3->fft(tmp2_mom,tmp2,FFT_3d_parallel3d::BACKWARD);
+    //fft3->fft(tmp1_mom,tmp1,FFT_3d_parallel3d::FORWARD);
+    //fft3->fft(tmp2_mom,tmp2,FFT_3d_parallel3d::BACKWARD);
+   
+    cont_ffttmp.stop();
     Communicator::sync_global();
 
     F_mom.set(0.0);
+    /*
 #pragma omp parallel for
     for(int j=0;j<Neigen;j++){
       for(int i=0;i<Nex_tslice;i++){
@@ -306,22 +405,38 @@ int a2a::contraction_lowmode_s2s_1dir(Field* of, const Field_F* ievec, const dou
 	}
       }
     }
-    
-    of[srct].reset(2,Nvol,1);
-    
-    if(flag_direction==0){
+    */
+    // new impl. start
 #pragma omp parallel
-      {
-	fft3.fft(of[srct],F_mom,FFT_3d_parallel3d::BACKWARD);
-	//fft3.fft(of2[srct],F_mom,FFT_3d_parallel3d::FORWARD);
+    {  
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();  
+      int is = Nvol * i_thread / Nthread;
+      int ns = Nvol * (i_thread + 1) / Nthread;
+    
+    for(int j=0;j<Neigen;j++){
+      for(int i=0;i<Nex_tslice;i++){
+	for(int v=is;v<ns;v++){
+	  //for(int v=0;v<Nvol;v++){
+	  //dcomplex Fmom_value = cmplx(tmp1_mom.cmp(0,v,i+Nex_tslice*j),tmp1_mom.cmp(1,v,i+Nex_tslice*j)) * cmplx(tmp2_mom.cmp(0,v,i+Nex_tslice*j),tmp2_mom.cmp(1,v,i+Nex_tslice*j));
+	  //F_mom.add(0,v,0,real(Fmom_value));
+	  //F_mom.add(1,v,0,imag(Fmom_value));
+
+	  F_mom.add(0,v,0,tmp1_mom.cmp(0,v,i+Nex_tslice*j)*tmp2_mom.cmp(0,v,i+Nex_tslice*j)-tmp1_mom.cmp(1,v,i+Nex_tslice*j)*tmp2_mom.cmp(1,v,i+Nex_tslice*j) );
+	  F_mom.add(1,v,0,tmp1_mom.cmp(0,v,i+Nex_tslice*j)*tmp2_mom.cmp(1,v,i+Nex_tslice*j)+tmp1_mom.cmp(1,v,i+Nex_tslice*j)*tmp2_mom.cmp(0,v,i+Nex_tslice*j));
+	}
       }
     }
+    } // new impl. end
+    
+    of[srct].reset(2,Nvol,1);
+    if(flag_direction==0){
+      //fft3_f->fft(of[srct],F_mom,FFT_3d_parallel3d::BACKWARD);
+      fft3->fft(of[srct],F_mom,FFT_3d_parallel3d::BACKWARD);
+    }
     else if(flag_direction==1){
-#pragma omp parallel
-      {
-	//fft3.fft(of[srct],F_mom,FFT_3d_parallel3d::BACKWARD);
-	fft3.fft(of[srct],F_mom,FFT_3d_parallel3d::FORWARD);
-      }
+      //fft3_f->fft(of[srct],F_mom,FFT_3d_parallel3d::FORWARD);
+      fft3->fft(of[srct],F_mom,FFT_3d_parallel3d::FORWARD);
       scal(of[srct],1.0/(double)Lxyz);
     }
     else{
@@ -331,9 +446,13 @@ int a2a::contraction_lowmode_s2s_1dir(Field* of, const Field_F* ievec, const dou
     Communicator::sync_global();
     
   }
+
+  delete fft3;
   cont_low.stop();
   vout.general("===== contraction (low mode) elapsed time ===== \n");
   cont_low.report();
+  cont_settmp.report();
+  cont_ffttmp.report();
   vout.general("========== \n");
   return 0;
 }
@@ -384,27 +503,23 @@ int a2a::eigenmode_projection(Field_F* dst_src, const int Nex, const Field_F *ie
   // P1 projection
 #pragma omp parallel
   {
-  for(int iex=0;iex<Nex;iex++){
-#pragma omp single
-    {
-    tmp.set(0.0);
+    for(int iex=0;iex<Nex;iex++){
+      t_copy.start();
+      copy(tmp,dst_src[iex]);
+      t_copy.stop();
+      for(int i=0;i<Neigen;i++){
+	t_dot.start();
+	dcomplex dot = -dotc(ievec[i],dst_src[iex]);
+	t_dot.stop();
+	t_axpy.start();
+	axpy(tmp,dot,ievec[i]);
+	t_axpy.stop();
+      }
+      t_copy.start();
+      copy(dst_src[iex],tmp);
+      t_copy.stop();
+      //#pragma omp barrier
     }
-    t_copy.start();
-    copy(tmp,dst_src[iex]);
-    t_copy.stop();
-    for(int i=0;i<Neigen;i++){
-      t_dot.start();
-      dcomplex dot = -dotc(ievec[i],dst_src[iex]);
-      t_dot.stop();
-      t_axpy.start();
-      axpy(tmp,dot,ievec[i]);
-      t_axpy.stop();
-    }
-    t_copy.start();
-    copy(dst_src[iex],tmp);
-    t_copy.stop();
-    //#pragma omp barrier
-  }
   }
 
   eigenproj.stop();
@@ -884,7 +999,9 @@ int a2a::contraction_s2s_fxdpt_1dir(Field* of, const Field_F* iHinv, const int* 
 
   Timer cont_fxdpt("contraction (high mode, fixed point)");
 
-  cont_fxdpt.start();  
+  cont_fxdpt.start();
+
+  ///////////////////////////////////////////////////////////////////////////////////
 
   if(flag_direction == 0){
     // construct hinv_srcv1 and hinv_srcv2 vectors 
@@ -932,6 +1049,7 @@ int a2a::contraction_s2s_fxdpt_1dir(Field* of, const Field_F* iHinv, const int* 
     //Field_F *Hinv_srcv2 = new Field_F;
     Hinv_srcv1->reset(Nvol,Nex_tslice*Nsrc_time);
     //Hinv_srcv2->reset(Nvol,Nex_tslice*Nsrc_time);
+    /*
 #pragma omp parallel for
     for(int r=0;r<Nex_tslice*Nsrc_time;r++){
       for(int t=0;t<Nt;t++){
@@ -953,7 +1071,36 @@ int a2a::contraction_s2s_fxdpt_1dir(Field* of, const Field_F* iHinv, const int* 
 	  }
 	}
       }
-    }                                                             
+    } 
+    */
+    // new impl. start
+#pragma omp parallel for
+    for(int r=0;r<Nex_tslice*Nsrc_time;r++){
+      for(int t=0;t<Nt;t++){
+	for(int vs=0;vs<Nxyz;vs++){
+	  for(int d=0;d<Nd;d++){
+	    for(int c=0;c<Nc;c++){
+	      dcomplex tmp_value1;//,tmp_value2;
+	      tmp_value1 = cmplx(0.0,0.0);
+	      //tmp_value2 = cmplx(0.0,0.0);
+	      for(int dd=0;dd<Nd;dd++){
+		tmp_value1 += ( cmplx(iHinv[0+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_r(c,d,vs+Nxyz*t,0)*srcv1_in->cmp_r(0,dd,t,r)-iHinv[0+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_i(c,d,vs+Nxyz*t,0)*srcv1_in->cmp_i(0,dd,t,r),
+				      iHinv[0+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_r(c,d,vs+Nxyz*t,0)*srcv1_in->cmp_i(0,dd,t,r)+iHinv[0+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_i(c,d,vs+Nxyz*t,0)*srcv1_in->cmp_r(0,dd,t,r))
+				+ cmplx(iHinv[1+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_r(c,d,vs+Nxyz*t,0)*srcv1_in->cmp_r(1,dd,t,r)-iHinv[1+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_i(c,d,vs+Nxyz*t,0)*srcv1_in->cmp_i(1,dd,t,r),
+					iHinv[1+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_r(c,d,vs+Nxyz*t,0)*srcv1_in->cmp_i(1,dd,t,r)+iHinv[1+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_i(c,d,vs+Nxyz*t,0)*srcv1_in->cmp_r(1,dd,t,r))
+				+ cmplx(iHinv[2+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_r(c,d,vs+Nxyz*t,0)*srcv1_in->cmp_r(2,dd,t,r)-iHinv[2+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_i(c,d,vs+Nxyz*t,0)*srcv1_in->cmp_i(2,dd,t,r),
+					iHinv[2+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_r(c,d,vs+Nxyz*t,0)*srcv1_in->cmp_i(2,dd,t,r)+iHinv[2+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_i(c,d,vs+Nxyz*t,0)*srcv1_in->cmp_r(2,dd,t,r)) );
+	      
+	      }
+	      Hinv_srcv1->set_ri(c,d,vs+Nxyz*t,r,tmp_value1);
+	      //Hinv_srcv2->set_ri(c,d,vs+Nxyz*t,r,tmp_value2);
+	    }
+	  }
+	}
+      }
+    } 
+    // new impl. end    
+                                                            
     delete srcv1_in;
     //delete srcv2_in;
 
@@ -962,6 +1109,7 @@ int a2a::contraction_s2s_fxdpt_1dir(Field* of, const Field_F* iHinv, const int* 
     for(int t_src=0;t_src<Nsrc_time;t_src++){
       of[t_src].reset(2,Nvol,1);
       //of2[t_src].reset(2,Nvol,1);
+      /*
       for(int v=0;v<Nvol;v++){
 	for(int i=0;i<Nex_tslice;i++){
 	  for(int d=0;d<Nd;d++){
@@ -977,6 +1125,29 @@ int a2a::contraction_s2s_fxdpt_1dir(Field* of, const Field_F* iHinv, const int* 
 	}
       
       }
+      */
+      // new impl. start
+      //#pragma omp parallel for
+      for(int v=0;v<Nvol;v++){
+	dcomplex sum_inner_of1=cmplx(0.0,0.0);
+	//dcomplex sum_inner_of2=cmplx(0.0,0.0);
+	for(int i=0;i<Nex_tslice;i++){
+	  for(int d=0;d<Nd;d++){
+	    for(int c=0;c<Nc;c++){
+	      sum_inner_of1 += cmplx( isrcv2[i+Nex_tslice*t_src].cmp_r(c,d,v)*Hinv_srcv1->cmp_r(c,d,v,i+Nex_tslice*t_src)+isrcv2[i+Nex_tslice*t_src].cmp_i(c,d,v)*Hinv_srcv1->cmp_i(c,d,v,i+Nex_tslice*t_src),
+				      isrcv2[i+Nex_tslice*t_src].cmp_r(c,d,v)*Hinv_srcv1->cmp_i(c,d,v,i+Nex_tslice*t_src)-isrcv2[i+Nex_tslice*t_src].cmp_i(c,d,v)*Hinv_srcv1->cmp_r(c,d,v,i+Nex_tslice*t_src) );
+    
+	    }
+	  }
+	}
+	of[t_src].set(0,v,0,sum_inner_of1.real());
+	of[t_src].set(1,v,0,sum_inner_of1.imag());
+	
+	//of2[t_src].set(0,v,0,sum_inner_of2.real());
+	//of2[t_src].set(1,v,0,sum_inner_of2.imag());
+	
+      }
+      // new impl. end
     }// for t_src
   
     delete Hinv_srcv1;
@@ -986,6 +1157,9 @@ int a2a::contraction_s2s_fxdpt_1dir(Field* of, const Field_F* iHinv, const int* 
     MPI_Comm_free(&new_comm);
 
   }
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  
   else if(flag_direction == 1){
     // construct hinv_srcv1 and hinv_srcv2 vectors 
     //Field_F *srcv1_in = new Field_F;
@@ -1032,6 +1206,7 @@ int a2a::contraction_s2s_fxdpt_1dir(Field* of, const Field_F* iHinv, const int* 
     Field_F *Hinv_srcv2 = new Field_F;
     //Hinv_srcv1->reset(Nvol,Nex_tslice*Nsrc_time);
     Hinv_srcv2->reset(Nvol,Nex_tslice*Nsrc_time);
+    /*
 #pragma omp parallel for
     for(int r=0;r<Nex_tslice*Nsrc_time;r++){
       for(int t=0;t<Nt;t++){
@@ -1053,7 +1228,36 @@ int a2a::contraction_s2s_fxdpt_1dir(Field* of, const Field_F* iHinv, const int* 
 	  }
 	}
       }
-    }                                                             
+    } 
+    */
+    // new impl. start
+    
+#pragma omp parallel for
+    for(int r=0;r<Nex_tslice*Nsrc_time;r++){
+      for(int t=0;t<Nt;t++){
+	for(int vs=0;vs<Nxyz;vs++){
+	  for(int d=0;d<Nd;d++){
+	    for(int c=0;c<Nc;c++){
+	      dcomplex tmp_value2;
+	      //tmp_value1 = cmplx(0.0,0.0);
+	      tmp_value2 = cmplx(0.0,0.0);
+	      for(int dd=0;dd<Nd;dd++){
+		tmp_value2 += ( cmplx(iHinv[0+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_r(c,d,vs+Nxyz*t,0)*srcv2_in->cmp_r(0,dd,t,r)-iHinv[0+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_i(c,d,vs+Nxyz*t,0)*srcv2_in->cmp_i(0,dd,t,r),
+				      iHinv[0+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_r(c,d,vs+Nxyz*t,0)*srcv2_in->cmp_i(0,dd,t,r)+iHinv[0+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_i(c,d,vs+Nxyz*t,0)*srcv2_in->cmp_r(0,dd,t,r))
+				+ cmplx(iHinv[1+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_r(c,d,vs+Nxyz*t,0)*srcv2_in->cmp_r(1,dd,t,r)-iHinv[1+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_i(c,d,vs+Nxyz*t,0)*srcv2_in->cmp_i(1,dd,t,r),
+					iHinv[1+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_r(c,d,vs+Nxyz*t,0)*srcv2_in->cmp_i(1,dd,t,r)+iHinv[1+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_i(c,d,vs+Nxyz*t,0)*srcv2_in->cmp_r(1,dd,t,r))
+				+ cmplx(iHinv[2+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_r(c,d,vs+Nxyz*t,0)*srcv2_in->cmp_r(2,dd,t,r)-iHinv[2+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_i(c,d,vs+Nxyz*t,0)*srcv2_in->cmp_i(2,dd,t,r),
+					iHinv[2+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_r(c,d,vs+Nxyz*t,0)*srcv2_in->cmp_i(2,dd,t,r)+iHinv[2+Nc*(dd+Nd*(t+Nt*mygrids[3]))].cmp_i(c,d,vs+Nxyz*t,0)*srcv2_in->cmp_r(2,dd,t,r)) );
+	      }
+	      //Hinv_srcv1->set_ri(c,d,vs+Nxyz*t,r,tmp_value1);
+	      Hinv_srcv2->set_ri(c,d,vs+Nxyz*t,r,tmp_value2);
+	    }
+	  }
+	}
+      }
+    } 
+    // new impl. end
+    
     //delete srcv1_in;
     delete srcv2_in;
 
@@ -1062,6 +1266,7 @@ int a2a::contraction_s2s_fxdpt_1dir(Field* of, const Field_F* iHinv, const int* 
     for(int t_src=0;t_src<Nsrc_time;t_src++){
       //of1[t_src].reset(2,Nvol,1);
       of[t_src].reset(2,Nvol,1);
+      /*
       for(int v=0;v<Nvol;v++){
 	for(int i=0;i<Nex_tslice;i++){
 	  for(int d=0;d<Nd;d++){
@@ -1077,6 +1282,26 @@ int a2a::contraction_s2s_fxdpt_1dir(Field* of, const Field_F* iHinv, const int* 
 	}
       
       }
+      */
+      // new impl. start
+      //#pragma omp parallel for
+      for(int v=0;v<Nvol;v++){
+	dcomplex sum_inner_of2=cmplx(0.0,0.0);
+	for(int i=0;i<Nex_tslice;i++){
+	  for(int d=0;d<Nd;d++){
+	    for(int c=0;c<Nc;c++){
+	      sum_inner_of2 += cmplx( Hinv_srcv2->cmp_r(c,d,v,i+Nex_tslice*t_src)*isrcv1[i+Nex_tslice*t_src].cmp_r(c,d,v)+Hinv_srcv2->cmp_i(c,d,v,i+Nex_tslice*t_src)*isrcv1[i+Nex_tslice*t_src].cmp_i(c,d,v),
+				      Hinv_srcv2->cmp_r(c,d,v,i+Nex_tslice*t_src)*isrcv1[i+Nex_tslice*t_src].cmp_i(c,d,v)-Hinv_srcv2->cmp_i(c,d,v,i+Nex_tslice*t_src)*isrcv1[i+Nex_tslice*t_src].cmp_r(c,d,v) );
+            
+	    }
+	  }
+	}
+      
+	of[t_src].set(0,v,0,sum_inner_of2.real());
+	of[t_src].set(1,v,0,sum_inner_of2.imag());
+
+      }
+      // new impl. end
     }// for t_src
   
     //delete Hinv_srcv1;
@@ -1087,6 +1312,9 @@ int a2a::contraction_s2s_fxdpt_1dir(Field* of, const Field_F* iHinv, const int* 
 
 
   }
+
+  ///////////////////////////////////////////////////////////////////////////////////
+  
   else{
     vout.general("error: invalid value of flag_direction.\n");
     EXIT_FAILURE;

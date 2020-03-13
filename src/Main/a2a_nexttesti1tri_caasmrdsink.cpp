@@ -217,7 +217,7 @@ int main_core(Parameters *params_conf_all)
   eigsolvertimer -> stop();
   //a2a::eigen_io(evec_in,eval_in,Neigen,Neigen,0);
   */
-  
+  /*  
   // Chebyshev pol. accerelation
   fopr -> set_mode("DdagD");
   double *eval_pol = new double[Neigen];
@@ -238,6 +238,12 @@ int main_core(Parameters *params_conf_all)
   Communicator::sync_global();
   delete fopr_cb;
   delete[] eval_pol;
+  */
+  for(int ieig=0;ieig<Neigen;ieig++){
+    evec_in[ieig].reset(Nvol,1);
+    evec_in[ieig].set(1.0);
+    eval_in[ieig] = 1.0;
+  }
     
   //////////////////////////////////////////////////////
   // ###  generate diluted noises  ###
@@ -391,8 +397,14 @@ int main_core(Parameters *params_conf_all)
   //fopr->set_mode("D");
   //a2a::inversion(xi,fopr,dil_noise,Nnoise*Ndil_red);
   //a2a::inversion_mom(xi_mom,fopr,dil_noise,Nnoise*Ndil_red,mom);
-  a2a::inversion_eo(xi,fopr_eo,fopr,dil_noise,Nnoise*Ndil_red);
+  //a2a::inversion_eo(xi,fopr_eo,fopr,dil_noise,Nnoise*Ndil_red);
   //a2a::inversion_mom_eo(xi_mom,fopr_eo,fopr,dil_noise,Nnoise*Ndil_red,mom);
+
+  // for bug check
+  for(int i=0;i<Nnoise*Ndil_red;i++){
+    xi[i].reset(Nvol,1);
+    xi[i].set(1.0);
+  }
 
   Field_F *chi = new Field_F[Nnoise*Ndil_red];
   Field_F tmpgm53;
@@ -955,7 +967,7 @@ int main_core(Parameters *params_conf_all)
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /////////////////// box diagram 1 (CAA algorithm, relaxed CG part) /////////////////////////
   //printf("here_rel.\n");
-  int Nrelpt_axis = 2;
+  int Nrelpt_axis = 1;
   int interval_relpt = Lx / Nrelpt_axis;
   int Nsrcpt = Nrelpt_axis * Nrelpt_axis * Nrelpt_axis; // the num. of the source points
   int *srcpt_rel = new int[Nsrcpt*3]; // an array of the source points (x,y,z) (global) 
@@ -1687,7 +1699,7 @@ int main_core(Parameters *params_conf_all)
 		int vs = x + Lx * (y + Ly * z);
 		int vs_srcp = ((x + srcpt_rel[0+3*n]) % Lx) + Lx * (((y + srcpt_rel[1+3*n]) % Ly) + Ly * ((z + srcpt_rel[2+3*n]) % Lz));
 		int t = (dt+tt)%Lt;
-		F_final[vs+Lxyz*dt] += Fbox1_caaall[vs_srcp+Lxyz*t]/((double)Nsrcpt*(double)Nsrc_t);
+		//F_final[vs+Lxyz*dt] += Fbox1_caaall[vs_srcp+Lxyz*t]/((double)Nsrcpt*(double)Nsrc_t);
 	      }
 	    }
 	  }
@@ -1882,7 +1894,7 @@ int main_core(Parameters *params_conf_all)
     vout.general("===== F_sum value ===== \n");
     for(int t=0;t<Lt;t++){
       //vout.general("t = %d, real = %12.4e, imag = %12.4e \n",t,real(F_sum[t]),imag(F_sum[t]));
-      vout.general("t = %d, real = %12.4e, imag = %12.4e \n",t,real(F_final[Lvol*t]),imag(F_final[Lvol*t]));
+      vout.general("t = %d, real = %12.4e, imag = %12.4e \n",t,real(F_final[Lxyz*t]),imag(F_final[Lxyz*t]));
     }
     delete[] F_sum;
   } // if nodeid
@@ -1890,7 +1902,7 @@ int main_core(Parameters *params_conf_all)
   if(Communicator::nodeid()==0){
     for(int t=0;t<Lt;t++){
       char filename[100];
-      string file_4pt("/4pt_correlator_%d");
+      string file_4pt("/4pt_correlatorlow_%d");
       string ofname_4pt = outdir_name + file_4pt;
       //snprintf(filename, sizeof(filename),ofname_4pt.c_str(),fnum,t);
       snprintf(filename, sizeof(filename),ofname_4pt.c_str(),t);

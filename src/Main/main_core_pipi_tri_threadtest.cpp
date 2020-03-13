@@ -171,6 +171,13 @@ int main_core(Parameters *params_conf_all)
   vout.general("\nFile I/O\n");
   vout.general("  output directory name : %s\n",outdir_name.c_str());
 
+  vout.general("Nthreads = %d\n",ThreadManager_OpenMP::get_num_threads());
+
+#pragma omp parallel
+  {
+   vout.general("Nthreads = %d\n",ThreadManager_OpenMP::get_num_threads());
+  }
+  
   vout.general("\n=== Calculation environment summary END ===\n\n");
 
   //////////////////////////////////////////////////////
@@ -266,7 +273,7 @@ int main_core(Parameters *params_conf_all)
 
   // source time slice determination
   vout.general("===== source time setup =====\n");
-  int Nsrc_t = 1; // #. of source time you use 
+  int Nsrc_t = Lt; // #. of source time you use 
   int Ndil_red = Ndil / Lt * Nsrc_t; // reduced d.o.f. of noise vectors
   int Ndil_tslice = Ndil / Lt; // dilution d.o.f. on a single time slice
   string numofsrct = std::to_string(Nsrc_t);
@@ -305,6 +312,12 @@ int main_core(Parameters *params_conf_all)
   gm_35 = dirac->get_GM(dirac->GAMMA53);
   gm_5 = dirac->get_GM(dirac->GAMMA5);
   gm_3 = dirac->get_GM(dirac->GAMMA3);
+
+  for(int idx=0;idx<4;idx++){
+    vout.general("index of row %d : %d\n",idx,gm_5.index(idx));
+    vout.general("value of row %d : (%f,%f) \n",idx,real(gm_5.value(idx)),imag(gm_5.value(idx)) );
+  }
+    
 
   // smearing the noise sources 
   //Field_F *dil_noise_smr = new Field_F[Nnoise*Ndil];
@@ -409,11 +422,11 @@ int main_core(Parameters *params_conf_all)
   Field_F *xi_smrdsink = new Field_F[Nnoise*Ndil_red];
   a2a::Exponential_smearing *smear = new a2a::Exponential_smearing;
   smear->set_parameters(a_sink,b_sink,thr_val_sink);
-  //smear->smear(chi_smrdsink, chi, Nnoise*Ndil_red);
+  smear->smear(chi_smrdsink, chi, Nnoise*Ndil_red);
   smear->smear(xi_smrdsink, xi, Nnoise*Ndil_red);
 
   // for threading test
-  smear->smear(chi_smrdsink, xi, Nnoise*Ndil_red);
+  //smear->smear(chi_smrdsink, xi, Nnoise*Ndil_red);
 
   delete[] xi;
   delete[] chi;
@@ -457,7 +470,7 @@ int main_core(Parameters *params_conf_all)
   */
   ///////////////////////////////////////////////////////////////////////
   /////////////// triangle diagram 1 (eigen part) ////////////////////////
-  /*
+  
   Communicator::sync_global();
   dcomplex *Fbox1_eig = new dcomplex[Nvol*Nsrc_t];
   // smearing
@@ -480,7 +493,7 @@ int main_core(Parameters *params_conf_all)
   delete[] Feig2;
 
   // output NBS (eig part)
-  string fname_baseeig("/NBS_lowmode_hoge");
+  string fname_baseeig("/NBS_lowmode");
   string fname_eig = outdir_name + fname_baseeig + timeave;
   //a2a::output_NBS(Fbox1_eig, Nsrc_t, &srct_list[0], fname_eig);
   a2a::output_NBS_srctave(Fbox1_eig, Nsrc_t, &srct_list[0], fname_eig);
@@ -488,7 +501,7 @@ int main_core(Parameters *params_conf_all)
 
   delete[] evec_smrdsink;
   delete[] Fbox1_eig;
-  */
+  
   /////////////////// triangle diagram 1 (CAA algorithm, exact part) /////////////////////////
   
   int *srcpt_exa = new int[3]; // an array of the source points (x,y,z) (global) 
@@ -558,18 +571,19 @@ int main_core(Parameters *params_conf_all)
   delete[] smrd_src_exa;
   
   fopr->set_mode("D");
-  //a2a::inversion_eo(Hinv,fopr_eo,fopr,smrd_src_exagm5,Nc*Nd*Lt);
+  a2a::inversion_eo(Hinv,fopr_eo,fopr,smrd_src_exagm5,Nc*Nd*Lt);
   /*
   a2a::inversion_alt_mixed_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
 				     Nc*Nd*Lt, inv_prec_full, inv_prec_inner,
 				     Nmaxiter, Nmaxres);
   */
+  /*
   //for threading test
   for(int n=0;n<Nc*Nd*Lt;n++){
     copy(Hinv[n],smrd_src_exagm5[n]);
   }
+  */
   delete[] smrd_src_exagm5;
-
   //smearing
   Field_F *Hinv_smrdsink = new Field_F[Nc*Nd*Lt];
   smear->smear(Hinv_smrdsink, Hinv, Nc*Nd*Lt);
@@ -593,7 +607,7 @@ int main_core(Parameters *params_conf_all)
   delete[] Fp2aexa2;
 
   // output NBS (exact point)
-  string fname_baseexa("/NBS_exact_afth");
+  string fname_baseexa("/NBS_exact");
   string fname_exa = outdir_name + fname_baseexa + timeave;
   a2a::output_NBS_CAA_srctave(Fbox1_p2a, Nsrc_t, &srct_list[0], srcpt_exa, srcpt_exa, fname_exa);
   // output NBS end
@@ -613,7 +627,7 @@ int main_core(Parameters *params_conf_all)
   
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /////////////////// triangle diagram 1 (CAA algorithm, relaxed CG part) /////////////////////////
-  /*
+  
   int Nrelpt_x = caa_grid[0];
   int Nrelpt_y = caa_grid[1];
   int Nrelpt_z = caa_grid[2];
@@ -693,11 +707,12 @@ int main_core(Parameters *params_conf_all)
 
     fopr->set_mode("D");
     double inv_prec_inner_caa = 3.0e-3;
-    //a2a::inversion_eo(Hinv_rel,fopr_eo,fopr,smrd_src_relgm5,Nc*Nd*Lt, inv_prec_caa);
+    a2a::inversion_eo(Hinv_rel,fopr_eo,fopr,smrd_src_relgm5,Nc*Nd*Lt, inv_prec_caa);
+    /*
     a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
 				       Nc*Nd*Lt, inv_prec_caa, inv_prec_inner_caa,
 				       Nmaxiter, Nmaxres);
-
+    */
     delete[] smrd_src_relgm5;
 
     // smearing
@@ -747,7 +762,7 @@ int main_core(Parameters *params_conf_all)
   delete[] chi_smrdsink;
   delete smear;
   delete dirac;
-  */
+  
   
   //////////////////////////////////////////////////////
   // ###  finalize  ###
