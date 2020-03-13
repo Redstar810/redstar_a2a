@@ -2,7 +2,7 @@
 
 ### User modification part ###
 # use Kanamori-san's alternative code (simd, MG solver, mixed prec) = {yes, no}
-use_alt = no
+use_alt = yes
 
 ### definitions of variables ###
 # bridge++ library path
@@ -18,7 +18,8 @@ a2a_include_path = $(a2a_src_path)/include
 
 # main_core() is separatedly defined main_core_XXX.cpp files.
 # they are different in terms of choice of src op, sink op, diagrams, dilutions.
-src_main_core = $(a2a_main_path)/main_core_pik_sepconn.cpp
+#src_main_core = $(a2a_main_path)/main_core_pik_sepconn.cpp
+src_main_core = $(a2a_main_path)/main_core_pik_sepconn_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_box_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_box.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_tri_wall.cpp
