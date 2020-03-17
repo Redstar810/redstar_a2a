@@ -1,2 +1,5 @@
 build/*
+!build/Main/
+!build/lib/
+!build/lib_alt/
 !.gitkeep
