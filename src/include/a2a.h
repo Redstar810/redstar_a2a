@@ -249,7 +249,6 @@ namespace a2a
   // comments
 
   // alternative code wrapper
-#ifdef USE_ALT
   int inversion_alt_mixed_Clover(Field_F *xi, const Field_F *src, Field_G *U,
 				 const double kappa,
 				 const double csw,
@@ -269,7 +268,6 @@ namespace a2a
 				    const double prec_precond,
 				    const int Nmaxiter,
 				    const int Nmaxres);
-#endif /* USE_ALT */
 
   
 } // namespace a2a

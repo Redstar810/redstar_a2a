@@ -1,12 +1,9 @@
 # For GNU MAKE
 
-### User modification part ###
-# use Kanamori-san's alternative code (simd, MG solver, mixed prec) = {yes, no}
-use_alt = yes
-
 ### definitions of variables ###
 # bridge++ library path
-bridge_lib_path = ../bridge-1.5.3/build
+#bridge_lib_path = ../bridge-1.5.3/build
+bridge_lib_path = ../alternative3/build_mpi_high
 bridge_lib_alt_path = ../alternative3/build_mpi_high
 a2a_base_path = .
 a2a_src_path = $(a2a_base_path)/src
@@ -41,29 +38,14 @@ src_main_core = $(a2a_main_path)/main_core_pik_sepconn_alt.cpp
 include $(bridge_lib_path)/make.inc
 
 exe = $(a2a_build_path)/redstar_a2a.elf
-ifeq ($(use_alt),yes)
-  exe = $(a2a_build_path)/redstar_a2a_alt.elf
-endif
 #src = $(wildcard $(addsuffix /*/*.cpp, $(a2a_src_path)))
 src_lib = $(wildcard $(addsuffix /*.cpp, $(a2a_lib_path)))
 src_lib_alt = $(wildcard $(addsuffix /*.cpp, $(a2a_lib_alt_path)))
 src_main = $(a2a_main_path)/main.cpp
-src = $(src_main) $(src_main_core) $(src_lib)
-ifeq ($(use_alt),yes)
-  src = $(src_main) $(src_main_core) $(src_lib) $(src_lib_alt)
-endif
+src = $(src_main) $(src_main_core) $(src_lib) $(src_lib_alt)
 obj = $(patsubst $(a2a_src_path)/%.cpp, $(a2a_build_path)/%.o, $(src))
 
 CXXFLAGS += -I$(a2a_include_path)
-ifeq ($(use_alt),yes)
-  CXXFLAGS += -mavx2 -mfma -DAVX2 -DUSE_ALT -I$(bridge_lib_alt_path)/include/bridge -I$(bridge_lib_alt_path)/include/bridge/lib -I$(bridge_lib_alt_path)/include/bridge/lib_alt -I$(bridge_lib_alt_path)/include/bridge/lib_alt_Simd
-  LDLIBS += -L$(bridge_lib_alt_path) -lbridge_alt
-endif
-
-#CXXFLAGS += $(addprefix -I, $(bridge_include_alt_path))
-#LDLIBS += -L$(bridge_lib_alt_path)
-#LDLIBS = -lm -L/Users/redstar/work/work_bridge/work_a2a/bridge-1.5.3/build -lbridge -L../alternative3/build_mpi_high -lbridge_alt -L/Users/redstar/local/lib -lfftw3_mpi -lfftw3_omp -lfftw3 
-
 ### definitions END ###
 
 ### Makefile main part ###

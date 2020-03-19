@@ -1,7 +1,7 @@
 # this is a test parameter file for redstar all-to-all propagator codesets
 
 Conf:
-  confname     : ../../bridge-1.5.3/build/tests/conf_04040408.txt
+  confname     : ../../alternative3/build_mpi_high/tests/conf_04040408.txt
   #confformat   : Text # {Text, ILDG}
   confformat   : Text_4x4x4x8 # {Text, ILDG}
   csw          : 1.1
