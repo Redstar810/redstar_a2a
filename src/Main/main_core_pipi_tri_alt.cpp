@@ -137,21 +137,33 @@ int main_core(Parameters *params_conf_all)
 
   //- inversion parameters
   double inv_prec_full;
+  double inv_prec_inner;
+  int Nmaxiter;
+  int Nmaxres;
   params_inversion.fetch_double("Precision",inv_prec_full);
+  params_inversion.fetch_double("Precision_in",inv_prec_inner);
+  params_inversion.fetch_int("Nmaxiter",Nmaxiter);
+  params_inversion.fetch_int("Nmaxres",Nmaxres);
   vout.general("Inversion (full precision)\n");
   vout.general("  precision = %12.6e\n", inv_prec_full);
+  vout.general("  precision (inner) = %12.6e\n", inv_prec_inner);
+  vout.general("  Nmaxiter = %d\n", Nmaxiter);
+  vout.general("  Nmaxres = %d\n", Nmaxres);
 
   //- covariant approximation averaging parameters
   std::vector<int> caa_grid;
   double inv_prec_caa;
+  double inv_prec_inner_caa;
   unsigned long caa_seed;
   params_caa.fetch_int_vector("caa_grid",caa_grid);
   params_caa.fetch_double("Precision",inv_prec_caa);
+  params_caa.fetch_double("Precision_in",inv_prec_inner_caa);
   params_caa.fetch_unsigned_long("point_seed",caa_seed);
 
   vout.general("CAA\n");
   vout.general("  translation grid : %s\n", Parameters::to_string(caa_grid).c_str());
   vout.general("  precision (relaxed) : %12.6e\n", inv_prec_caa);
+  vout.general("  precision (relaxed, inner) : %12.6e\n", inv_prec_inner_caa);
   vout.general("  seed (for determining ref. src pt) : %d\n", caa_seed);
 
   //- smearing parameters (sink)
@@ -208,6 +220,7 @@ int main_core(Parameters *params_conf_all)
   //a2a::eigen_check(evec_in,eval_in,Neigen);
   Communicator::sync_global();
   delete fopr_cb;
+  delete fopr;
   delete[] eval_pol;
     
   //////////////////////////////////////////////////////
@@ -307,12 +320,19 @@ int main_core(Parameters *params_conf_all)
   //a2a::smearing_exp(dil_noise_smr,dil_noise,Nnoise*Ndil,a,b);
   
   Field_F *xi = new Field_F[Nnoise*Ndil_red];
+  /*
   Fopr_Clover_eo *fopr_eo = new Fopr_Clover_eo("Dirac");
   fopr_eo -> set_parameters(kappa_l, csw, bc);
   fopr_eo -> set_config(U);
   a2a::inversion_eo(xi,fopr_eo,fopr,dil_noise,Nnoise*Ndil_red);
   //a2a::inversion_mom_eo(xi_mom,fopr_eo,fopr,dil_noise,Nnoise*Ndil_red,mom);
+  */
 
+  //a2a::inversion_alt_mixed_Clover_eo(xi, dil_noise, U, kappa_l, csw, bc,
+  a2a::inversion_alt_mixed_Clover(xi, dil_noise, U, kappa_l, csw, bc,
+                                  Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
+                                  Nmaxiter, Nmaxres);
+  
   Field_F *chi = new Field_F[Nnoise*Ndil_red];
   Field_F tmpgm35;
   tmpgm35.reset(Nvol,1);
@@ -592,8 +612,12 @@ int main_core(Parameters *params_conf_all)
   }
   delete[] smrd_src_exa; 
   
-  fopr->set_mode("D");
-  a2a::inversion_eo(Hinv,fopr_eo,fopr,smrd_src_exagm5,Nc*Nd*Lt);
+  //fopr->set_mode("D");
+  //a2a::inversion_eo(Hinv,fopr_eo,fopr,smrd_src_exagm5,Nc*Nd*Lt);
+  //a2a::inversion_alt_mixed_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
+  a2a::inversion_alt_mixed_Clover(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
+                                  Nc*Nd*Lt, inv_prec_full, inv_prec_inner,
+                                  Nmaxiter, Nmaxres);
   delete[] smrd_src_exagm5;
 
   //smearing
@@ -731,8 +755,12 @@ int main_core(Parameters *params_conf_all)
     }
     delete[] smrd_src_rel;
 
-    fopr->set_mode("D");
-    a2a::inversion_eo(Hinv_rel,fopr_eo,fopr,smrd_src_relgm5,Nc*Nd*Lt, inv_prec_caa);
+    //fopr->set_mode("D");
+    //a2a::inversion_eo(Hinv_rel,fopr_eo,fopr,smrd_src_relgm5,Nc*Nd*Lt, inv_prec_caa);
+    //a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
+    a2a::inversion_alt_mixed_Clover(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
+                                    Nc*Nd*Lt, inv_prec_caa, inv_prec_inner_caa,
+                                    Nmaxiter, Nmaxres);
     delete[] smrd_src_relgm5;
 
     // smearing
@@ -774,8 +802,6 @@ int main_core(Parameters *params_conf_all)
   delete[] srcpt_exa;
   delete[] evec_in;
   delete[] eval_in;
-  delete fopr;
-  delete fopr_eo;
   delete U;
 
   delete[] xi_smrdsink;

@@ -217,7 +217,7 @@ int main_core(Parameters *params_conf_all)
   eigsolvertimer -> stop();
   //a2a::eigen_io(evec_in,eval_in,Neigen,Neigen,0);
   */
-  /*  
+    
   // Chebyshev pol. accerelation
   fopr -> set_mode("DdagD");
   double *eval_pol = new double[Neigen];
@@ -238,13 +238,14 @@ int main_core(Parameters *params_conf_all)
   Communicator::sync_global();
   delete fopr_cb;
   delete[] eval_pol;
-  */
+  
+  /*
   for(int ieig=0;ieig<Neigen;ieig++){
     evec_in[ieig].reset(Nvol,1);
     evec_in[ieig].set(1.0);
     eval_in[ieig] = 1.0;
   }
-    
+  */
   //////////////////////////////////////////////////////
   // ###  generate diluted noises  ###
   
@@ -397,15 +398,16 @@ int main_core(Parameters *params_conf_all)
   //fopr->set_mode("D");
   //a2a::inversion(xi,fopr,dil_noise,Nnoise*Ndil_red);
   //a2a::inversion_mom(xi_mom,fopr,dil_noise,Nnoise*Ndil_red,mom);
-  //a2a::inversion_eo(xi,fopr_eo,fopr,dil_noise,Nnoise*Ndil_red);
+  a2a::inversion_eo(xi,fopr_eo,fopr,dil_noise,Nnoise*Ndil_red);
   //a2a::inversion_mom_eo(xi_mom,fopr_eo,fopr,dil_noise,Nnoise*Ndil_red,mom);
 
+  /*
   // for bug check
   for(int i=0;i<Nnoise*Ndil_red;i++){
     xi[i].reset(Nvol,1);
     xi[i].set(1.0);
   }
-
+  */
   Field_F *chi = new Field_F[Nnoise*Ndil_red];
   Field_F tmpgm53;
   tmpgm53.reset(Nvol,1);
@@ -1214,7 +1216,8 @@ int main_core(Parameters *params_conf_all)
   
   dcomplex *Fbox1_rest = new dcomplex[Nvol*Nsrc_t];
   for(int idx=0;idx<Nvol*Nsrc_t;idx++){
-    Fbox1_rest[idx] = Fbox1_p2a[idx] - Fbox1_p2arel[idx];
+    //Fbox1_rest[idx] = Fbox1_p2a[idx];// - Fbox1_p2arel[idx];
+    Fbox1_rest[idx] = Fbox1_p2arel[idx];
   }
 
   delete[] Fbox1_p2a;
@@ -1632,7 +1635,7 @@ int main_core(Parameters *params_conf_all)
       for(int dt=0;dt<Lt;dt++){
 	for(int v=0;v<Lxyz;v++){
 	  int t = (dt+tt)%Lt;
-	  F_final[v+Lxyz*dt] += Fbox1_eigall[v+Lxyz*t]/(double)Nsrc_t;
+	  //F_final[v+Lxyz*dt] += Fbox1_eigall[v+Lxyz*t]/(double)Nsrc_t;
 	}
       }
       
@@ -1902,7 +1905,7 @@ int main_core(Parameters *params_conf_all)
   if(Communicator::nodeid()==0){
     for(int t=0;t<Lt;t++){
       char filename[100];
-      string file_4pt("/4pt_correlatorlow_%d");
+      string file_4pt("/4pt_correlatorrel_%d");
       string ofname_4pt = outdir_name + file_4pt;
       //snprintf(filename, sizeof(filename),ofname_4pt.c_str(),fnum,t);
       snprintf(filename, sizeof(filename),ofname_4pt.c_str(),t);

@@ -27,7 +27,8 @@ a2a::Exponential_smearing::Exponential_smearing()
   // initialize pointer variable
   m_smrfunc_mom = NULL;
   // construct the FFT instance
-  //m_fft = new FFT_3d_parallel3d;
+  m_fft = new FFT_3d_parallel3d;
+  /*
   // omp? (not sure whether this usage is correct or not...)
 #pragma omp parallel
   {
@@ -36,6 +37,7 @@ a2a::Exponential_smearing::Exponential_smearing()
       m_fft = new FFT_3d_parallel3d;
     }
   }
+  */
   // initialize other member variables
   m_a = 0.0;
   m_b = 0.0;
