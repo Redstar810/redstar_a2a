@@ -136,10 +136,19 @@ int main_core(Parameters *params_conf_all)
 
   //- inversion parameters
   double inv_prec_full;
+  double inv_prec_inner;
+  int Nmaxiter;
+  int Nmaxres;
   params_inversion.fetch_double("Precision",inv_prec_full);
+  params_inversion.fetch_double("Precision_in",inv_prec_inner);
+  params_inversion.fetch_int("Nmaxiter",Nmaxiter);
+  params_inversion.fetch_int("Nmaxres",Nmaxres);
   vout.general("Inversion (full precision)\n");
   vout.general("  precision = %12.6e\n", inv_prec_full);
-
+  vout.general("  precision (inner) = %12.6e\n", inv_prec_inner);
+  vout.general("  Nmaxiter = %d\n", Nmaxiter);
+  vout.general("  Nmaxres = %d\n", Nmaxres);
+  
   //- covariant approximation averaging parameters
   std::vector<int> caa_grid;
   double inv_prec_caa;
@@ -292,9 +301,6 @@ int main_core(Parameters *params_conf_all)
   
   // alternative code
   Field_F *xi_l_alt = new Field_F[Nnoise*Ndil_red];
-  double inv_prec_inner = 1.0e-12;
-  int Nmaxiter = 1000;
-  int Nmaxres = 100;
   invtimer_alt.start();
   a2a::inversion_alt_mixed_Clover(xi_l_alt, dil_noise, U, kappa_l, csw, bc,
                                   Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
