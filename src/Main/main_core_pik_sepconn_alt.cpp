@@ -136,21 +136,33 @@ int main_core(Parameters *params_conf_all)
 
   //- inversion parameters
   double inv_prec_full;
+  double inv_prec_inner;
+  int Nmaxiter;
+  int Nmaxres;
   params_inversion.fetch_double("Precision",inv_prec_full);
+  params_inversion.fetch_double("Precision_in",inv_prec_inner);
+  params_inversion.fetch_int("Nmaxiter",Nmaxiter);
+  params_inversion.fetch_int("Nmaxres",Nmaxres);
   vout.general("Inversion (full precision)\n");
   vout.general("  precision = %12.6e\n", inv_prec_full);
+  vout.general("  precision (inner) = %12.6e\n", inv_prec_inner);
+  vout.general("  Nmaxiter = %d\n", Nmaxiter);
+  vout.general("  Nmaxres = %d\n", Nmaxres);
 
   //- covariant approximation averaging parameters
   std::vector<int> caa_grid;
   double inv_prec_caa;
+  double inv_prec_inner_caa;
   unsigned long caa_seed;
   params_caa.fetch_int_vector("caa_grid",caa_grid);
   params_caa.fetch_double("Precision",inv_prec_caa);
+  params_caa.fetch_double("Precision_in",inv_prec_inner_caa);
   params_caa.fetch_unsigned_long("point_seed",caa_seed);
 
   vout.general("CAA\n");
   vout.general("  translation grid : %s\n", Parameters::to_string(caa_grid).c_str());
   vout.general("  precision (relaxed) : %12.6e\n", inv_prec_caa);
+  vout.general("  precision (relaxed, inner) : %12.6e\n", inv_prec_inner_caa);
   vout.general("  seed (for determining ref. src pt) : %d\n", caa_seed);
 
   //- smearing parameters (sink)
@@ -284,13 +296,10 @@ int main_core(Parameters *params_conf_all)
   //a2a::inversion_eo(xi_l,fopr_l_eo,fopr_l,dil_noise,Nnoise*Ndil_red);
 
   // alternative code
-  double inv_prec_inner = 1.0e-12;
-  int Nmaxiter = 1000;
-  int Nmaxres = 100;
   //a2a::inversion_alt_mixed_Clover_eo(xi_l, dil_noise, U, kappa_l, csw, bc,
-  a2a::inversion_alt_mixed_Clover(xi_l, dil_noise, U, kappa_l, csw, bc,
-                                  Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-                                  Nmaxiter, Nmaxres);
+  a2a::inversion_alt_mixed_Clover_eo(xi_l, dil_noise, U, kappa_l, csw, bc,
+				     Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
+				     Nmaxiter, Nmaxres);
   // sink smearing
   Field_F *xi_l_smrdsink = new Field_F[Nnoise*Ndil_red];
   smear->smear(xi_l_smrdsink, xi_l, Nnoise*Ndil_red);
@@ -301,9 +310,9 @@ int main_core(Parameters *params_conf_all)
   //a2a::inversion_eo(xi_s,fopr_s_eo,fopr_s,dil_noise,Nnoise*Ndil_red);
 
   // alternative code
-  a2a::inversion_alt_mixed_Clover(xi_s, dil_noise, U, kappa_s, csw, bc,
-                                  Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-                                  Nmaxiter, Nmaxres);
+  a2a::inversion_alt_mixed_Clover_eo(xi_s, dil_noise, U, kappa_s, csw, bc,
+				     Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
+				     Nmaxiter, Nmaxres);
     
   // sink smearing
   Field_F *xi_s_smrdsink = new Field_F[Nnoise*Ndil_red];

@@ -53,7 +53,9 @@ namespace a2a
   int gen_noise_Z2(Field_F*, const unsigned long, const int);
   int gen_noise_Z4(Field_F*, const unsigned long, const int);
   int gen_noise_U1(Field_F*, const unsigned long, const int);
-
+  // for baryonic one-end trick (test)
+  int gen_noise_Z3(Field_F*, const unsigned long, const int);
+  
   // dilution //
   int time_dil(Field_F*, const Field_F*, const int, const bool do_check = false);
   int time_dil_interlace(Field_F*, const Field_F*, const int, const int, const bool do_check = false);

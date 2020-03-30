@@ -92,6 +92,57 @@ int a2a::gen_noise_Z4(Field_F* eta, const unsigned long seed, const int Nnoise)
   return 0;
 }
 
+// for baryonic one-end trick (test)
+int a2a::gen_noise_Z3(Field_F* eta, const unsigned long seed, const int Nnoise)
+{
+  int Nc = CommonParameters::Nc();
+  int Nd = CommonParameters::Nd();
+  int Nvol = CommonParameters::Nvol();
+  vout.general("====== Z3 noise generator =====\n");
+  for(int i=0;i<Nnoise;i++){
+    eta[i].reset(Nvol,1);
+  }
+  vout.general("Nnoise = %d\n",Nnoise);
+  Field *noise = new Field;
+  noise->reset(1,Nvol,Nnoise);
+  RandomNumberManager::initialize("Mseries", seed);
+  RandomNumbers *rand = RandomNumberManager::getInstance();
+  rand -> uniform_lex_global(*noise);
+#pragma omp parallel for
+  for(int r=0;r<Nnoise;r++){
+    for(int v=0;v<Nvol;v++){
+      double rnum = floor(3.0*noise->cmp(0,v,r));
+      if((int)rnum == 0){
+	for(int d=0;d<Nd;d++){
+	  for(int c=0;c<Nc;c++){
+	    eta[r].set_ri(c,d,v,0,1.0,0.0);
+	  }
+	}
+      }
+      else if((int)rnum == 1){
+	for(int d=0;d<Nd;d++){
+	  for(int c=0;c<Nc;c++){
+	    eta[r].set_ri(c,d,v,0,-1.0/2.0,sqrt(3.0)/2.0);
+	  }
+	}
+      }
+      else if((int)rnum == 2){
+	for(int d=0;d<Nd;d++){
+	  for(int c=0;c<Nc;c++){
+	    eta[r].set_ri(c,d,v,0,-1.0/2.0,-sqrt(3.0)/2.0);
+	  }
+	}
+      }
+    }
+  }
+  delete noise;
+  RandomNumberManager::finalize();
+  vout.general("==========\n");
+  return 0;
+}
+
+
+
 int a2a::gen_noise_U1(Field_F* eta, const unsigned long seed, const int Nnoise)
 {
   int Nc = CommonParameters::Nc();

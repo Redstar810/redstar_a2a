@@ -329,9 +329,9 @@ int main_core(Parameters *params_conf_all)
   */
 
   //a2a::inversion_alt_mixed_Clover_eo(xi, dil_noise, U, kappa_l, csw, bc,
-  a2a::inversion_alt_mixed_Clover(xi, dil_noise, U, kappa_l, csw, bc,
-                                  Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-                                  Nmaxiter, Nmaxres);
+  a2a::inversion_alt_mixed_Clover_eo(xi, dil_noise, U, kappa_l, csw, bc,
+				     Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
+				     Nmaxiter, Nmaxres);
   
   Field_F *chi = new Field_F[Nnoise*Ndil_red];
   Field_F tmpgm35;
@@ -615,9 +615,9 @@ int main_core(Parameters *params_conf_all)
   //fopr->set_mode("D");
   //a2a::inversion_eo(Hinv,fopr_eo,fopr,smrd_src_exagm5,Nc*Nd*Lt);
   //a2a::inversion_alt_mixed_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
-  a2a::inversion_alt_mixed_Clover(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
-                                  Nc*Nd*Lt, inv_prec_full, inv_prec_inner,
-                                  Nmaxiter, Nmaxres);
+  a2a::inversion_alt_mixed_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
+				     Nc*Nd*Lt, inv_prec_full, inv_prec_inner,
+				     Nmaxiter, Nmaxres);
   delete[] smrd_src_exagm5;
 
   //smearing
@@ -758,9 +758,9 @@ int main_core(Parameters *params_conf_all)
     //fopr->set_mode("D");
     //a2a::inversion_eo(Hinv_rel,fopr_eo,fopr,smrd_src_relgm5,Nc*Nd*Lt, inv_prec_caa);
     //a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
-    a2a::inversion_alt_mixed_Clover(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
-                                    Nc*Nd*Lt, inv_prec_caa, inv_prec_inner_caa,
-                                    Nmaxiter, Nmaxres);
+    a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
+				       Nc*Nd*Lt, inv_prec_caa, inv_prec_inner_caa,
+				       Nmaxiter, Nmaxres);
     delete[] smrd_src_relgm5;
 
     // smearing

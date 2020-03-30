@@ -1,4 +1,4 @@
-/*A
+/*
         @file    $Id: run_test.cpp #$
 	
         @brief   For all-to-all calculation
@@ -37,7 +37,7 @@
 #include "Tools/gammaMatrixSet_Chiral.h"
 #include "Tools/gammaMatrixSet.h"
 #include "Tools/gammaMatrix.h"
-#include "Tools/fft_3d_parallel3d.h"
+//#include "Tools/fft_3d_parallel3d.h"
 #include "Tools/timer.h"
 
 #include "IO/bridgeIO.h"
@@ -86,8 +86,8 @@ int main_core(Parameters *params_conf_all)
   Parameters params_caa = params_conf_all->lookup("CAA");
   Parameters params_smrdsink = params_conf_all->lookup("Smearing(sink)");
   Parameters params_fileio = params_conf_all->lookup("File_io");
-  
-  //- standard parameters
+
+  //- standard parameters 
   std::string conf_name, conf_format;
   double csw, kappa_l, kappa_s;
   std::vector<int> bc;
@@ -105,7 +105,7 @@ int main_core(Parameters *params_conf_all)
   vout.general("  Csw = %f\n",csw);
   vout.general("  boundary condition : %s\n", Parameters::to_string(bc).c_str());
 
-  //- dilution and noise vectors (tcds-eo dil)
+  //- dilution and noise vectors (tcds-eo dil) 
   std::string dil_type("tcds-eo");
   int Nnoise = 1;
   int Ndil = Lt*Nc*Nd*2;
@@ -134,40 +134,34 @@ int main_core(Parameters *params_conf_all)
 
   vout.general("Eigensolver\n");
   vout.general("  Neig = %d\n", Neigen);
-  
+    
   //- inversion parameters
   double inv_prec_full;
   double inv_prec_inner;
   int Nmaxiter;
   int Nmaxres;
-  string solver_type_full;
-  params_inversion.fetch_string("Solver_type",solver_type_full);
   params_inversion.fetch_double("Precision",inv_prec_full);
   params_inversion.fetch_double("Precision_in",inv_prec_inner);
   params_inversion.fetch_int("Nmaxiter",Nmaxiter);
   params_inversion.fetch_int("Nmaxres",Nmaxres);
   vout.general("Inversion (full precision)\n");
-  vout.general("  solver type : %s\n",solver_type_full.c_str());
-  vout.general("  precision = %12.6e\n", inv_prec_full);  
+  vout.general("  precision = %12.6e\n", inv_prec_full);
   vout.general("  precision (inner) = %12.6e\n", inv_prec_inner);
   vout.general("  Nmaxiter = %d\n", Nmaxiter);
   vout.general("  Nmaxres = %d\n", Nmaxres);
-  
+
   //- covariant approximation averaging parameters
   std::vector<int> caa_grid;
   double inv_prec_caa;
   double inv_prec_inner_caa;
   unsigned long caa_seed;
-  string solver_type_caa;
   params_caa.fetch_int_vector("caa_grid",caa_grid);
-  params_caa.fetch_string("Solver_type",solver_type_caa);
   params_caa.fetch_double("Precision",inv_prec_caa);
   params_caa.fetch_double("Precision_in",inv_prec_inner_caa);
   params_caa.fetch_unsigned_long("point_seed",caa_seed);
 
   vout.general("CAA\n");
   vout.general("  translation grid : %s\n", Parameters::to_string(caa_grid).c_str());
-  vout.general("  solver type : %s\n",solver_type_caa.c_str());
   vout.general("  precision (relaxed) : %12.6e\n", inv_prec_caa);
   vout.general("  precision (relaxed, inner) : %12.6e\n", inv_prec_inner_caa);
   vout.general("  seed (for determining ref. src pt) : %d\n", caa_seed);
@@ -177,12 +171,12 @@ int main_core(Parameters *params_conf_all)
   params_smrdsink.fetch_double("a",a_sink);
   params_smrdsink.fetch_double("b",b_sink);
   params_smrdsink.fetch_double("threshold",thr_val_sink);
-  
+
   vout.general("Smearing (sink)\n");
   vout.general("  a = %12.6e\n", a_sink);
   vout.general("  b = %12.6e\n", b_sink);
   vout.general("  thr_val = %12.6e\n", thr_val_sink);
-  
+
   //- output directory name
   std::string outdir_name;
   params_fileio.fetch_string("outdir",outdir_name);
@@ -190,9 +184,9 @@ int main_core(Parameters *params_conf_all)
   vout.general("  output directory name : %s\n",outdir_name.c_str());
 
   vout.general("\n=== Calculation environment summary END ===\n");
-  
+
   //////////////////////////////////////////////////////
-  // ### read gauge configuration and initialize Dirac operators ###
+  // ###  10 read gauge configuration and intialize Dirac operators ###
   
   Field_G *U = new Field_G(Nvol, Ndim);
   a2a::read_gconf(U,conf_format.c_str(),conf_name.c_str());
@@ -227,11 +221,11 @@ int main_core(Parameters *params_conf_all)
     vout.general("Eigenvalues (true): %d %16.8e, %16.8e \n",i,real(eigenvalue),imag(eigenvalue));
     eval_in[i] = real(eigenvalue);
   }
-  //a2a::eigen_check(evec_in,eval_in,Neigen_in);
+  //a2a::eigen_check(evec_in,eval_in,Neigen);
   Communicator::sync_global();
   delete fopr_cb;
   delete[] eval_pol;
-  
+    
   //////////////////////////////////////////////////////
   // ###  generate diluted noises  ###
   
@@ -239,6 +233,7 @@ int main_core(Parameters *params_conf_all)
   Field_F *noise = new Field_F[Nnoise];
 
   a2a::gen_noise_Z4(noise,noise_seed,Nnoise); 
+  //a2a::gen_noise_Z4(noise_hyb,seed_hyb,Nnoise_hyb); 
   //a2a::gen_noise_Z2(noise,1234567UL,Nnoise);
   /*
   // for wall source calculation
@@ -281,8 +276,6 @@ int main_core(Parameters *params_conf_all)
   //delete[] tcdil_noise;
   delete[] tcddil_noise;
   
-  //diltimer -> stop();
-    
   //////////////////////////////////////////////////////
   // ###  make one-end vectors  ###
 
@@ -296,8 +289,7 @@ int main_core(Parameters *params_conf_all)
 
   // source time slice determination
   vout.general("===== source time setup =====\n");
-  int Nsrc_t = Lt/2; // #. of source time you use
-  //int Nsrc_t = 1; // #. of source time you use 
+  int Nsrc_t = Lt/2; // #. of source time you use 
   int Ndil_red = Ndil / Lt * Nsrc_t; // reduced d.o.f. of noise vectors
   int Ndil_tslice = Ndil / Lt; // dilution d.o.f. on a single time slice
   string numofsrct = std::to_string(Nsrc_t);
@@ -329,331 +321,105 @@ int main_core(Parameters *params_conf_all)
   delete[] dil_noise_allt;
   
   Field_F *xi_l = new Field_F[Nnoise*Ndil_red];
-
-  // solve inversions
-  if(solver_type_full=="Double_eo"){
   
-    // bridge core lib.   
-    Fopr_Clover_eo *fopr_l_eo = new Fopr_Clover_eo("Dirac");
-    fopr_l_eo -> set_parameters(kappa_l, csw, bc);
-    fopr_l_eo -> set_config(U);
-    Timer invtimer_org("Inversion (org, BiCGStab_eo)");
-    invtimer_org.start();
-    a2a::inversion_eo(xi_l,fopr_l_eo,fopr_l,dil_noise,Nnoise*Ndil_red);
-    invtimer_org.stop();
-    invtimer_org.report();
-    delete fopr_l_eo;
-  }
-  else if(solver_type_full=="Mixed_eo"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec. + e/o precond.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover_eo(xi_l, dil_noise, U, kappa_l, csw, bc,
-				       Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				       Nmaxiter, Nmaxres);
+  /*  
+  // bridge core lib.
+  Fopr_Clover_eo *fopr_l_eo = new Fopr_Clover_eo("Dirac");
+  fopr_l_eo -> set_parameters(kappa_l, csw, bc);
+  fopr_l_eo -> set_config(U);
+  a2a::inversion_eo(xi_l,fopr_l_eo,fopr_l,dil_noise,Nnoise*Ndil_red);
+  */
 
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
-  else if(solver_type_full=="Mixed"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover(xi_l, dil_noise, U, kappa_l, csw, bc,
-				    Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				    Nmaxiter, Nmaxres);
-    
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
+  // alternative code
+  a2a::inversion_alt_mixed_Clover_eo(xi_l, dil_noise, U, kappa_l, csw, bc,
+				     Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
+				     Nmaxiter, Nmaxres);
 
-  
-  ////////////////////////////////
-  // calc sequential propagator //
+  a2a::Exponential_smearing *smear = new a2a::Exponential_smearing;
+  smear->set_parameters(a_sink,b_sink,thr_val_sink);
 
-  Field_F *seq_src = new Field_F[Nnoise*Ndil_red];
+  // sink smearing
+  Field_F *xi_l_smrdsink = new Field_F[Nnoise*Ndil_red];
+  smear->smear(xi_l_smrdsink, xi_l, Nnoise*Ndil_red);
+  delete[] xi_l;
+
+  Field_F *dil_noise_GM5 = new Field_F[Nnoise*Ndil_red];
   for(int n=0;n<Ndil_red*Nnoise;n++){
     Field_F tmp;
     tmp.reset(Nvol,1);
-    mult_GM(tmp,gm_5,xi_l[n]);
-#pragma omp parallel
-    {
-      copy(xi_l[n],tmp);
-    }
-    seq_src[n].reset(Nvol,1);
-    seq_src[n].set(0.0);
+    mult_GM(tmp,gm_5,dil_noise[n]);
+    dil_noise_GM5[n].reset(Nvol,1);
+    copy(dil_noise_GM5[n],tmp);    
   }
-
-
-  int grid_coords[4];
-  Communicator::grid_coord(grid_coords,Communicator::nodeid());
-  for(int r=0;r<Nnoise;r++){
-#pragma omp parallel for
-    for(int t_src=0;t_src<Nsrc_t;t_src++){
-      for(int i=0;i<Ndil_tslice;i++){
-        for(int t=0;t<Nt;t++){
-          int true_t = Nt * grid_coords[3] + t;
-
-          if(true_t == srct_list[t_src]){
-            for(int vs=0;vs<Nxyz;vs++){
-	      for(int d=0;d<Nd;d++){
-		for(int c=0;c<Nc;c++){
-		  seq_src[i+Ndil_tslice*(t_src+Nsrc_t*r)].set_ri(c,d,vs+Nxyz*t,0,xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0));
-		}
-	      }
-	    }
-          } // if
-
-        }
-      }
-    }
-  } // for r  
-
-  delete[] xi_l;
   Communicator::sync_global();
-
-  Field_F *chi_ll = new Field_F[Nnoise*Ndil_red];
-  // bridge core lib.
-  //a2a::inversion(chi_ll,fopr_l,seq_src,Nnoise*Ndil_red);
-  //a2a::inversion_eo(chi_ll,fopr_l_eo,fopr_l,seq_src,Nnoise*Ndil_red);
-  // alternative code (mixed prec.)
-  //a2a::inversion_alt_mixed_Clover_eo(chi_ll, seq_src, U, kappa_l, csw, bc,
-  /*
-  a2a::inversion_alt_mixed_Clover_eo(chi_ll, seq_src, U, kappa_l, csw, bc,
-				     Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				     Nmaxiter, Nmaxres);
-  */
-  
-  // solve inversions
-  if(solver_type_full=="Double_eo"){
-  
-    // bridge core lib.   
-    Fopr_Clover_eo *fopr_l_eo = new Fopr_Clover_eo("Dirac");
-    fopr_l_eo -> set_parameters(kappa_l, csw, bc);
-    fopr_l_eo -> set_config(U);
-    Timer invtimer_org("Inversion (org, BiCGStab_eo)");
-    invtimer_org.start();
-    a2a::inversion_eo(chi_ll,fopr_l_eo,fopr_l,seq_src,Nnoise*Ndil_red);
-    invtimer_org.stop();
-    invtimer_org.report();
-    delete fopr_l_eo;
-  }
-  else if(solver_type_full=="Mixed_eo"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec. + e/o precond.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover_eo(chi_ll, seq_src, U, kappa_l, csw, bc,
-				       Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				       Nmaxiter, Nmaxres);
-
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
-  else if(solver_type_full=="Mixed"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover(chi_ll, seq_src, U, kappa_l, csw, bc,
-				    Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				    Nmaxiter, Nmaxres);
-    
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
-
-  delete[] seq_src;
-
-  // parameters for sink smearing
-  //double a_sink,b_sink,thr_val_sink;
-  //a_sink = 1.0;
-  //b_sink = 1.0;
-  //thr_val_sink = 3.5;
-
-  a2a::Exponential_smearing *smear = new a2a::Exponential_smearing;
-  smear->set_parameters(a_sink,b_sink,thr_val_sink);
-
-  // sink smearing
-  Field_F *chi_ll_smrdsink = new Field_F[Nnoise*Ndil_red];
-  smear->smear(chi_ll_smrdsink, chi_ll, Nnoise*Ndil_red);
-  delete[] chi_ll;
-
-  Field_F *xi_s = new Field_F[Nnoise*Ndil_red];
-  // bridge core lib.
-  //Fopr_Clover_eo *fopr_s_eo = new Fopr_Clover_eo("Dirac");
-  //fopr_s_eo -> set_parameters(kappa_l, csw, bc);
-  //fopr_s_eo -> set_config(U);
-
-  //a2a::inversion(xi_s,fopr_s,dil_noise,Nnoise*Ndil_red);
-  //a2a::inversion_eo(xi_s,fopr_s_eo,fopr_s,dil_noise,Nnoise*Ndil_red);
-  //a2a::inversion_alt_mixed_Clover_eo(xi_s, dil_noise, U, kappa_s, csw, bc,
-  /*
-  a2a::inversion_alt_mixed_Clover_eo(xi_s, dil_noise, U, kappa_s, csw, bc,
-				     Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				     Nmaxiter, Nmaxres);
-  */
-  
-  // solve inversions
-  if(solver_type_full=="Double_eo"){
-  
-    // bridge core lib.   
-    Fopr_Clover_eo *fopr_s_eo = new Fopr_Clover_eo("Dirac");
-    fopr_s_eo -> set_parameters(kappa_s, csw, bc);
-    fopr_s_eo -> set_config(U);
-    Timer invtimer_org("Inversion (org, BiCGStab_eo)");
-    invtimer_org.start();
-    a2a::inversion_eo(xi_s,fopr_s_eo,fopr_s,dil_noise,Nnoise*Ndil_red);
-    invtimer_org.stop();
-    invtimer_org.report();
-    delete fopr_s_eo;
-  }
-  else if(solver_type_full=="Mixed_eo"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec. + e/o precond.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover_eo(xi_s, dil_noise, U, kappa_s, csw, bc,
-				       Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				       Nmaxiter, Nmaxres);
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
-  else if(solver_type_full=="Mixed"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover(xi_s, dil_noise, U, kappa_s, csw, bc,
-				    Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				    Nmaxiter, Nmaxres);
-    
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
-  
   delete[] dil_noise;
 
-  // sink smearing
-  Field_F *xi_s_smrdsink = new Field_F[Nnoise*Ndil_red];
-  smear->smear(xi_s_smrdsink, xi_s, Nnoise*Ndil_red);
-  delete[] xi_s;
-
+  Field_F *zeta_s = new Field_F[Nnoise*Ndil_red];
+  /*
   // bridge core lib.
-  //delete fopr_s_eo;
-  //delete fopr_s;
+  Fopr_Clover_eo *fopr_s_eo = new Fopr_Clover_eo("Dirac");
+  fopr_s_eo -> set_parameters(kappa_s, csw, bc);
+  fopr_s_eo -> set_config(U);
+  a2a::inversion_eo(zeta_s,fopr_s_eo,fopr_s,dil_noise_GM5,Nnoise*Ndil_red);
+  delete fopr_s_eo;
+  */
+  // alternative code
+  a2a::inversion_alt_mixed_Clover_eo(zeta_s, dil_noise_GM5, U, kappa_s, csw, bc,
+				     Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
+				     Nmaxiter, Nmaxres);
+  
+  delete[] dil_noise_GM5;
 
+  // sink smearing
+  Field_F *zeta_s_smrdsink = new Field_F[Nnoise*Ndil_red];
+  smear->smear(zeta_s_smrdsink, zeta_s, Nnoise*Ndil_red);
+  delete[] zeta_s;
 
   
-  /*// for test
-  for(int n=0;n<Nnoise*Ndil_red;n++){
-    vout.general("norm of xi_s[%d] : %f\n",n,xi_s[n].norm() );
-  }
-
-  for(int n=0;n<Nnoise*Ndil_red;n++){
-    vout.general("norm of chi_ll[%d] : %f\n",n,chi_ll[n].norm() );
-  }
-  delete[] xi_s;
-  delete[] chi_ll;
-  */
-  /*
-  // for wall source
-#pragma omp parallel for
-  for(int n=0;n<Ndil_red*Nnoise/Nd;n++){
-    //mult_GM(tmpgm3,gm_5,dil_noise[n]);
-    //mult_GM(dil_noise[n],gm_3,tmpgm3);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(0),xi[0+Nd*n]);
-    copy(chi[0+Nd*n],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(1),xi[1+Nd*n]);
-    copy(chi[1+Nd*n],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(2),xi[2+Nd*n]);
-    copy(chi[2+Nd*n],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(3),xi[3+Nd*n]);
-    copy(chi[3+Nd*n],tmpgm35);
-  }
-  */
-  /*
-  // for tcds4 dilution
-  for(int n=0;n<Ndil_red*Nnoise/(Nd*4);n++){
-    //mult_GM(tmpgm3,gm_5,dil_noise[n]);
-    //mult_GM(dil_noise[n],gm_3,tmpgm3);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(0),xi[0+4*(0+Nd*n)]);
-    copy(chi[0+4*(0+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(0),xi[1+4*(0+Nd*n)]);
-    copy(chi[1+4*(0+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(0),xi[2+4*(0+Nd*n)]);
-    copy(chi[2+4*(0+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(0),xi[3+4*(0+Nd*n)]);
-    copy(chi[3+4*(0+Nd*n)],tmpgm35);
-
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(1),xi[0+4*(1+Nd*n)]);
-    copy(chi[0+4*(1+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(1),xi[1+4*(1+Nd*n)]);
-    copy(chi[1+4*(1+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(1),xi[2+4*(1+Nd*n)]);
-    copy(chi[2+4*(1+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(1),xi[3+4*(1+Nd*n)]);
-    copy(chi[3+4*(1+Nd*n)],tmpgm35);
-
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(2),xi[0+4*(2+Nd*n)]);
-    copy(chi[0+4*(2+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(2),xi[1+4*(2+Nd*n)]);
-    copy(chi[1+4*(2+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(2),xi[2+4*(2+Nd*n)]);
-    copy(chi[2+4*(2+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(2),xi[3+4*(2+Nd*n)]);
-    copy(chi[3+4*(2+Nd*n)],tmpgm35);
-
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(3),xi[0+4*(3+Nd*n)]);
-    copy(chi[0+4*(3+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(3),xi[1+4*(3+Nd*n)]);
-    copy(chi[1+4*(3+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(3),xi[2+4*(3+Nd*n)]);
-    copy(chi[2+4*(3+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(3),xi[3+4*(3+Nd*n)]);
-    copy(chi[3+4*(3+Nd*n)],tmpgm35);
-  }
-  */
+  delete fopr_s;
   
-  /*
-  // smearing
-  Field_F *chi_smrdsink = new Field_F[Nnoise*Ndil_red];
-  Field_F *xi_smrdsink = new Field_F[Nnoise*Ndil_red];
-  a2a::Exponential_smearing *smear = new a2a::Exponential_smearing;
-  smear->set_parameters(a_sink,b_sink,thr_val_sink);
-  smeartimer->start();
-  smear->smear(chi_smrdsink, chi, Nnoise*Ndil_red);
-  smear->smear(xi_smrdsink, xi, Nnoise*Ndil_red);
-  smeartimer->stop();
-  smeartimer->report();
+  //////////////////////////////////////////////////////////////
+  // ### calc. 2pt correlator of kappa_type operator### //
 
-  delete[] xi;
-  delete[] chi;
-  */
+  // calc. local sum 
+  dcomplex *corr_local_kappa = new dcomplex[Nt*Nsrc_t];
+  for(int n=0;n<Nt*Nsrc_t;n++){
+    corr_local_kappa[n] = cmplx(0.0,0.0);
+  }
+  for(int r=0;r<Nnoise;r++){
+    for(int t_src=0;t_src<Nsrc_t;t_src++){
+      for(int t=0;t<Nt;t++){
+        for(int i=0;i<Ndil_tslice;i++){
+          for(int vs=0;vs<Nxyz;vs++){
+            for(int d=0;d<Nd;d++){
+              for(int c=0;c<Nc;c++){
+		// smeared sink
+		corr_local_kappa[t+Nt*t_src] += gm_5.value(d) * xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,gm_5.index(d),vs+Nxyz*t,0) * conj(zeta_s_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0));
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+  for(int n=0;n<Nt*Nsrc_t;n++){
+    corr_local_kappa[n] /= Nnoise;
+  }
   
+  //output 2pt correlator test
+  string output_2pt_pi("/2pt_kappa_");
+  
+  a2a::output_2ptcorr(corr_local_kappa, Nsrc_t, srct_list, outdir_name+output_2pt_pi+timeave);
+  
+  delete[] corr_local_kappa;
+
   ///////////////////////////////////////////////////////////////////////
   ///// ### calc. box diagram using one-end + sequential + CAA ### //
   
 
   ////////////////////////////////////////////////////////////////////////////////////
   /////////////// box diagram (eigen part) ////////////////////////
-  
+
   Communicator::sync_global();
   dcomplex *Fbox_eig = new dcomplex[Nvol*Nsrc_t];
   // smearing
@@ -661,9 +427,9 @@ int main_core(Parameters *params_conf_all)
   smear->smear(evec_smrdsink, evec_in, Neigen);
   // new implementation
   Field *Feig = new Field[Nsrc_t];
-  //a2a::contraction_lowmode_s2s_1dir(Feig, evec_in, eval_in, Neigen_req, chi_ll, xi_s, Ndil_tslice, Nsrc_t, 1);
+  //a2a::contraction_lowmode_s2s_1dir(Feig, evec_in, eval_in, Neigen, chi_ll, xi_s, Ndil_tslice, Nsrc_t, 1);
   // smeared sink
-  a2a::contraction_lowmode_s2s_1dir(Feig, evec_smrdsink, eval_in, Neigen, chi_ll_smrdsink, xi_s_smrdsink, Ndil_tslice, Nsrc_t, 1);
+  a2a::contraction_lowmode_s2s_1dir(Feig, evec_smrdsink, eval_in, Neigen, xi_l_smrdsink, zeta_s_smrdsink, Ndil_tslice, Nsrc_t, 1);
   
 #pragma omp parallel for
   for(int srct=0;srct<Nsrc_t;srct++){
@@ -674,11 +440,8 @@ int main_core(Parameters *params_conf_all)
   delete[] Feig;
 
   // output NBS (eig part)
-  string fname_baseeig("/NBS_box_low_");
+  string fname_baseeig("/NBS_tri_low_");
   string fname_eig = outdir_name + fname_baseeig + timeave;
-  //char fname_eigc[256];
-  //snprintf(fname_eigc,sizeof(fname_eigc),fname_eig.c_str(),fnum);
-  //fname_eig = fname_eigc;
   a2a::output_NBS_srctave(Fbox_eig, Nsrc_t, &srct_list[0], fname_eig);
   // output NBS end
 
@@ -686,10 +449,9 @@ int main_core(Parameters *params_conf_all)
 
   // smeared sink
   delete[] evec_smrdsink;
-  
+
   ///////////////////////////////////////////////////////////////////////////////////////
   /////////////////// box diagram 1 (CAA algorithm, exact part) /////////////////////////
-  
   int *srcpt_exa = new int[3]; // an array of the source points (x,y,z) (global) 
   dcomplex *Fbox_p2a = new dcomplex[Nvol*Nsrc_t];
   Field_F *point_src_exa = new Field_F[Nc*Nd*Lt]; // source vector for inversion
@@ -697,7 +459,6 @@ int main_core(Parameters *params_conf_all)
   // construct projected source vectors
   // set src point coordinates (global)
   // randomly choosen reference point
-  //int seed_refpt = 10*lp + 810;
   RandomNumbers_Mseries *rand_refpt = new RandomNumbers_Mseries(caa_seed);
   // generate a random number in [0,Lxyz) for determination of a ref. point
   double base_refpt = rand_refpt->get() * (double)Lxyz;
@@ -711,7 +472,6 @@ int main_core(Parameters *params_conf_all)
   vout.general("exact src coordinates : (%d, %d, %d)\n",srcpt_exa[0],srcpt_exa[1],srcpt_exa[2]);
 
   delete rand_refpt;
-
   /*
   for(int lt=0;lt<Lt;lt++){
     int grids[4];
@@ -740,9 +500,8 @@ int main_core(Parameters *params_conf_all)
     }
   }
   */
-  // new impl. start
-  Timer make_src_exa("make_src_exa");
-  make_src_exa.start();
+
+  // new implementation
   for(int n=0;n<Nc*Nd*Lt;n++){
     point_src_exa[n].reset(Nvol,1);
 #pragma omp parallel
@@ -750,7 +509,7 @@ int main_core(Parameters *params_conf_all)
       point_src_exa[n].set(0.0);
     }
   }
-  
+
   for(int lt=0;lt<Lt;lt++){
     int grids[4];
     grids[0] = srcpt_exa[0] / Nx;
@@ -762,21 +521,19 @@ int main_core(Parameters *params_conf_all)
     if(Communicator::nodeid()==rank){
 #pragma omp parallel for
       for(int d=0;d<Nd;d++){
-	for(int c=0;c<Nc;c++){
-	  // local coordinates for src points
-	  int nx = srcpt_exa[0] % Nx;
-	  int ny = srcpt_exa[1] % Ny;
-	  int nz = srcpt_exa[2] % Nz;
-	  int nt = lt % Nt;
-	  point_src_exa[c+Nc*(d+Nd*(lt))].set_r(c,d,nx+Nx*(ny+Ny*(nz+Nz*nt)),0,1.0);
-	}
+        for(int c=0;c<Nc;c++){
+          // local coordinates for src points
+          int nx = srcpt_exa[0] % Nx;
+          int ny = srcpt_exa[1] % Ny;
+          int nz = srcpt_exa[2] % Nz;
+          int nt = lt % Nt;
+          point_src_exa[c+Nc*(d+Nd*(lt))].set_r(c,d,nx+Nx*(ny+Ny*(nz+Nz*nt)),0,1.0);
+        }
       }
     }
     Communicator::sync_global();
   }
-  make_src_exa.stop();
-  make_src_exa.report();
-
+  
   // smeared sink
   Field_F *smrd_src_exa = new Field_F[Nc*Nd*Lt];
   smear->smear(smrd_src_exa, point_src_exa, Nc*Nd*Lt);
@@ -807,50 +564,12 @@ int main_core(Parameters *params_conf_all)
   //a2a::inversion_eo(Hinv,fopr_l_eo,fopr_l,point_src_exagm5,Nc*Nd*Lt);
   //delete[] point_src_exagm5;
   // bridge core lib.
-  //a2a::inversion_eo(Hinv,fopr_l_eo,fopr_l,smrd_src_exagm5,Nc*Nd*Lt, inv_prec_full);
-  // alternative code
-  //a2a::inversion_alt_mixed_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
-  /*
+  //a2a::inversion_eo(Hinv,fopr_l_eo,fopr_l,smrd_src_exagm5,Nc*Nd*Lt);
   a2a::inversion_alt_mixed_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
-				  Nc*Nd*Lt, inv_prec_full, inv_prec_inner,
-				  Nmaxiter, Nmaxres);
-  */
-  // solve inversions
-  if(solver_type_caa=="Double_eo"){  
-    // bridge core lib.   
-    Fopr_Clover_eo *fopr_l_eo = new Fopr_Clover_eo("Dirac");
-    fopr_l_eo -> set_parameters(kappa_s, csw, bc);
-    fopr_l_eo -> set_config(U);
-    Timer invtimer_org("Inversion (org, BiCGStab_eo)");
-    invtimer_org.start();
-    a2a::inversion_eo(Hinv,fopr_l_eo,fopr_l,smrd_src_exagm5,Nc*Nd*Lt, inv_prec_full);
-    invtimer_org.stop();
-    invtimer_org.report();
-    delete fopr_l_eo;
-  }
-  else if(solver_type_caa=="Mixed_eo"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec. + e/o precond.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
-				       Nc*Nd*Lt, inv_prec_full, inv_prec_inner,
-				       Nmaxiter, Nmaxres);
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
-  else if(solver_type_caa=="Mixed"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
-				    Nc*Nd*Lt, inv_prec_full, inv_prec_inner,
-				    Nmaxiter, Nmaxres);
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
+				     Nc*Nd*Lt, inv_prec_full, inv_prec_inner,
+				     Nmaxiter, Nmaxres);
 
   
- 
   delete[] smrd_src_exagm5;
 
   // smeared sink
@@ -864,7 +583,7 @@ int main_core(Parameters *params_conf_all)
   //a2a::contraction_s2s_fxdpt_1dir(Fp2aexa, Hinv, srcpt_exa, chi_ll, xi_s, Ndil_tslice, Nsrc_t, 1);
   //delete[] Hinv;
   // smeared sink
-  a2a::contraction_s2s_fxdpt_1dir(Fp2aexa, Hinv_smrdsink, srcpt_exa, chi_ll_smrdsink, xi_s_smrdsink, Ndil_tslice, Nsrc_t, 1);
+  a2a::contraction_s2s_fxdpt_1dir(Fp2aexa, Hinv_smrdsink, srcpt_exa, xi_l_smrdsink, zeta_s_smrdsink, Ndil_tslice, Nsrc_t, 1);
   delete[] Hinv_smrdsink;
 
 #pragma omp parallel for
@@ -877,11 +596,8 @@ int main_core(Parameters *params_conf_all)
   delete[] Fp2aexa;
   
   // output NBS (exact point)
-  string fname_baseexa("/NBS_box_highexa_");
+  string fname_baseexa("/NBS_tri_highexa_");
   string fname_exa = outdir_name + fname_baseexa + timeave;
-  //char fname_exac[256];
-  //snprintf(fname_exac,sizeof(fname_exac),fname_exa.c_str(),fnum);
-  //fname_exa = fname_exac;
   a2a::output_NBS_CAA_srctave(Fbox_p2a, Nsrc_t, &srct_list[0], srcpt_exa, srcpt_exa, fname_exa);
   // output NBS end
 
@@ -890,7 +606,7 @@ int main_core(Parameters *params_conf_all)
 
   ////////////////////////////////////////////////////////////////////////////////////////////
   /////////////////// box diagram 1 (CAA algorithm, relaxed CG part) /////////////////////////
-  
+
   int Nrelpt_x = caa_grid[0];
   int Nrelpt_y = caa_grid[1];
   int Nrelpt_z = caa_grid[2];
@@ -898,7 +614,8 @@ int main_core(Parameters *params_conf_all)
   int interval_y = Ly / Nrelpt_y;
   int interval_z = Lz / Nrelpt_z;
   int Nsrcpt = Nrelpt_x * Nrelpt_y * Nrelpt_z; // the num. of the source points
-  int *srcpt_rel = new int[Nsrcpt*3]; // an array of the source points (x,y,z) (global) 
+  int *srcpt_rel = new int[Nsrcpt*3]; // an array of the source points (x,y,z) (global)
+   
   //dcomplex *Fbox1_p2arel = new dcomplex[Nvol*Nsrc_t];
   //dcomplex *Fbox1_caa = new dcomplex[Nvol*Nsrc_t*Nsrcpt];
   //Field_F *point_src_rel = new Field_F[Nsrcpt*Nc*Nd*Lt]; // source vector for inversion
@@ -915,7 +632,6 @@ int main_core(Parameters *params_conf_all)
 
   // construct projected source vectors
   // set src point coordinates (global)
-#pragma omp parallel for
   for(int n=0;n<Nsrcpt;n++){
     int relpt_x = (n % Nrelpt_x) * interval_x + srcpt_exa[0];
     int relpt_y = ((n / Nrelpt_x) % Nrelpt_y) * interval_y + srcpt_exa[1];
@@ -923,18 +639,16 @@ int main_core(Parameters *params_conf_all)
     srcpt_rel[0+3*n] = relpt_x % Lx;
     srcpt_rel[1+3*n] = relpt_y % Ly;
     srcpt_rel[2+3*n] = relpt_z % Lz;
-    vout.general("relaxed CG src coordinates %d : (%d, %d, %d)\n",n,srcpt_rel[0+3*n],srcpt_rel[1+3*n],srcpt_rel[2+3*n]);
+        vout.general("relaxed CG src coordinates %d : (%d, %d, %d)\n",n,srcpt_rel[0+3*n],srcpt_rel[1+3*n],srcpt_rel[2+3*n]);
   }
 
   for(int n=0;n<Nsrcpt;n++){
-
     int srcpt[3];
     srcpt[0] = srcpt_rel[0+3*n];
     srcpt[1] = srcpt_rel[1+3*n];
     srcpt[2] = srcpt_rel[2+3*n];
-
-    // making src vector
     /*
+    // making src vector
     for(int lt=0;lt<Lt;lt++){
       int grids[4];
       grids[0] = srcpt_rel[0+3*n] / Nx;
@@ -962,8 +676,8 @@ int main_core(Parameters *params_conf_all)
       }
     }
     */
-    
-    // new impl. start  
+
+    // new impl. start
     for(int lt=0;lt<Lt;lt++){
       int grids[4];
       grids[0] = srcpt[0] / Nx;
@@ -974,27 +688,27 @@ int main_core(Parameters *params_conf_all)
       Communicator::grid_rank(&rank,grids);
       if(Communicator::nodeid()==rank){
 #pragma omp parallel for
-	for(int d=0;d<Nd;d++){
-	  for(int c=0;c<Nc;c++){
-	    // local coordinates for src points
-	    int nx = srcpt[0] % Nx;
-	    int ny = srcpt[1] % Ny;
-	    int nz = srcpt[2] % Nz;
-	    int nt = lt % Nt;
-	    point_src_rel[c+Nc*(d+Nd*(lt))].set_r(c,d,nx+Nx*(ny+Ny*(nz+Nz*nt)),0,1.0);
-	  }
-	}
+        for(int d=0;d<Nd;d++){
+          for(int c=0;c<Nc;c++){
+            // local coordinates for src points
+            int nx = srcpt[0] % Nx;
+            int ny = srcpt[1] % Ny;
+            int nz = srcpt[2] % Nz;
+            int nt = lt % Nt;
+            point_src_rel[c+Nc*(d+Nd*(lt))].set_r(c,d,nx+Nx*(ny+Ny*(nz+Nz*nt)),0,1.0);
+          }
+        }
       }
       Communicator::sync_global();
     }
-    // new impl. end
+    // new impl. end 
     
     // smeared sink    
     Field_F *smrd_src_rel = new Field_F[Nc*Nd*Lt];
     smear->smear(smrd_src_rel, point_src_rel, Nc*Nd*Lt);
     
     // P1 projection
-    //a2a::eigenmode_projection(point_src_rel,Nc*Nd*Lt,evec_in,Neigen_req);
+    //a2a::eigenmode_projection(point_src_rel,Nc*Nd*Lt,evec_in,Neigen);
     a2a::eigenmode_projection(smrd_src_rel,Nc*Nd*Lt,evec_in,Neigen);
 
     // solve inversion 
@@ -1014,49 +728,12 @@ int main_core(Parameters *params_conf_all)
     fopr_l->set_mode("D");
     //a2a::inversion_eo(Hinv_rel,fopr_l_eo,fopr_l,point_src_relgm5,Nc*Nd*Lt, res2);
     //delete[] point_src_relgm5;
-    // bridge core lib.
-    //a2a::inversion_eo(Hinv_rel,fopr_l_eo,fopr_l,smrd_src_relgm5,Nc*Nd*Lt, inv_prec_caa);
-    // alternative code
-    //double inv_prec_inner_caa = 3.0e-3;
-    //a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
-    /*
+    // bridge core lib
+    //a2a::inversion_eo(Hinv_rel,fopr_l_eo,fopr_l,smrd_src_relgm5,Nc*Nd*Lt, res2);
+
     a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
-				    Nc*Nd*Lt, inv_prec_caa, inv_prec_inner_caa,
-				    Nmaxiter, Nmaxres);
-    */
-    // solve inversions
-    if(solver_type_caa=="Double_eo"){  
-      // bridge core lib.   
-      Fopr_Clover_eo *fopr_l_eo = new Fopr_Clover_eo("Dirac");
-      fopr_l_eo -> set_parameters(kappa_s, csw, bc);
-      fopr_l_eo -> set_config(U);
-      Timer invtimer_org("Inversion (org, BiCGStab_eo)");
-      invtimer_org.start();
-      a2a::inversion_eo(Hinv_rel,fopr_l_eo,fopr_l,smrd_src_relgm5,Nc*Nd*Lt, inv_prec_caa);
-      invtimer_org.stop();
-      invtimer_org.report();
-      delete fopr_l_eo;
-    }
-    else if(solver_type_caa=="Mixed_eo"){
-      // alternative code implementation (mixed prec)
-      Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec. + e/o precond.)");
-      invtimer_alt.start();
-      a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
-					 Nc*Nd*Lt, inv_prec_caa, inv_prec_inner_caa,
-					 Nmaxiter, Nmaxres);
-      invtimer_alt.stop();
-      invtimer_alt.report();
-    }
-    else if(solver_type_caa=="Mixed"){
-      // alternative code implementation (mixed prec)
-      Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec.)");
-      invtimer_alt.start();
-      a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
-					 Nc*Nd*Lt, inv_prec_caa, inv_prec_inner_caa,
-					 Nmaxiter, Nmaxres);
-      invtimer_alt.stop();
-      invtimer_alt.report();
-    }
+				       Nc*Nd*Lt, inv_prec_caa, inv_prec_inner_caa,
+				       Nmaxiter, Nmaxres);
 
     delete[] smrd_src_relgm5;
 
@@ -1072,7 +749,7 @@ int main_core(Parameters *params_conf_all)
     //a2a::contraction_s2s_fxdpt_1dir(Fp2arel, Hinv_rel, srcpt, chi_ll, xi_s, Ndil_tslice, Nsrc_t, 1);
     //delete[] Hinv_rel;
     // smeared sink
-    a2a::contraction_s2s_fxdpt_1dir(Fp2arel, Hinv_smrdsink_rel, srcpt, chi_ll_smrdsink, xi_s_smrdsink, Ndil_tslice, Nsrc_t, 1);
+    a2a::contraction_s2s_fxdpt_1dir(Fp2arel, Hinv_smrdsink_rel, srcpt, xi_l_smrdsink, zeta_s_smrdsink, Ndil_tslice, Nsrc_t, 1);
     delete[] Hinv_smrdsink_rel;
 
     // output NBS (exact point)
@@ -1084,11 +761,8 @@ int main_core(Parameters *params_conf_all)
       }
     }
 
-    string fname_baserel("/NBS_box_highrel_");
+    string fname_baserel("/NBS_tri_highrel_");
     string fname_rel = outdir_name + fname_baserel + timeave;
-    //char fname_relc[256];
-    //snprintf(fname_relc,sizeof(fname_relc),fname_rel.c_str(),fnum);
-    //fname_rel = fname_relc;
     a2a::output_NBS_CAA_srctave(Fbox_p2arelo, Nsrc_t, &srct_list[0], srcpt, srcpt_exa, fname_rel);
     // output NBS end
 
@@ -1096,17 +770,15 @@ int main_core(Parameters *params_conf_all)
     delete[] Fbox_p2arelo;
 
   }// for n srcpt
-  
+
   // new implementation end
-  
-  //delete[] point_src_rel;
-  //delete[] srcpt_rel;
-  //delete[] srcpt_exa;
-  
+
+  delete[] point_src_rel;
+  delete[] srcpt_rel;
+  delete[] srcpt_exa;
   delete[] evec_in;
   delete[] eval_in;
-  // bridge core lib.
-  //delete fopr_l;
+  delete fopr_l;
   //delete fopr_l_eo;
   delete U;
 
@@ -1114,11 +786,10 @@ int main_core(Parameters *params_conf_all)
   //delete[] chi_ll;
 
   // smeared sink
-  delete[] xi_s_smrdsink;
-  delete[] chi_ll_smrdsink;
+  delete[] zeta_s_smrdsink;
+  delete[] xi_l_smrdsink;
   delete smear;
   delete dirac;    
-  
 
   //////////////////////////////////////////////////////
   // ###  finalize  ###

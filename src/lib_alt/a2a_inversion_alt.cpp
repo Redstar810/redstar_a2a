@@ -143,7 +143,7 @@ int a2a::inversion_alt_mixed_Clover_eo(Field_F *xi, const Field_F *src, Field_G 
   Index_lex_alt<double> index_alt;
   Index_eo_alt<double> index_eo;
 
-  vout.general("===== solve inversions (alternative, mixed precision) =====\n");
+  vout.general("===== solve inversions (alternative, mixed precision + e/o precond.) =====\n");
   
   // fopr: double prec.                                                               
   unique_ptr< AFopr_Clover_eo<AFIELD_d> > afopr_fineD(new AFopr_Clover_eo<AFIELD_d >);

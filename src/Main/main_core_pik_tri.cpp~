@@ -1,0 +1,915 @@
+/*
+        @file    $Id: run_test.cpp #$
+	
+        @brief   For all-to-all calculation
+	
+        @author  Yutaro Akahoshi
+		 
+        @date    $LastChangedDate: 2018-07-17 23:37:00 #$
+
+        @version $LastChangedRevision: 1605 $
+*/
+
+#include <stdio.h>
+#include <cstdlib>
+#include <fstream>
+#include <string>
+#include <iomanip>
+#include <limits>
+
+#include "Tools/randomNumberManager.h"
+#include "Tools/randomNumbers_Mseries.h"
+#include "Measurements/Fermion/noiseVector_Z2.h"
+#include "Parameters/commonParameters.h"
+
+#include "Field/field_F.h"
+#include "Field/field_G.h"
+#include "IO/gaugeConfig.h"
+#include "Measurements/Gauge/staple_lex.h"
+
+#include "Fopr/fopr_Clover.h"
+#include "Fopr/fopr_Chebyshev.h"
+#include "Fopr/fopr_Clover_eo.h"
+#include "Solver/solver_CG.h"
+#include "Solver/solver_BiCGStab_Cmplx.h"
+#include "Eigen/eigensolver_IRLanczos.h"
+#include "Tools/gammaMatrixSet_Dirac.h"
+#include "Tools/gammaMatrixSet_Chiral.h"
+#include "Tools/gammaMatrixSet.h"
+#include "Tools/gammaMatrix.h"
+#include "Tools/fft_alt_3d_parallel3.h"
+#include "Tools/timer.h"
+
+#include "IO/bridgeIO.h"
+
+#include "a2a.h"
+
+using  Bridge::vout;
+static Bridge::VerboseLevel vl = vout.set_verbose_level("General");
+
+//====================================================================
+int run_test()
+{
+  // ###  initialize  ###
+
+  vout.general(vl, "\n@@@@@@ Main part START @@@@@@\n\n");
+  
+  //////////////////////////////////////////////////////
+  // ###  parameter setup  ###
+  
+  int Nc   = CommonParameters::Nc();
+  int Nd   = CommonParameters::Nd();
+  int Nx   = CommonParameters::Nx();
+  int Ny   = CommonParameters::Ny();
+  int Nz   = CommonParameters::Nz();
+  int Nt   = CommonParameters::Nt();
+  int Lx   = CommonParameters::Lx();
+  int Ly   = CommonParameters::Ly();
+  int Lz   = CommonParameters::Lz();
+  int Lt   = CommonParameters::Lt();
+  int Ndim = CommonParameters::Ndim();
+  int Nvol = CommonParameters::Nvol();
+  int Lvol = Lx*Ly*Lz*Lt;
+  int NPE = CommonParameters::NPE();
+  int NPEx = CommonParameters::NPEx();
+  int NPEy = CommonParameters::NPEy();
+  int NPEt = CommonParameters::NPEt();
+  int Nxyz = Nx * Ny * Nz;
+  int Lxyz = Lx * Ly * Lz;
+  
+  int Nnoise = 1;
+  //int Nnoise_hyb = 1;
+  // for tcds dilution  
+  int Ndil = Lt*Nc*Nd*2;
+  
+  std::string dil_type("tcds-eo");
+  
+  int Neigen_in = 300; // number of eigenmodes you want(in eigensolver)
+  int Nworkv_in = 450;
+  int Nq = 30; // margin
+  
+  int Neigen_req = 300; // number of eigenmodes you use
+  
+  //for performance analysis
+  Timer *eigsolvertimer = new Timer("calc");
+  Timer *diltimer = new Timer("calc");
+  Timer *invsolvertimer = new Timer("calc");
+  Timer *sinkoptimer = new Timer("calc");
+  Timer *srcoptimer = new Timer("calc");
+  Timer *srcconntimer = new Timer("calc");
+  Timer *corrtimer = new Timer("calc");
+  Timer *tmptimer = new Timer("calc");
+  Timer *calctimer = new Timer("calc");
+  Timer *contseptimer = new Timer("calc");
+  Timer *contconntimer = new Timer("calc");
+  Timer *smeartimer = new Timer("smearing");
+
+  //////////////////////////////////////////////////////
+  // ###  10 samples calculation parameter setting ###
+  
+  for(int lp=4;lp<5;lp++){
+  //int lp = 0;
+  // for resoance setup //
+  int fnum = 2510 + lp * 10;//1100 + lp * 10; //710+10*lp; //990+10*lp;
+  // for resonance setup //
+  char fname_base[] = "./confdata32/RC32x64_B1900Kud01375400Ks01364000C1715-a-00%04d.gfix";
+  //char fname_base[] = "/home/akahoshi/confdata/kappa_013754.013640/RC32x64_B1900Kud01375400Ks01364000C1715-a-00%04d.gfix";
+  //string oname_base("./a-00%04d-pik_ptsrc");
+  string oname_base("./a-00%04d-pik_ptsrcsmrdsink");
+  char fname[2048];
+  snprintf(fname,sizeof(fname),fname_base,fnum);
+  Field_G *U = new Field_G(Nvol, Ndim);
+  a2a::read_gconf(U,"ILDG",fname);
+
+  Fopr_Clover *fopr_l = new Fopr_Clover("Dirac");
+  Fopr_Clover *fopr_s = new Fopr_Clover("Dirac");
+  std::vector<int> bc(4,1);
+  // for resonance setup //
+  fopr_l -> set_parameters(0.13754, 1.715, bc);
+  fopr_l -> set_config(U);
+  fopr_s -> set_parameters(0.13640, 1.715, bc);
+  fopr_s -> set_config(U);
+
+  // for bound setup //
+  //fopr -> set_parameters(0.13727, 1.715, bc);
+
+  //////////////////////////////////////////////////////
+  // ###  eigen solver (IR-Lanczos)  ###
+  
+  eigsolvertimer -> start();
+  Field_F *evec_in = new Field_F[Neigen_in];
+  double *eval_in = new double[Neigen_in];
+  /*  
+  // naive implementation
+  fopr -> set_mode("H");
+  a2a::eigensolver(evec_in,eval_in,fopr,Neigen_in,Nq,Nworkv_in);
+  //a2a::eigen_check(evec_in,eval_in,Neigen_in);
+  Communicator::sync_global();  
+  eigsolvertimer -> stop();
+  //a2a::eigen_io(evec_in,eval_in,Neigen_in,Neigen_in,0);
+  */
+  
+  // Chebyshev pol. accerelation
+  fopr_l -> set_mode("DdagD");
+  //int Ncb = 10;
+  //double lambda_th = 0.47;
+  int Ncb = 80;
+  double lambda_th = 0.047;
+  //double lambda_th = LAMBDA_TH;
+  double lambda_max = 2.5;
+  double *eval_pol = new double[Neigen_in];
+  Fopr_Chebyshev *fopr_cb = new Fopr_Chebyshev(fopr_l);
+  fopr_cb->set_parameters(Ncb, lambda_th, lambda_max);
+  // solver main part
+  a2a::eigensolver(evec_in,eval_pol,fopr_cb,Neigen_in,Nq,Nworkv_in);
+  fopr_l -> set_mode("H");
+
+  for(int i=0;i<Neigen_req;i++){
+    Field_F v_tmp(evec_in[0]);
+    fopr_l->mult(v_tmp,evec_in[i]);
+    dcomplex eigenvalue = dotc(evec_in[i],v_tmp) / evec_in[i].norm2();
+    vout.general("Eigenvalues (true): %d %16.8e, %16.8e \n",i,real(eigenvalue),imag(eigenvalue));
+    eval_in[i] = real(eigenvalue);
+  }
+  //a2a::eigen_check(evec_in,eval_in,Neigen_in);
+  Communicator::sync_global();
+  eigsolvertimer -> stop();
+  delete fopr_cb;
+  delete[] eval_pol;
+    
+  //////////////////////////////////////////////////////
+  // ###  generate diluted noises  ###
+  diltimer -> start();
+  
+  vout.general("dilution type = %s\n", dil_type.c_str());    
+  Field_F *noise = new Field_F[Nnoise];
+  unsigned long seed;
+  seed = 3224567 - 10*lp;//1234537 - lp; //1234509 - lp;
+
+  a2a::gen_noise_Z4(noise,seed,Nnoise); 
+  //a2a::gen_noise_Z4(noise_hyb,seed_hyb,Nnoise_hyb); 
+  //a2a::gen_noise_Z2(noise,1234567UL,Nnoise);
+  /*
+  // for wall source calculation
+  for(int i=0;i<Nnoise;i++){
+    noise[i].reset(Nvol,1);
+    for(int v=0;v<Nvol;v++){
+      for(int d=0;d<Nd;d++){
+	for(int c=0;c<Nc;c++){
+	  noise[i].set_r(c,d,v,0,1.0);
+	  noise[i].set_i(c,d,v,0,0.0);
+	}
+      }
+    }
+  }
+  */
+  
+  // tcd(or other) dilution
+  Field_F *tdil_noise = new Field_F[Nnoise*Lt];
+  a2a::time_dil(tdil_noise,noise,Nnoise);
+  delete[] noise;
+  Field_F *tcdil_noise =new Field_F[Nnoise*Lt*Nc];
+  a2a::color_dil(tcdil_noise,tdil_noise,Nnoise*Lt);
+  delete[] tdil_noise;
+  //Field_F *dil_noise = new Field_F[Nnoise*Ndil];
+  //Field_F *dil_noise_allt = new Field_F[Nnoise*Ndil];
+  Field_F *tcddil_noise = new Field_F[Nnoise*Lt*Nc*Nd];
+  a2a::dirac_dil(tcddil_noise,tcdil_noise,Nnoise*Lt*Nc);
+  delete[] tcdil_noise;
+
+  Field_F *dil_noise_allt = new Field_F[Nnoise*Ndil];
+  //Field_F *dil_noise = new Field_F[Nnoise*Ndil];
+  //a2a::time_dil(dil_noise,noise,Nnoise);
+  //a2a::color_dil(dil_noise,tdil_noise,Nnoise*Lt);
+  //a2a::dirac_dil(dil_noise,tcdil_noise,Nnoise*Lt*Nc);
+  a2a::spaceeomesh_dil(dil_noise_allt,tcddil_noise,Nnoise*Lt*Nc*Nd);  
+  //a2a::spaceblk_dil(dil_noise,tcddil_noise,Nnoise*Lt*Nc*Nd);  
+  
+  //delete[] noise;
+  //delete[] tdil_noise;
+  //delete[] tcdil_noise;
+  delete[] tcddil_noise;
+  
+  diltimer -> stop();
+    
+  //////////////////////////////////////////////////////
+  // ###  make one-end vectors  ###
+
+  GammaMatrixSet_Dirac *dirac = new GammaMatrixSet_Dirac();
+  GammaMatrix gm_5;
+  gm_5 = dirac->get_GM(dirac->GAMMA5);
+
+  // smearing the noise sources
+  //Field_F *dil_noise_smr = new Field_F[Nnoise*Ndil];
+  //a2a::smearing_exp(dil_noise_smr,dil_noise,Nnoise*Ndil,a,b);
+
+  // source time slice determination
+  vout.general("===== source time setup =====\n");
+  int Nsrc_t = Lt/2; // #. of source time you use 
+  int Ndil_red = Ndil / Lt * Nsrc_t; // reduced d.o.f. of noise vectors
+  int Ndil_tslice = Ndil / Lt; // dilution d.o.f. on a single time slice
+  string numofsrct = std::to_string(Nsrc_t);
+  //string timeave_base("tave"); // full time average
+  string timeave_base("teave"); // even time average
+  //string timeave_base("toave"); // odd time average
+  string timeave = numofsrct + timeave_base;
+  vout.general("Ndil = %d \n", Ndil);
+  vout.general("Ndil_red = %d \n", Ndil_red);
+  vout.general("#. of source time = %d \n",Nsrc_t);
+  int srct_list[Nsrc_t];
+  for(int n=0;n<Nsrc_t;n++){
+    //srct_list[n] = n; // full time average
+    srct_list[n] = (Lt / Nsrc_t) * n; // even time average
+    //srct_list[n] = (Lt / Nsrc_t) * n + 1; // odd time average
+    vout.general("  source time %d = %d\n",n,srct_list[n]);
+  }
+
+  vout.general("==========\n");
+
+  Field_F *dil_noise = new Field_F[Nnoise*Ndil_red];
+  for(int i=0;i<Nnoise;i++){
+    for(int t=0;t<Nsrc_t;t++){
+      for(int n=0;n<Ndil_tslice;n++){
+	copy(dil_noise[n+Ndil_tslice*(t+Nsrc_t*i)],dil_noise_allt[n+Ndil_tslice*(srct_list[t]+Lt*i)]);
+      }
+    }
+  }
+  delete[] dil_noise_allt;
+  
+  Field_F *xi_l = new Field_F[Nnoise*Ndil_red];
+  Fopr_Clover_eo *fopr_l_eo = new Fopr_Clover_eo("Dirac");
+  // for resonance setup //
+  fopr_l_eo -> set_parameters(0.13754, 1.715, bc);
+  fopr_l_eo -> set_config(U);
+
+  a2a::inversion_eo(xi_l,fopr_l_eo,fopr_l,dil_noise,Nnoise*Ndil_red);
+
+  // parameters for sink smearing
+  double a_sink,b_sink,thr_val_sink;
+  a_sink = 1.0;
+  b_sink = 1.0;
+  thr_val_sink = 3.5;
+
+  a2a::Exponential_smearing *smear = new a2a::Exponential_smearing;
+  smear->set_parameters(a_sink,b_sink,thr_val_sink);
+
+  // sink smearing
+  Field_F *xi_l_smrdsink = new Field_F[Nnoise*Ndil_red];
+  smear->smear(xi_l_smrdsink, xi_l, Nnoise*Ndil_red);
+  delete[] xi_l;
+
+  Field_F *dil_noise_GM5 = new Field_F[Nnoise*Ndil_red];
+  for(int n=0;n<Ndil_red*Nnoise;n++){
+    Field_F tmp;
+    tmp.reset(Nvol,1);
+    mult_GM(tmp,gm_5,dil_noise[n]);
+    dil_noise_GM5[n].reset(Nvol,1);
+    copy(dil_noise_GM5[n],tmp);    
+  }
+  Communicator::sync_global();
+  delete[] dil_noise;
+
+  Fopr_Clover_eo *fopr_s_eo = new Fopr_Clover_eo("Dirac");
+  // for resonance setup //
+  fopr_s_eo -> set_parameters(0.13640, 1.715, bc);
+  fopr_s_eo -> set_config(U);
+
+
+  Field_F *zeta_s = new Field_F[Nnoise*Ndil_red];
+  a2a::inversion_eo(zeta_s,fopr_s_eo,fopr_s,dil_noise_GM5,Nnoise*Ndil_red);
+  delete[] dil_noise_GM5;
+
+  // sink smearing
+  Field_F *zeta_s_smrdsink = new Field_F[Nnoise*Ndil_red];
+  smear->smear(zeta_s_smrdsink, zeta_s, Nnoise*Ndil_red);
+  delete[] zeta_s;
+
+  delete fopr_s_eo;
+  delete fopr_s;
+  
+  //////////////////////////////////////////////////////////////
+  // ### calc. 2pt correlator of kappa_type operator### //
+
+  // calc. local sum 
+  dcomplex *corr_local_kappa = new dcomplex[Nt*Nsrc_t];
+  for(int n=0;n<Nt*Nsrc_t;n++){
+    corr_local_kappa[n] = cmplx(0.0,0.0);
+  }
+  for(int r=0;r<Nnoise;r++){
+    for(int t_src=0;t_src<Nsrc_t;t_src++){
+      for(int t=0;t<Nt;t++){
+        for(int i=0;i<Ndil_tslice;i++){
+          for(int vs=0;vs<Nxyz;vs++){
+            for(int d=0;d<Nd;d++){
+              for(int c=0;c<Nc;c++){
+		// smeared sink
+		corr_local_kappa[t+Nt*t_src] += gm_5.value(d) * xi_l_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,gm_5.index(d),vs+Nxyz*t,0) * conj(zeta_s_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0));
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+  for(int n=0;n<Nt*Nsrc_t;n++){
+    corr_local_kappa[n] /= Nnoise;
+  }
+  
+  //output 2pt correlator test
+  char oname[4096];
+  snprintf(oname,sizeof(oname),oname_base.c_str(),fnum);
+  string oname_str(oname);
+  string output_2pt_pi("/2pt_kappa_");
+  
+  a2a::output_2ptcorr(corr_local_kappa, Nsrc_t, srct_list, oname_str+output_2pt_pi+timeave);
+  
+  delete[] corr_local_kappa;
+
+  ///////////////////////////////////////////////////////////////////////
+  ///// ### calc. box diagram using one-end + sequential + CAA ### //
+  
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  /////////////// box diagram (eigen part) ////////////////////////
+
+  Communicator::sync_global();
+  dcomplex *Fbox_eig = new dcomplex[Nvol*Nsrc_t];
+  // smearing
+  Field_F *evec_smrdsink = new Field_F[Neigen_req];
+  smear->smear(evec_smrdsink, evec_in, Neigen_req);
+  // new implementation
+  Field *Feig = new Field[Nsrc_t];
+  //a2a::contraction_lowmode_s2s_1dir(Feig, evec_in, eval_in, Neigen_req, chi_ll, xi_s, Ndil_tslice, Nsrc_t, 1);
+  // smeared sink
+  a2a::contraction_lowmode_s2s_1dir(Feig, evec_smrdsink, eval_in, Neigen_req, xi_l_smrdsink, zeta_s_smrdsink, Ndil_tslice, Nsrc_t, 1);
+#pragma omp parallel for
+  for(int srct=0;srct<Nsrc_t;srct++){
+    for(int v=0;v<Nvol;v++){
+      Fbox_eig[v+Nvol*srct] = -cmplx(Feig[srct].cmp(0,v,0),Feig[srct].cmp(1,v,0));
+    }
+  }
+  delete[] Feig;
+
+  // output NBS (eig part)
+  string fname_baseeig("/NBS_tri_low_");
+  string fname_eig = oname_base + fname_baseeig + timeave;
+  char fname_eigc[256];
+  snprintf(fname_eigc,sizeof(fname_eigc),fname_eig.c_str(),fnum);
+  fname_eig = fname_eigc;
+  a2a::output_NBS_srctave(Fbox_eig, Nsrc_t, &srct_list[0], fname_eig);
+  // output NBS end
+
+  delete[] Fbox_eig;
+
+  // smeared sink
+  delete[] evec_smrdsink;
+
+  ///////////////////////////////////////////////////////////////////////////////////////
+  /////////////////// box diagram 1 (CAA algorithm, exact part) /////////////////////////
+  int *srcpt_exa = new int[3]; // an array of the source points (x,y,z) (global) 
+  dcomplex *Fbox_p2a = new dcomplex[Nvol*Nsrc_t];
+  Field_F *point_src_exa = new Field_F[Nc*Nd*Lt]; // source vector for inversion
+
+  // construct projected source vectors
+  // set src point coordinates (global)
+  // randomly choosen reference point
+  int seed_refpt = 10*lp + 810;
+  RandomNumbers_Mseries *rand_refpt = new RandomNumbers_Mseries(seed_refpt);
+  // generate a random number in [0,Lxyz) for determination of a ref. point
+  double base_refpt = rand_refpt->get() * (double)Lxyz;
+  int base = (int)base_refpt;
+  //int base = 0;
+
+  // ref. point coordinates (global)
+  srcpt_exa[0] = base % Lx;
+  srcpt_exa[1] = (base / Lx) % Ly;
+  srcpt_exa[2] = (base / Lx) / Ly;
+  vout.general("exact src coordinates : (%d, %d, %d)\n",srcpt_exa[0],srcpt_exa[1],srcpt_exa[2]);
+
+  delete rand_refpt;
+
+  for(int lt=0;lt<Lt;lt++){
+    int grids[4];
+    grids[0] = srcpt_exa[0] / Nx;
+    grids[1] = srcpt_exa[1] / Ny;
+    grids[2] = srcpt_exa[2] / Nz;
+    grids[3] = lt / Nt;
+    int rank;
+    Communicator::grid_rank(&rank,grids);
+    for(int d=0;d<Nd;d++){
+      for(int c=0;c<Nc;c++){
+	Field_F src; // temporal array for src vectors
+	src.reset(Nvol,1);
+	src.set(0.0);
+	if(Communicator::nodeid()==rank){
+	  // local coordinates for src points
+	  int nx = srcpt_exa[0] % Nx;
+	  int ny = srcpt_exa[1] % Ny;
+	  int nz = srcpt_exa[2] % Nz;
+	  int nt = lt % Nt;
+	  src.set_r(c,d,nx+Nx*(ny+Ny*(nz+Nz*nt)),0,1.0);
+	}
+	Communicator::sync_global();
+	copy(point_src_exa[c+Nc*(d+Nd*(lt))],src);
+      }
+    }
+  }
+
+  // smeared sink
+  Field_F *smrd_src_exa = new Field_F[Nc*Nd*Lt];
+  smear->smear(smrd_src_exa, point_src_exa, Nc*Nd*Lt);
+  delete[] point_src_exa;
+
+  // P1 projection
+  //a2a::eigenmode_projection(point_src_exa,Nc*Nd*Lt,evec_in,Neigen_req);
+  // smeared sink
+  a2a::eigenmode_projection(smrd_src_exa,Nc*Nd*Lt,evec_in,Neigen_req);
+
+  // solve inversion 
+  Field_F *Hinv = new Field_F[Nc*Nd*Lt]; // H^-1 for each src point
+  double res2 = 1.0e-24;
+ 
+  //Field_F *point_src_exagm5 = new Field_F[Nc*Nd*Lt];
+  // smeared sink
+  Field_F *smrd_src_exagm5 = new Field_F[Nc*Nd*Lt];
+  for(int i=0;i<Nc*Nd*Lt;i++){
+    //point_src_exagm5[i].reset(Nvol,1);
+    //mult_GM(point_src_exagm5[i],gm_5,point_src_exa[i]);
+    smrd_src_exagm5[i].reset(Nvol,1);
+    mult_GM(smrd_src_exagm5[i],gm_5,smrd_src_exa[i]);
+  }
+  //delete[] point_src_exa; 
+  delete[] smrd_src_exa; 
+  
+  fopr_l->set_mode("D");
+  //a2a::inversion_eo(Hinv,fopr_l_eo,fopr_l,point_src_exagm5,Nc*Nd*Lt);
+  //delete[] point_src_exagm5;
+  a2a::inversion_eo(Hinv,fopr_l_eo,fopr_l,smrd_src_exagm5,Nc*Nd*Lt);
+  delete[] smrd_src_exagm5;
+
+  // smeared sink
+  Field_F *Hinv_smrdsink = new Field_F[Nc*Nd*Lt];
+  smear->smear(Hinv_smrdsink, Hinv, Nc*Nd*Lt);
+  delete[] Hinv;
+
+  // new implementation
+  Field *Fp2aexa = new Field[Nsrc_t];
+
+  //a2a::contraction_s2s_fxdpt_1dir(Fp2aexa, Hinv, srcpt_exa, chi_ll, xi_s, Ndil_tslice, Nsrc_t, 1);
+  //delete[] Hinv;
+  // smeared sink
+  a2a::contraction_s2s_fxdpt_1dir(Fp2aexa, Hinv_smrdsink, srcpt_exa, xi_l_smrdsink, zeta_s_smrdsink, Ndil_tslice, Nsrc_t, 1);
+  delete[] Hinv_smrdsink;
+
+#pragma omp parallel for
+  for(int srct=0;srct<Nsrc_t;srct++){
+    for(int v=0;v<Nvol;v++){
+      Fbox_p2a[v+Nvol*srct] = -cmplx(Fp2aexa[srct].cmp(0,v,0),Fp2aexa[srct].cmp(1,v,0));
+    }
+  }
+
+  delete[] Fp2aexa;
+  
+  // output NBS (exact point)
+  string fname_baseexa("/NBS_tri_highexa_");
+  string fname_exa = oname_base + fname_baseexa + timeave;
+  char fname_exac[256];
+  snprintf(fname_exac,sizeof(fname_exac),fname_exa.c_str(),fnum);
+  fname_exa = fname_exac;
+  a2a::output_NBS_CAA_srctave(Fbox_p2a, Nsrc_t, &srct_list[0], srcpt_exa, srcpt_exa, fname_exa);
+  // output NBS end
+
+  delete[] Fbox_p2a;
+  
+
+  ////////////////////////////////////////////////////////////////////////////////////////////
+  /////////////////// box diagram 1 (CAA algorithm, relaxed CG part) /////////////////////////
+  //printf("here_rel.\n");
+  int Nrelpt_axis = 2;
+  int interval_relpt = Lx / Nrelpt_axis;
+  int Nsrcpt = Nrelpt_axis * Nrelpt_axis * Nrelpt_axis; // the num. of the source points
+  int *srcpt_rel = new int[Nsrcpt*3]; // an array of the source points (x,y,z) (global) 
+  //dcomplex *Fbox1_p2arel = new dcomplex[Nvol*Nsrc_t];
+  //dcomplex *Fbox1_caa = new dcomplex[Nvol*Nsrc_t*Nsrcpt];
+  //Field_F *point_src_rel = new Field_F[Nsrcpt*Nc*Nd*Lt]; // source vector for inversion
+  Field_F *point_src_rel = new Field_F[Nc*Nd*Lt]; // source vector for inversion
+  vout.general("Nsrcpt = %d\n",Nsrcpt);
+  //idx_noise = 0;
+
+  // construct projected source vectors
+  // set src point coordinates (global)
+  for(int n=0;n<Nsrcpt;n++){
+    int relpt_x = (n % Nrelpt_axis) * interval_relpt + srcpt_exa[0];
+    int relpt_y = ((n / Nrelpt_axis) % Nrelpt_axis) * interval_relpt + srcpt_exa[1];
+    int relpt_z = ((n / Nrelpt_axis) / Nrelpt_axis) * interval_relpt + srcpt_exa[2];
+    srcpt_rel[0+3*n] = relpt_x % Lx;
+    srcpt_rel[1+3*n] = relpt_y % Ly;
+    srcpt_rel[2+3*n] = relpt_z % Lz;
+    vout.general("relaxed CG src coordinates %d : (%d, %d, %d)\n",n,srcpt_rel[0+3*n],srcpt_rel[1+3*n],srcpt_rel[2+3*n]);
+  }
+
+  for(int n=0;n<Nsrcpt;n++){
+    int srcpt[3];
+    srcpt[0] = srcpt_rel[0+3*n];
+    srcpt[1] = srcpt_rel[1+3*n];
+    srcpt[2] = srcpt_rel[2+3*n];
+
+    // making src vector
+    for(int lt=0;lt<Lt;lt++){
+      int grids[4];
+      grids[0] = srcpt_rel[0+3*n] / Nx;
+      grids[1] = srcpt_rel[1+3*n] / Ny;
+      grids[2] = srcpt_rel[2+3*n] / Nz;
+      grids[3] = lt / Nt;
+      int rank;
+      Communicator::grid_rank(&rank,grids);
+      for(int d=0;d<Nd;d++){
+	for(int c=0;c<Nc;c++){
+	  Field_F src; // temporal array for src vectors
+	  src.reset(Nvol,1);
+	  src.set(0.0);
+	  if(Communicator::nodeid()==rank){
+	    // local coordinates for src points
+	    int nx = srcpt_rel[0+3*n] % Nx;
+	    int ny = srcpt_rel[1+3*n] % Ny;
+	    int nz = srcpt_rel[2+3*n] % Nz;
+	    int nt = lt % Nt;
+	    src.set_r(c,d,nx+Nx*(ny+Ny*(nz+Nz*nt)),0,1.0);
+	  }
+	  Communicator::sync_global();
+	  copy(point_src_rel[c+Nc*(d+Nd*(lt))],src);
+	}
+      }
+    }
+
+    // smeared sink    
+    Field_F *smrd_src_rel = new Field_F[Nc*Nd*Lt];
+    smear->smear(smrd_src_rel, point_src_rel, Nc*Nd*Lt);
+    
+    // P1 projection
+    //a2a::eigenmode_projection(point_src_rel,Nc*Nd*Lt,evec_in,Neigen_req);
+    a2a::eigenmode_projection(smrd_src_rel,Nc*Nd*Lt,evec_in,Neigen_req);
+
+    // solve inversion 
+    Field_F *Hinv_rel = new Field_F[Nc*Nd*Lt]; // H^-1 for each src point  
+    res2 = 9.0e-6; // for CAA algorithm
+    
+    //Field_F *point_src_relgm5 = new Field_F[Nc*Nd*Lt];
+    Field_F *smrd_src_relgm5 = new Field_F[Nc*Nd*Lt];
+    for(int i=0;i<Nc*Nd*Lt;i++){
+      //point_src_relgm5[i].reset(Nvol,1);
+      //mult_GM(point_src_relgm5[i],gm_5,point_src_rel[i]);
+      smrd_src_relgm5[i].reset(Nvol,1);
+      mult_GM(smrd_src_relgm5[i],gm_5,smrd_src_rel[i]);
+    }
+    delete[] smrd_src_rel;
+
+    fopr_l->set_mode("D");
+    //a2a::inversion_eo(Hinv_rel,fopr_l_eo,fopr_l,point_src_relgm5,Nc*Nd*Lt, res2);
+    //delete[] point_src_relgm5;
+    a2a::inversion_eo(Hinv_rel,fopr_l_eo,fopr_l,smrd_src_relgm5,Nc*Nd*Lt, res2);
+    delete[] smrd_src_relgm5;
+
+    // smeared sink
+    Field_F *Hinv_smrdsink_rel = new Field_F[Nc*Nd*Lt];
+    smear->smear(Hinv_smrdsink_rel, Hinv_rel, Nc*Nd*Lt);
+    delete[] Hinv_rel;
+
+    // new implementation
+    Field *Fp2arel = new Field[Nsrc_t];
+    //Field *Fp2arel2 = new Field[Nsrc_t];
+
+    //a2a::contraction_s2s_fxdpt_1dir(Fp2arel, Hinv_rel, srcpt, chi_ll, xi_s, Ndil_tslice, Nsrc_t, 1);
+    //delete[] Hinv_rel;
+    // smeared sink
+    a2a::contraction_s2s_fxdpt_1dir(Fp2arel, Hinv_smrdsink_rel, srcpt, xi_l_smrdsink, zeta_s_smrdsink, Ndil_tslice, Nsrc_t, 1);
+    delete[] Hinv_smrdsink_rel;
+
+    // output NBS (exact point)
+    dcomplex *Fbox_p2arelo = new dcomplex[Nvol*Nsrc_t];
+#pragma omp parallel for
+    for(int srct=0;srct<Nsrc_t;srct++){
+      for(int v=0;v<Nvol;v++){
+	Fbox_p2arelo[v+Nvol*srct] = -cmplx(Fp2arel[srct].cmp(0,v,0),Fp2arel[srct].cmp(1,v,0));
+      }
+    }
+
+    string fname_baserel("/NBS_tri_highrel_");
+    string fname_rel = oname_base + fname_baserel + timeave;
+    char fname_relc[256];
+    snprintf(fname_relc,sizeof(fname_relc),fname_rel.c_str(),fnum);
+    fname_rel = fname_relc;
+    a2a::output_NBS_CAA_srctave(Fbox_p2arelo, Nsrc_t, &srct_list[0], srcpt, srcpt_exa, fname_rel);
+    // output NBS end
+
+    delete[] Fp2arel;
+    delete[] Fbox_p2arelo;
+
+  }// for n srcpt
+
+  // new implementation end
+
+  delete[] point_src_rel;
+  delete[] srcpt_rel;
+  delete[] srcpt_exa;
+  delete[] evec_in;
+  delete[] eval_in;
+  delete fopr_l;
+  delete fopr_l_eo;
+  delete U;
+
+  //delete[] xi_s;
+  //delete[] chi_ll;
+
+  // smeared sink
+  delete[] zeta_s_smrdsink;
+  delete[] xi_l_smrdsink;
+  delete smear;
+  delete dirac;    
+  
+  /////////////////////////////////////////////////////////////////////////////////////////////
+  ////// finalize the wave function //////
+  /*
+  dcomplex *F_final,*Fbox1_eigall,*Fbox1_eigin,*Fbox1_restall,*Fbox1_restin,*Fbox1_caaall,*Fbox1_caain;
+  
+  // memory safe implementation 
+  if(Communicator::nodeid()==0){
+    Fbox1_eigall = new dcomplex[Lvol];
+    Fbox1_eigin = new dcomplex[Nvol];
+    Fbox1_restall = new dcomplex[Lvol];
+    Fbox1_restin = new dcomplex[Nvol];
+    Fbox1_caaall = new dcomplex[Lvol];
+    Fbox1_caain = new dcomplex[Nvol];
+  }
+  if(Communicator::nodeid()==0){
+    F_final = new dcomplex[Lvol];
+    for(int n=0;n<Lvol;n++){
+      F_final[n] = cmplx(0.0,0.0);
+    }
+  }
+
+  // gather all data for each src time slice
+  for(int tt=0;tt<Nsrc_t;tt++){
+
+    if(Communicator::nodeid()==0){
+      for(int t=0;t<Nt;t++){
+	for(int z=0;z<Nz;z++){
+	  for(int y=0;y<Ny;y++){
+	    for(int x=0;x<Nx;x++){
+	      Fbox1_eigall[x+Lx*(y+Ly*(z+Lz*t))] = Fbox1_eig[x+Nx*(y+Ny*(z+Nz*(t+Nt*tt)))];
+	      Fbox1_restall[x+Lx*(y+Ly*(z+Lz*t))] = Fbox1_rest[x+Nx*(y+Ny*(z+Nz*(t+Nt*tt)))];	      
+	    }
+	  }
+	}
+      }
+    } // if nodeid
+
+    for(int irank=1;irank<NPE;irank++){
+      int igrids[4];
+      Communicator::grid_coord(igrids,irank);
+
+      Communicator::sync_global();
+      Communicator::send_1to1(2*Nvol,(double*)&Fbox1_eigin[0],(double*)&Fbox1_eig[Nvol*tt],0,irank,irank);
+
+      Communicator::sync_global();
+      Communicator::send_1to1(2*Nvol,(double*)&Fbox1_restin[0],(double*)&Fbox1_rest[Nvol*tt],0,irank,irank);
+    
+      if(Communicator::nodeid()==0){
+
+	for(int t=0;t<Nt;t++){
+	  for(int z=0;z<Nz;z++){
+	    for(int y=0;y<Ny;y++){
+	      for(int x=0;x<Nx;x++){
+		int true_x = x+Nx*igrids[0];
+		int true_y = y+Ny*igrids[1];
+		int true_z = z+Nz*igrids[2];
+		int true_t = t+Nt*igrids[3];
+		Fbox1_eigall[true_x+Lx*(true_y+Ly*(true_z+Lz*true_t))] = Fbox1_eigin[x+Nx*(y+Ny*(z+Nz*t))];
+		Fbox1_restall[true_x+Lx*(true_y+Ly*(true_z+Lz*true_t))] = Fbox1_restin[x+Nx*(y+Ny*(z+Nz*t))];		
+	      }
+	    }
+	  }
+	}
+	
+      } // if nodeid
+    
+    } // for irank
+    if(Communicator::nodeid()==0){
+      for(int dt=0;dt<Lt;dt++){
+	for(int v=0;v<Lxyz;v++){
+	  int t = (dt+tt)%Lt;
+	  F_final[v+Lxyz*dt] += Fbox1_eigall[v+Lxyz*t]/(double)Nsrc_t;
+	}
+      }
+      
+      for(int dt=0;dt<Lt;dt++){
+	for(int z=0;z<Lz;z++){
+	  for(int y=0;y<Ly;y++){
+	    for(int x=0;x<Lx;x++){
+	      int vs = x + Lx * (y + Ly * z);
+	      int vs_srcp = ((x + srcpt_exa[0]) % Lx) + Lx * (((y + srcpt_exa[1]) % Ly) + Ly * ((z + srcpt_exa[2]) % Lz));
+	      int t = (dt+tt)%Lt;
+	      F_final[vs+Lxyz*dt] += Fbox1_restall[vs_srcp+Lxyz*t]/(double)Nsrc_t;
+	    }
+	  }
+	}
+      }
+      
+    } // if nodeid
+    
+    // CAA part
+    for(int n=0;n<Nsrcpt;n++){
+      if(Communicator::nodeid()==0){
+	for(int t=0;t<Nt;t++){
+	  for(int z=0;z<Nz;z++){
+	    for(int y=0;y<Ny;y++){
+	      for(int x=0;x<Nx;x++){
+		Fbox1_caaall[x+Lx*(y+Ly*(z+Lz*t))] = Fbox1_caa[x+Nx*(y+Ny*(z+Nz*(t+Nt*(tt+Nsrc_t*n))))];
+	      }
+	    }
+	  }
+	}
+      } // if nodeid
+
+      for(int irank=1;irank<NPE;irank++){
+	int igrids[4];
+	Communicator::grid_coord(igrids,irank);
+
+	Communicator::sync_global();
+	Communicator::send_1to1(2*Nvol,(double*)&Fbox1_caain[0],(double*)&Fbox1_caa[Nvol*(tt+Nsrc_t*n)],0,irank,irank);
+    
+	if(Communicator::nodeid()==0){
+
+	  for(int t=0;t<Nt;t++){
+	    for(int z=0;z<Nz;z++){
+	      for(int y=0;y<Ny;y++){
+		for(int x=0;x<Nx;x++){
+		  int true_x = x+Nx*igrids[0];
+		  int true_y = y+Ny*igrids[1];
+		  int true_z = z+Nz*igrids[2];
+		  int true_t = t+Nt*igrids[3];
+		  Fbox1_caaall[true_x+Lx*(true_y+Ly*(true_z+Lz*true_t))] = Fbox1_caain[x+Nx*(y+Ny*(z+Nz*t))];
+		}
+	      }
+	    }
+	  }
+	
+	} // if nodeid
+      } // for irank
+
+      if(Communicator::nodeid()==0){
+	for(int dt=0;dt<Lt;dt++){
+	  for(int z=0;z<Lz;z++){
+	    for(int y=0;y<Ly;y++){
+	      for(int x=0;x<Lx;x++){
+		int vs = x + Lx * (y + Ly * z);
+		int vs_srcp = ((x + srcpt_rel[0+3*n]) % Lx) + Lx * (((y + srcpt_rel[1+3*n]) % Ly) + Ly * ((z + srcpt_rel[2+3*n]) % Lz));
+		int t = (dt+tt)%Lt;
+		F_final[vs+Lxyz*dt] += Fbox1_caaall[vs_srcp+Lxyz*t]/((double)Nsrcpt*(double)Nsrc_t);
+	      }
+	    }
+	  }
+	}
+      }
+      
+      
+    } // for Nsrcpt (CAA) 
+    
+  } // for Nsrc_t
+    
+  if(Communicator::nodeid()==0){
+    delete[] Fbox1_eigall;
+    delete[] Fbox1_eigin;
+    delete[] Fbox1_restall;
+    delete[] Fbox1_restin;
+    delete[] Fbox1_caaall;
+    delete[] Fbox1_caain;
+  }
+  delete[] Fbox1_eig;
+  delete[] Fbox1_rest;
+  delete[] Fbox1_caa;
+  delete[] srcpt_exa;
+  delete[] srcpt_rel;
+
+  if(Communicator::nodeid()==0){
+    dcomplex *F_sum = new dcomplex[Lt];
+    for(int t=0;t<Lt;t++){
+      F_sum[t] = cmplx(0.0,0.0);
+      for(int lz=0;lz<Lz;lz++){
+        for(int ly=0;ly<Ly;ly++){
+          for(int lx=0;lx<Lx;lx++){
+            int true_x,true_y,true_z;
+            if(lx>Lx/2){
+              true_x = lx - Lx;
+            }
+            else{
+              true_x = lx;
+            }
+            if(ly>Ly/2){
+              true_y = ly - Ly;
+            }
+            else{
+              true_y = ly;
+            }
+            if(lz>Lz/2){
+              true_z = lz - Lz;
+            }
+            else{
+              true_z = lz;
+            }
+            double r = std::sqrt(true_x*true_x+true_y*true_y+true_z*true_z);
+            if(r > 1.0e-10){
+              int vs = lx+Lx*(ly+Ly*lz);
+              //F_sum[t] += cmplx(true_z/(2*r)*std::sqrt(3/M_PI),std::sqrt(6.0/M_PI)*true_y/(2*r))*F_final[vs+Lxyz*t];
+              F_sum[t] += cmplx(true_z/(2*r)*std::sqrt(3/M_PI),0.0)*F_final[vs+Lxyz*t];
+            }
+          }
+        }
+      }
+    }
+    vout.general("===== F_sum value ===== \n");
+    for(int t=0;t<Lt;t++){
+      vout.general("t = %d, real = %12.4e, imag = %12.4e \n",t,real(F_sum[t]),imag(F_sum[t]));
+    }
+    delete[] F_sum;
+  } // if nodeid
+  
+  if(Communicator::nodeid()==0){
+    for(int t=0;t<Lt;t++){
+      char filename[100];
+      string file_4pt("/4pt_correlator_%d");
+      string ofname_4pt = oname_base + file_4pt;
+      snprintf(filename, sizeof(filename),ofname_4pt.c_str(),fnum,t);
+      //snprintf(filename, sizeof(filename),ofname_4pt.c_str(),t);
+      //for 48 calc.
+      //snprintf(filename, sizeof(filename),ofname_4pt.c_str(),t);
+      std::ofstream ofs_F(filename,std::ios::binary);                                     
+      for(int vs=0;vs<Lxyz;vs++){                                                               
+	ofs_F.write((char*)&F_final[vs+Lxyz*t],sizeof(double)*2); 
+      }
+    } // for t
+    delete[] F_final;
+  } //if nodeid 0 
+  */
+  } // for lp
+
+  //////////////////////////////////////////////////////
+  // ###  finalize  ###
+  /*
+  delete corrtimer;
+  delete sinkoptimer;
+  delete srcoptimer;
+  delete tmptimer;
+  delete srcconntimer;
+  delete eigsolvertimer;
+  delete invsolvertimer;
+  delete diltimer;
+  delete contseptimer;
+  delete contconntimer;
+  delete calctimer;
+  delete smeartimer;
+  */
+  vout.general(vl, "\n@@@@@@ Main part  END  @@@@@@\n\n");  
+  Communicator::sync_global();
+  return EXIT_SUCCESS;
+}
