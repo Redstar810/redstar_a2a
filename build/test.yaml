@@ -44,4 +44,4 @@ File_io:
   #outdir       : ./test_output
   #outdir       : ./consistency_check_pik_sepconn_threadtest
   #outdir        : ./consistency_check_pipi_tri_rev
-  outdir        : hoge
+  outdir        : test_NN2pt_oneend
