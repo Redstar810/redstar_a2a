@@ -292,21 +292,30 @@ int main_core(Parameters *params_conf_all)
   Timer invtimer_org("inversion [core lib, e/o precond.]");
   Timer invtimer_alt("inversion [alternative, mixed prec.]");
   Timer invtimer_alt2("inversion [alternative, mixed prec. + e/o precond.]");
+  Timer invtimer_alt3("inversion [alternative, double prec. + e/o precond.]");
 
   Field_F *xi_l = new Field_F[Nnoise*Ndil_red];
   // bridge core lib.
   invtimer_org.start();
   a2a::inversion_eo(xi_l,fopr_l_eo,fopr_l,dil_noise,Nnoise*Ndil_red,inv_prec_full);
   invtimer_org.stop();
+
+  // alternative code (double prec. + e/o precond.)
+  Field_F *xi_l_alt3 = new Field_F[Nnoise*Ndil_red];
+  invtimer_alt3.start();
+  a2a::inversion_alt_Clover_eo(xi_l_alt3, dil_noise, U, kappa_l, csw, bc,
+			       Nnoise*Ndil_red, inv_prec_full,
+			       Nmaxiter, Nmaxres);
+  invtimer_alt3.stop();
   
-  // alternative code
+  // alternative code (mixed prec.)
   Field_F *xi_l_alt = new Field_F[Nnoise*Ndil_red];
   invtimer_alt.start();
   a2a::inversion_alt_mixed_Clover(xi_l_alt, dil_noise, U, kappa_l, csw, bc,
                                   Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
                                   Nmaxiter, Nmaxres);
   invtimer_alt.stop();
-  // alternative code (+ e/o precond.)
+  // alternative code (mixed prec. + e/o precond.)
   Field_F *xi_l_alt2 = new Field_F[Nnoise*Ndil_red];
   invtimer_alt2.start();
   a2a::inversion_alt_mixed_Clover_eo(xi_l_alt2, dil_noise, U, kappa_l, csw, bc,
@@ -337,13 +346,24 @@ int main_core(Parameters *params_conf_all)
     vout.general("rel diff (squared, org vs alt(mixed prec.+ e/o precond.)) no.%d : %12.6e\n",n,rel_diff);
   }
 
+  // xi_l vs xi_l_alt3
+  for(int n=0;n<Nnoise*Ndil_red;n++){
+    Field_F diff(Nvol,1);
+    copy(diff, xi_l[n]);
+    axpy(diff, -1.0, xi_l_alt3[n]);
+    double rel_diff = diff.norm2() / xi_l[n].norm2();
+    vout.general("rel diff (squared, org vs alt(double prec.+ e/o precond.)) no.%d : %12.6e\n",n,rel_diff);
+  }
+
 
   delete[] xi_l;
   delete[] xi_l_alt;
   delete[] xi_l_alt2;
+  delete[] xi_l_alt3;
 
   vout.general("\n===== elapsed time report ===== \n");
   invtimer_org.report();
+  invtimer_alt3.report();
   invtimer_alt.report();
   invtimer_alt2.report();
   vout.general("===== elapsed time report END ===== \n\n");

@@ -2,7 +2,7 @@
 
 Main:
   ## lattice_size = [Lx, Ly, Lz, Lt]
-  lattice_size             : [4,4,4,8]
+  lattice_size             : [8,4,4,4]
   ## NB. an empty grid_size [] leads to automatic adjustment
   grid_size                : [1,1,1,1]
   number_of_thread         : 1

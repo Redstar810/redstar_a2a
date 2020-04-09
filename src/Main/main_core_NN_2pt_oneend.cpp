@@ -108,7 +108,7 @@ int main_core(Parameters *params_conf_all)
   std::string dil_type("tcds-eo"); 
   int Nnoise = 1;
   //for tcds dilution  
-  int Ndil_space = 2;
+  int Ndil_space = 4;
   int Ndil = Lt*Nc*Nd*Ndil_space;
   int Ndil_tslice = Ndil / Lt;
 
@@ -225,8 +225,8 @@ int main_core(Parameters *params_conf_all)
   //a2a::time_dil(dil_noise,noise,Nnoise);
   //a2a::color_dil(dil_noise,tdil_noise,Nnoise*Lt);
   //a2a::dirac_dil(dil_noise,tcdil_noise,Nnoise*Lt*Nc);
-  a2a::spaceeomesh_dil(dil_noise_allt,tcddil_noise,Nnoise*Lt*Nc*Nd);
-  //a2a::spaceblk_dil(dil_noise_allt,tcddil_noise,Nnoise*Lt*Nc*Nd);  
+  //a2a::spaceeomesh_dil(dil_noise_allt,tcddil_noise,Nnoise*Lt*Nc*Nd);
+  a2a::spaceblk_dil(dil_noise_allt,tcddil_noise,Nnoise*Lt*Nc*Nd);  
   
   //delete[] noise;
   //delete[] tdil_noise;
