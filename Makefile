@@ -25,8 +25,11 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/main_core_pipi_tri_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_tri_threadtest.cpp	
 #src_main_core = $(a2a_main_path)/main_core_pipi_sep.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_sep_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_box1.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_box1_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_box2.cpp
+src_main_core = $(a2a_main_path)/main_core_pipi_box2_alt.cpp
 
 # for the test of baryonic one-end trick
 #src_main_core = $(a2a_main_path)/main_core_NN_2pt_oneend.cpp
@@ -38,7 +41,7 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/a2a_nexttesti1pibox2_caasmrdsink.cpp
 
 # for solver test
-src_main_core = $(a2a_main_path)/main_core_solver_alt.cpp
+#src_main_core = $(a2a_main_path)/main_core_solver_alt.cpp
 
 # include compilation environment summary
 include $(bridge_lib_path)/make.inc

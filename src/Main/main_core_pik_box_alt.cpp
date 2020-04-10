@@ -1,4 +1,5 @@
-/*A
+
+/*
         @file    $Id: run_test.cpp #$
 	
         @brief   For all-to-all calculation
@@ -904,13 +905,6 @@ int main_core(Parameters *params_conf_all)
   //Field_F *point_src_rel = new Field_F[Nsrcpt*Nc*Nd*Lt]; // source vector for inversion
   Field_F *point_src_rel = new Field_F[Nc*Nd*Lt]; // source vector for inversion
   vout.general("Nsrcpt = %d\n",Nsrcpt);
-  for(int n=0;n<Nc*Nd*Lt;n++){
-    point_src_rel[n].reset(Nvol,1);
-#pragma omp parallel
-    {
-      point_src_rel[n].set(0.0);
-    }
-  }
   //idx_noise = 0;
 
   // construct projected source vectors
@@ -927,6 +921,14 @@ int main_core(Parameters *params_conf_all)
   }
 
   for(int n=0;n<Nsrcpt;n++){
+
+    for(int n=0;n<Nc*Nd*Lt;n++){
+      point_src_rel[n].reset(Nvol,1);
+#pragma omp parallel
+      {
+	point_src_rel[n].set(0.0);
+      }
+    }
 
     int srcpt[3];
     srcpt[0] = srcpt_rel[0+3*n];

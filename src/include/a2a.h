@@ -280,6 +280,27 @@ namespace a2a
 			      const int Nmaxiter,
 			      const int Nmaxres);
 
+  int inversion_mom_alt_mixed_Clover_eo(Field_F *xi, const Field_F *src, Field_G *U,
+					const double kappa,
+					const double csw,
+					const std::vector<int> bc,
+					const int *mom,
+					const int Nsrc,
+					const double prec_outer,
+					const double prec_precond,
+					const int Nmaxiter,
+					const int Nmaxres);
+
+  int inversion_mom_alt_Clover_eo(Field_F *xi, const Field_F *src, Field_G *U,
+				  const double kappa,
+				  const double csw,
+				  const std::vector<int> bc,
+				  const int *mom,
+				  const int Nsrc,
+				  const double prec,
+				  const int Nmaxiter,
+				  const int Nmaxres);
+
   
 } // namespace a2a
 
