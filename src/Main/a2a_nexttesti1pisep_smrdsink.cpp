@@ -1,4 +1,4 @@
-/*
+A/*
         @file    $Id: run_test.cpp #$
 	
         @brief   For all-to-all calculation
@@ -83,7 +83,7 @@ int main_core(Parameters *params_conf_all)
   Parameters params_smrdsink = params_conf_all->lookup("Smearing(sink)");
   Parameters params_fileio = params_conf_all->lookup("File_io");
 
-  //- standard parameters                                                               
+  //- standard parameters 
   std::string conf_name, conf_format;
   double csw, kappa_l, kappa_s;
   std::vector<int> bc;
@@ -1289,8 +1289,8 @@ int main_core(Parameters *params_conf_all)
       string ofname_4pt = outdir_name + file_4pt;
       //snprintf(filename, sizeof(filename),ofname_4pt.c_str(),fnum,t);
       snprintf(filename, sizeof(filename),ofname_4pt.c_str(),t);
-      std::ofstream ofs_F(filename,std::ios::binary);                                     
-      for(int vs=0;vs<Lxyz;vs++){                                                               
+      std::ofstream ofs_F(filename,std::ios::binary);
+      for(int vs=0;vs<Lxyz;vs++){        
 	ofs_F.write((char*)&F_final[vs+Lxyz*t],sizeof(double)*2); 
       }
     } // for t

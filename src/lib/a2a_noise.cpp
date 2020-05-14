@@ -1121,3 +1121,411 @@ int a2a::space8_dil(Field_F* sdil_noise, const Field_F* noise_vec,const int Nnoi
   }
   return 0;  
 }
+
+// under construnction (do not use!)
+int a2a::space16_dil(Field_F* sdil_noise, const Field_F* noise_vec,const int Nnoise, const bool do_check)
+{
+  int Nc = CommonParameters::Nc();
+  int Nd = CommonParameters::Nd();
+  int Nx = CommonParameters::Nx();
+  int Ny = CommonParameters::Ny();
+  int Nz = CommonParameters::Nz();
+  int Nt = CommonParameters::Nt();
+  int Nvol = CommonParameters::Nvol();
+  int Nxyz = Nx * Ny * Nz;
+  int igrids[4];
+
+  // get grid coord. 
+  Communicator::grid_coord(igrids,Communicator::nodeid());
+
+  // initialization //
+  for(int i=0;i<Nnoise*8;i++){
+    sdil_noise[i].set(0.0);
+  }
+
+  // generate space 8 diluted noise vectors //
+#pragma omp parallel for
+  for(int r=0;r<Nnoise;r++){
+    for(int t=0;t<Nt;t++){
+      for(int z=0;z<Nz;z++){ 
+	for(int y=0;y<Ny;y++){
+	  for(int x=0;x<Nx;x++){
+	    int v = x + Nx * (y + Ny * (z + Nz * t));
+	    int true_x = x + Nx * igrids[0];
+	    int true_y = y + Ny * igrids[1];
+	    int true_z = z + Nz * igrids[2];
+	    for(int d=0;d<Nd;d++){
+	      for(int c=0;c<Nc;c++)
+		{
+		  if(true_z % 4 == 0){
+		    if(true_x % 2 == 0 && true_y % 2 == 0){
+		      if((true_x+true_y) % 4 == 0){
+			sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 0){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 0 && true_y % 2 == 1){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 1){
+		      if((true_x+true_y-2) % 4 == 0){
+			sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		  } // if true_z % 4 == 0
+		  else if(true_z % 4 == 1){
+		    if(true_x % 2 == 0 && true_y % 2 == 0){
+		      if((true_x+true_y) % 4 == 0){
+			sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 0){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 0 && true_y % 2 == 1){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 1){
+		      if((true_x+true_y-2) % 4 == 0){
+			sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		  } // if true_z % 4 == 1 
+		  if(true_z % 4 == 2){
+		    if(true_x % 2 == 0 && true_y % 2 == 0){
+		      if((true_x+true_y) % 4 == 0){
+			sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 0){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 0 && true_y % 2 == 1){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 1){
+		      if((true_x+true_y-2) % 4 == 0){
+			sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		  } // if true_z % 4 == 2
+		  else if(true_z % 4 == 3){
+		    if(true_x % 2 == 0 && true_y % 2 == 0){
+		      if((true_x+true_y) % 4 == 0){
+			sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 0){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 0 && true_y % 2 == 1){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 1){
+		      if((true_x+true_y-2) % 4 == 0){
+			sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		  } // if true_z % 4 == 3
+
+		}
+	    }
+	  }
+	}
+      }
+    }
+  } // for r
+
+  // check diluted noise vectors //
+  if(do_check){
+    for(int r=0;r<8*Nnoise;r++){
+    int z=2;
+    int t=0;
+    int c=0;
+    int d=0;
+    std::string ofname_base = "./s8dil_testr%dz%dt%d.txt";
+    char ofname[2048];
+    snprintf(ofname,sizeof(ofname),ofname_base.c_str(),r,z,t);
+    std::ofstream ofs_sdiltest(ofname);  
+      for(int x=0;x<Nx;x++){
+	for(int y=0;y<Ny;y++){ 
+	  int vs = x+Nx*(y+Ny*z);
+	  int v = vs + Nxyz * t;
+	  ofs_sdiltest << x << " " << y << " " << abs(sdil_noise[r].cmp_ri(c,d,v,0)) << " " << std::endl;	      
+	}
+      }
+      ofs_sdiltest.close();
+    }
+  }
+  return 0;  
+}
+
+// under construnction (do not use!)
+int a2a::space32_dil(Field_F* sdil_noise, const Field_F* noise_vec,const int Nnoise, const bool do_check)
+{
+  int Nc = CommonParameters::Nc();
+  int Nd = CommonParameters::Nd();
+  int Nx = CommonParameters::Nx();
+  int Ny = CommonParameters::Ny();
+  int Nz = CommonParameters::Nz();
+  int Nt = CommonParameters::Nt();
+  int Nvol = CommonParameters::Nvol();
+  int Nxyz = Nx * Ny * Nz;
+  int igrids[4];
+
+  // get grid coord. 
+  Communicator::grid_coord(igrids,Communicator::nodeid());
+
+  // initialization //
+  for(int i=0;i<Nnoise*8;i++){
+    sdil_noise[i].set(0.0);
+  }
+
+  // generate space 8 diluted noise vectors //
+#pragma omp parallel for
+  for(int r=0;r<Nnoise;r++){
+    for(int t=0;t<Nt;t++){
+      for(int z=0;z<Nz;z++){ 
+	for(int y=0;y<Ny;y++){
+	  for(int x=0;x<Nx;x++){
+	    int v = x + Nx * (y + Ny * (z + Nz * t));
+	    int true_x = x + Nx * igrids[0];
+	    int true_y = y + Ny * igrids[1];
+	    int true_z = z + Nz * igrids[2];
+	    for(int d=0;d<Nd;d++){
+	      for(int c=0;c<Nc;c++)
+		{
+		  if(true_z % 4 == 0){
+		    if(true_x % 2 == 0 && true_y % 2 == 0){
+		      if((true_x+true_y) % 4 == 0){
+			sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 0){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 0 && true_y % 2 == 1){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 1){
+		      if((true_x+true_y-2) % 4 == 0){
+			sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		  } // if true_z % 4 == 0
+		  else if(true_z % 4 == 1){
+		    if(true_x % 2 == 0 && true_y % 2 == 0){
+		      if((true_x+true_y) % 4 == 0){
+			sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 0){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 0 && true_y % 2 == 1){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 1){
+		      if((true_x+true_y-2) % 4 == 0){
+			sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		  } // if true_z % 4 == 1 
+		  if(true_z % 4 == 2){
+		    if(true_x % 2 == 0 && true_y % 2 == 0){
+		      if((true_x+true_y) % 4 == 0){
+			sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 0){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 0 && true_y % 2 == 1){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 1){
+		      if((true_x+true_y-2) % 4 == 0){
+			sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		  } // if true_z % 4 == 2
+		  else if(true_z % 4 == 3){
+		    if(true_x % 2 == 0 && true_y % 2 == 0){
+		      if((true_x+true_y) % 4 == 0){
+			sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 0){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 0 && true_y % 2 == 1){
+		      if((true_x+true_y-1) % 4 == 0){
+			sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }		    
+		    }
+		    if(true_x % 2 == 1 && true_y % 2 == 1){
+		      if((true_x+true_y-2) % 4 == 0){
+			sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		      else{
+			sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		      }
+		    }
+		  } // if true_z % 4 == 3
+
+		}
+	    }
+	  }
+	}
+      }
+    }
+  } // for r
+
+  // check diluted noise vectors //
+  if(do_check){
+    for(int r=0;r<8*Nnoise;r++){
+    int z=2;
+    int t=0;
+    int c=0;
+    int d=0;
+    std::string ofname_base = "./s8dil_testr%dz%dt%d.txt";
+    char ofname[2048];
+    snprintf(ofname,sizeof(ofname),ofname_base.c_str(),r,z,t);
+    std::ofstream ofs_sdiltest(ofname);  
+      for(int x=0;x<Nx;x++){
+	for(int y=0;y<Ny;y++){ 
+	  int vs = x+Nx*(y+Ny*z);
+	  int v = vs + Nxyz * t;
+	  ofs_sdiltest << x << " " << y << " " << abs(sdil_noise[r].cmp_ri(c,d,v,0)) << " " << std::endl;	      
+	}
+      }
+      ofs_sdiltest.close();
+    }
+  }
+  return 0;  
+}

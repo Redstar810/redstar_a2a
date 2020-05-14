@@ -44,4 +44,6 @@ File_io:
   #outdir       : ./test_output
   #outdir       : ./consistency_check_pik_sepconn_threadtest
   #outdir        : ./consistency_check_pipi_tri_rev
-  outdir        : ./consistency_check_i1ppbox2_alt
+  #outdir        : ./consistency_check_boosteqt_1unitmom
+  #outdir        : ./consistency_check_boostneqt_set1_1unitmom
+  outdir        : ./consistency_check_boostneqt_set2_1unitmom

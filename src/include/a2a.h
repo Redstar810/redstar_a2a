@@ -67,6 +67,10 @@ namespace a2a
   int spaceblk_dil(Field_F*, const Field_F*,const int, const bool do_check = false);
   int spaceobl_dil(Field_F*, const Field_F*, const int, const bool do_check = false);
   int space8_dil(Field_F*, const Field_F*, const int, const bool do_check = false);
+  // ** under construction ** 
+  int space16_dil(Field_F*, const Field_F*, const int, const bool do_check = false);
+  int space32_dil(Field_F*, const Field_F*, const int, const bool do_check = false);
+  // ** **
   
   // hybrid 2pt correlator construction //
   int calc_2pt_hyb(dcomplex*, const dcomplex*, const dcomplex*, const int, const string);
