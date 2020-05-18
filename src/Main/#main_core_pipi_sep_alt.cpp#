@@ -1,4 +1,4 @@
-OA/*
+/*
         @file    $Id: run_test.cpp #$
 	
         @brief   For all-to-all calculation
@@ -256,7 +256,7 @@ int main_core(Parameters *params_conf_all)
   Field_F *xi_smrdsink = new Field_F[Nnoise*Ndil_red];
   smear->smear(xi_smrdsink, xi, Nnoise*Ndil_red);
   delete[] xi;
-  
+
   Field_F *xi_mom = new Field_F[Nnoise*Ndil_red];
   //a2a::inversion_mom_eo(xi_mom,fopr_eo,fopr,dil_noise,Nnoise*Ndil_red,mom);
   a2a::inversion_mom_alt_Clover_eo(xi_mom, dil_noise, U, kappa_l, csw, bc, mom,
