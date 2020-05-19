@@ -148,7 +148,7 @@ int main_core(Parameters *params_conf_all)
   vout.general("File I/O\n");
   vout.general("  output directory name : %s\n",outdir_name.c_str());
 
-  vout.general("\n=== Calculation environment summary END ===\n");  
+  vout.general("\n=== Calculation environment summary END ===\n");
 
   //////////////////////////////////////////////////////
   // ### read gauge configuration and initialize Dirac operators ###
@@ -159,14 +159,14 @@ int main_core(Parameters *params_conf_all)
   Fopr_Clover *fopr = new Fopr_Clover("Dirac");
   fopr -> set_parameters(kappa_l, csw, bc);
   fopr -> set_config(U);
-
+  
   //////////////////////////////////////////////////////
   // ###  generate diluted noises  ###
   
   vout.general("dilution type = %s\n", dil_type.c_str());    
   Field_F *noise = new Field_F[Nnoise];
   //unsigned long seed;
-  //seed = 1134567 - lp;//1234537 - lp; //1234509 - lp;
+  //seed = 1234567 - lp;//1234537 - lp; //1234509 - lp;
   a2a::gen_noise_Z4(noise,noise_seed,Nnoise); 
   //a2a::gen_noise_Z2(noise,1234567UL,Nnoise);
   
@@ -207,7 +207,7 @@ int main_core(Parameters *params_conf_all)
   vout.general("#. of source time = %d \n",Nsrc_t);
   int srct_list[Nsrc_t];
   for(int n=0;n<Nsrc_t;n++){
-    //srct_list[n] = n; // full time average 
+    //srct_list[n] = n; // full time average
     srct_list[n] = (Lt / Nsrc_t) * n; // even time average 
     //srct_list[n] = (Lt / Nsrc_t) * n + 1; // odd time average
     vout.general("  source time %d = %d\n",n,srct_list[n]);
@@ -239,168 +239,40 @@ int main_core(Parameters *params_conf_all)
   b = 0.40;
   double thr_val;
   thr_val = (Lx - 1)/(double)2;
-  // smearing
+  int grid_coords[4];
+  Communicator::grid_coord(grid_coords,Communicator::nodeid());
+  // smearing                                       
   Field_F *dil_noise_smr = new Field_F[Nnoise*Ndil_red];
   a2a::Exponential_smearing *smear = new a2a::Exponential_smearing;
   smear->set_parameters(a,b,thr_val);
   smear->smear(dil_noise_smr,dil_noise,Nnoise*Ndil_red);
-  //a2a::smearing_exp(dil_noise_smr,dil_noise,Nnoise*Ndil,a,b);
   delete[] dil_noise;
   delete smear;
-
-  int grid_coords[4];
-  Communicator::grid_coord(grid_coords,Communicator::nodeid());
-
+  
   Field_F *xi = new Field_F[Nnoise*Ndil_red];
   Field_F *xi_mom = new Field_F[Nnoise*Ndil_red];
-
+  //a2a::inversion_eo(xi,fopr_eo,fopr,dil_noise,Nnoise*Ndil);
+  // smearing
+  //a2a::inversion_eo(xi,fopr_eo,fopr,dil_noise_smr,Nnoise*Ndil);
   a2a::inversion_alt_Clover_eo(xi, dil_noise_smr, U, kappa_l, csw, bc,
                                Nnoise*Ndil_red, inv_prec_full,
                                Nmaxiter, Nmaxres);
-
+  
   // for nonzero total momentum (boosted frame)
   int mom[3] = {0,0,1};
   int mom_solver[3] = {-mom[0],-mom[1],-mom[2]};
+  //a2a::inversion_mom_eo(xi_mom,fopr_eo,fopr,dil_noise,Nnoise*Ndil,mom_solver);
+  // smearing
+  //a2a::inversion_mom_eo(xi_mom,fopr_eo,fopr,dil_noise_smr,Nnoise*Ndil,mom_solver);
   a2a::inversion_mom_alt_Clover_eo(xi_mom, dil_noise_smr, U, kappa_l, csw, bc, mom_solver,
                                    Nnoise*Ndil_red, inv_prec_full,
                                    Nmaxiter, Nmaxres);
-
+  
   int rel_time = 2; // relative time difference between two sink operators
   int cm_time = rel_time / 2; // c.m. time of two sink operators
 
-  //////////////////////////////////////////////////////
-  // ### calc. 2pt correlator (test) ### //
-
-  /*
-  // calc. local sum
-  dcomplex *corr_local = new dcomplex[Nt*Lt];
-  for(int n=0;n<Nt*Lt;n++){
-    corr_local[n] = cmplx(0.0,0.0);
-  }
-  
-  for(int r=0;r<Nnoise;r++){
-    for(int t_src=0;t_src<Lt;t_src++){
-      for(int t=0;t<Nt;t++){
-	for(int i=0;i<Ndil_tslice;i++){
-	  for(int vs=0;vs<Nxyz;vs++){
-	    for(int d=0;d<Nd;d++){
-	      for(int c=0;c<Nc;c++){
-		//corr_local[t+Nt*t_src] += xi[i+Nc*Nd*2*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(chi[i+Nc*Nd*2*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0));
-		corr_local[t+Nt*t_src] += xi_mom[i+Ndil_tslice*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0));
-	      }
-	    }
-	  }
-	}
-      }
-    }
-  }
-  for(int n=0;n<Nt*Lt;n++){
-    corr_local[n] /= Nnoise;
-  }
-
-
-  int grid_coords[4];
-  Communicator::grid_coord(grid_coords,Communicator::nodeid());
-  for(int r=0;r<Nnoise;r++){
-    for(int t_src=0;t_src<Lt;t_src++){
-      for(int t=0;t<Nt;t++){
-	for(int i=0;i<Ndil_tslice;i++){
-	  for(int x=0;x<Nx;x++){
-	    for(int y=0;y<Ny;y++){
-	      for(int z=0;z<Nz;z++){
-		int vs = x + Nx * (y + Ny * z);
-		int true_x = Nx * grid_coords[0] + x;
-		int true_y = Ny * grid_coords[1] + y;
-		int true_z = Nz * grid_coords[2] + z;
-		for(int d=0;d<Nd;d++){
-		  for(int c=0;c<Nc;c++){
-		    double pdotx = 2 * M_PI / Lx * (mom[0] * true_x) + 2 * M_PI / Ly * (mom[1] * true_y) + 2 * M_PI / Lz * (mom[2] * true_z);
-		    corr_local[t+Nt*t_src] += xi[i+Nc*Nd*2*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Nc*Nd*2*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0));
-		    //corr_local[t+Nt*t_src] += cmplx(std::cos(pdotx),-std::sin(pdotx)) * xi[i+Ndil_tslice*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi_mom[i+Ndil_tslice*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0));
-		  }		  
-		}
-	      }
-	    }
-	  }
-	}
-      }
-    }
-  }
-  for(int n=0;n<Nt*Lt;n++){
-    corr_local[n] /= Nnoise;
-  }
-
-  //printf("here.\n");
-  // calc. global sum 
-  dcomplex *corr_all,*corr_in;
-  if(Communicator::nodeid()==0){
-    corr_all = new dcomplex[Lt*Lt];
-    corr_in = new dcomplex[Nt*Lt];
-    for(int n=0;n<Lt*Lt;n++){
-      corr_all[n] = cmplx(0.0,0.0);
-    }
-    for(int lt=0;lt<Lt;lt++){
-      for(int t=0;t<Nt;t++){
-	corr_all[t+Lt*lt] += corr_local[t+Nt*lt];
-      }
-    }
-  }
-  Communicator::sync_global();
-  for(int irank=1;irank<NPE;irank++){
-    int igrids[4];
-    Communicator::grid_coord(igrids,irank);
-    Communicator::send_1to1(2*Lt*Nt,(double*)corr_in,(double*)corr_local,0,irank,irank);
-    if(Communicator::nodeid()==0){
-      for(int lt=0;lt<Lt;lt++){
-	for(int t=0;t<Nt;t++){
-	  corr_all[(t+igrids[3]*Nt)+Lt*lt] += corr_in[t+Nt*lt];
-	}
-      }
-    }// if nodeid
-    Communicator::sync_global();
-  } // for irank
-
-  if(Communicator::nodeid()==0){
-    dcomplex *corr_final = new dcomplex[Lt];
-    for(int n=0;n<Lt;n++){
-      corr_final[n] = cmplx(0.0,0.0);
-    }
-    for(int t_src=0;t_src<Lt;t_src++){
-      for(int lt=0;lt<Lt;lt++){
-	int tt = (lt + t_src) % Lt; 
-	corr_final[lt] += corr_all[tt+Lt*t_src];
-      }
-    } // for t_src
-    delete[] corr_all;
-    delete[] corr_in;
-
-    // output correlator values
-    vout.general("===== correlator values ===== \n");
-    vout.general(" time|   real|   imag| \n");
-    for(int lt=0;lt<Lt;lt++){
-      printf("%d|%12.4e|%12.4e\n",lt,real(corr_final[lt]),imag(corr_final[lt]));
-    }
-
-    char filename_2pt[100];
-    string file_2pt("/2pt_correlator");
-    string ofname_2pt = oname_base + file_2pt;
-    snprintf(filename_2pt, sizeof(filename_2pt),ofname_2pt.c_str(),fnum);
-    //for 48 calc.
-    //snprintf(filename_2pt, sizeof(filename_2pt),ofname_2pt.c_str());
-    std::ofstream ofs_2pt(filename_2pt);                                     
-    for(int t=0;t<Lt;t++){    
-      ofs_2pt << std::setprecision(std::numeric_limits<double>::max_digits10) << t << " " << real(corr_final[t]) << " " << imag(corr_final[t]) << std::endl;
-    }
-
-    delete[] corr_final;
-
-  } // if nodeid
-  */
   delete dirac;
-  //delete[] dil_noise;
   delete[] dil_noise_smr;
-  //delete[] xi;
-  //delete[] chi;
   delete fopr;
   delete U;
 
@@ -426,11 +298,18 @@ int main_core(Parameters *params_conf_all)
 	for(int vs=0;vs<Nxyz;vs++){
 	  for(int d=0;d<Nd;d++){
 	    for(int c=0;c<Nc;c++){
+	      /*	      
 	      // boosted frame implementation 	      
-	      tmp1->add(0,vs+Nxyz*t,t_src,real(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0))));
-	      tmp1->add(1,vs+Nxyz*t,t_src,imag(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0))));
+	      tmp1->add(0,vs+Nxyz*t,t_src,real(xi_mom[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0))));
+	      tmp1->add(1,vs+Nxyz*t,t_src,imag(xi_mom[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0))));
+	      tmp2->add(0,vs+Nxyz*t,t_src,real(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0))));
+	      tmp2->add(1,vs+Nxyz*t,t_src,imag(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0))));
+	      */
+	      tmp1->add(0,vs+Nxyz*t,t_src,real(xi_mom[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0))));
+	      tmp1->add(1,vs+Nxyz*t,t_src,imag(xi_mom[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0))));
 	      tmp2->add(0,vs+Nxyz*t,t_src,real(xi_mom[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0))));
 	      tmp2->add(1,vs+Nxyz*t,t_src,imag(xi_mom[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0))));
+	      
 	    }
 	  }
 	}
@@ -456,16 +335,16 @@ int main_core(Parameters *params_conf_all)
   Field *tmp2_mom_shifted = new Field;
   tmp2_mom_shifted->reset(2,Nvol,Nsrc_t);
   // momentum shift
-  shift->forward(*tmp2_mom_shifted, *tmp2_mom, 2); // unit total momentum {0,0,1}
-  /*
+  //shift->forward(*tmp2_mom_shifted, *tmp2_mom, 2); // unit total momentum {0,0,1}
+  
   copy(*tmp2_mom_shifted,*tmp2_mom);
-  for(int num_shift=0;num_shift<2;num_shift++){ // 2 unit total momentum.
+  for(int num_shift=0;num_shift<2;num_shift++){ // 2 unit total momentum. 
     Field shift_tmp;
     shift_tmp.reset(2,Nvol,Nsrc_t);
     shift->forward(shift_tmp, *tmp2_mom_shifted, 2);
     copy(*tmp2_mom_shifted, shift_tmp);
   }
-  */
+  
   delete tmp2_mom;
 
   // different-time shift
@@ -484,7 +363,8 @@ int main_core(Parameters *params_conf_all)
     shift->forward(tshift_tmp, *tmp2_mom_shifted, 3);
     copy(*tmp2_mom_shifted,tshift_tmp);
   }
-  
+
+
   // bug check
   //copy(*tmp2_mom_shifted, *tmp2_mom); 
   
@@ -517,12 +397,12 @@ int main_core(Parameters *params_conf_all)
   delete Fsep_mom;
   
   // finalize separated diagrams
-  Field *Fsep1_2 = new Field;
-  Fsep1_2->reset(2, Nvol, Nsrc_t);
-  Fsep1_2->set(0.0);
-  Field *Fsep2_1 = new Field;
-  Fsep2_1->reset(2, Nvol, Nsrc_t);
-  Fsep2_1->set(0.0);
+  Field *Fsep1_1 = new Field;
+  Fsep1_1->reset(2, Nvol, Nsrc_t);
+  Fsep1_1->set(0.0);
+  Field *Fsep2_2 = new Field;
+  Fsep2_2->reset(2, Nvol, Nsrc_t);
+  Fsep2_2->set(0.0);
 
   for(int tsrc=0;tsrc<Nsrc_t;tsrc++){
     for(int t=0;t<Nt;t++){
@@ -533,15 +413,15 @@ int main_core(Parameters *params_conf_all)
 	    int true_x = x + Nx * grid_coords[0];
 	    int true_y = y + Ny * grid_coords[1];
 	    int true_z = z + Nz * grid_coords[2];
-	    double pdotx = (2.0 * M_PI / Lx * (mom[0] * true_x) + 2.0 * M_PI / Ly * (mom[1] * true_y) + 2.0 * M_PI / Lz * (mom[2] * true_z)) / 2.0;
+	    double pdotx = (2.0 * M_PI / Lx * (mom[0] * true_x) + 2.0 * M_PI / Ly * (mom[1] * true_y) + 2.0 * M_PI / Lz * (2.0 * mom[2] * true_z)) / 2.0;
 	    dcomplex Fsep1_tmp = cmplx(std::cos(pdotx),-std::sin(pdotx)) * cmplx(Fsep1->cmp(0,v,tsrc),Fsep1->cmp(1,v,tsrc));
 	    dcomplex Fsep2_tmp = cmplx(std::cos(pdotx),std::sin(pdotx)) * cmplx(Fsep2->cmp(0,v,tsrc)/(double)Lxyz,Fsep2->cmp(1,v,tsrc)/(double)Lxyz);
 	    //dcomplex Fsep_tmp = cmplx(std::cos(pdotx),-std::sin(pdotx)) * cmplx(Fsep1->cmp(0,v,tsrc),Fsep1->cmp(1,v,tsrc));
 	    //dcomplex Fsep_tmp = cmplx(std::cos(pdotx),std::sin(pdotx)) * cmplx(Fsep2->cmp(0,v,tsrc)/(double)Lxyz,Fsep2->cmp(1,v,tsrc)/(double)Lxyz);
-	    Fsep1_2->set(0,v,tsrc,real(Fsep1_tmp));
-	    Fsep1_2->set(1,v,tsrc,imag(Fsep1_tmp));
-	    Fsep2_1->set(0,v,tsrc,real(Fsep2_tmp));
-	    Fsep2_1->set(1,v,tsrc,imag(Fsep2_tmp));
+	    Fsep1_1->set(0,v,tsrc,real(Fsep1_tmp));
+	    Fsep1_1->set(1,v,tsrc,imag(Fsep1_tmp));
+	    Fsep2_2->set(0,v,tsrc,real(Fsep2_tmp));
+	    Fsep2_2->set(1,v,tsrc,imag(Fsep2_tmp));
 	  }
 	}
       }
@@ -567,9 +447,18 @@ int main_core(Parameters *params_conf_all)
 	    for(int d=0;d<Nd;d++){
 	      for(int c=0;c<Nc;c++){
 		// boosted frame implementation
-		tmpmtx1->add(0,vs+Nxyz*t,i+Ndil_tslice*(j+Ndil_tslice*t_src),real(xi[j+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0))));
+		/*
+		tmpmtx1->add(0,vs+Nxyz*t,i+Ndil_tslice*(j+Ndil_tslice*t_src),real(xi_mom[j+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0))));
 
-		tmpmtx1->add(1,vs+Nxyz*t,i+Ndil_tslice*(j+Ndil_tslice*t_src),imag(xi[j+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0))));
+		tmpmtx1->add(1,vs+Nxyz*t,i+Ndil_tslice*(j+Ndil_tslice*t_src),imag(xi_mom[j+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0))));
+
+		tmpmtx2->add(0,vs+Nxyz*t,i+Ndil_tslice*(j+Ndil_tslice*t_src),real(xi[j+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0))));
+
+		tmpmtx2->add(1,vs+Nxyz*t,i+Ndil_tslice*(j+Ndil_tslice*t_src),imag(xi[j+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0))));
+		*/
+		tmpmtx1->add(0,vs+Nxyz*t,i+Ndil_tslice*(j+Ndil_tslice*t_src),real(xi_mom[j+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0))));
+
+		tmpmtx1->add(1,vs+Nxyz*t,i+Ndil_tslice*(j+Ndil_tslice*t_src),imag(xi_mom[j+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0))));
 
 		tmpmtx2->add(0,vs+Nxyz*t,i+Ndil_tslice*(j+Ndil_tslice*t_src),real(xi_mom[j+Ndil_tslice*(t_src+Nsrc_t*idx_noise[0])].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Ndil_tslice*(t_src+Nsrc_t*idx_noise[1])].cmp_ri(c,d,vs+Nxyz*t,0))));
 
@@ -595,16 +484,16 @@ int main_core(Parameters *params_conf_all)
 
   Field *tmpmtx2_mom_shifted = new Field;
   tmpmtx2_mom_shifted->reset(2,Nvol,Ndil_tslice*Ndil_tslice*Nsrc_t);
-  shift->forward(*tmpmtx2_mom_shifted, *tmpmtx2_mom, 2); // unit total momentum {0,0,1}
-  /*
+  //shift->forward(*tmpmtx2_mom_shifted, *tmpmtx2_mom, 2); // unit total momentum {0,0,1}
+  
   copy(*tmpmtx2_mom_shifted,*tmpmtx2_mom);
-  for(int num_shift=0;num_shift<2;num_shift++){ // 2-unit total momentum.
+  for(int num_shift=0;num_shift<2;num_shift++){ // 2-unit total momentum. 
     Field shift_tmp;
     shift_tmp.reset(2,Nvol,Ndil_tslice*Ndil_tslice*Nsrc_t);
     shift->forward(shift_tmp, *tmpmtx2_mom_shifted, 2);
     copy(*tmpmtx2_mom_shifted, shift_tmp);
   }
-  */
+  
   delete tmpmtx2_mom;
 
   // different-time shift
@@ -615,13 +504,14 @@ int main_core(Parameters *params_conf_all)
     shift->backward(tshift_tmp, *tmpmtx1_mom, 3);
     copy(*tmpmtx1_mom,tshift_tmp);
   }
-  // tmpmtx2
+  //tmpmtx2
   for(int r_t=0;r_t<reltime_fromCMtime;r_t++){
     Field tshift_tmp;
     tshift_tmp.reset(2,Nvol,Ndil_tslice*Ndil_tslice*Nsrc_t);
     shift->forward(tshift_tmp, *tmpmtx2_mom_shifted, 3);
     copy(*tmpmtx2_mom_shifted,tshift_tmp);
   }
+
   delete shift;
 
   Field *Fconn_mom = new Field;
@@ -659,12 +549,12 @@ int main_core(Parameters *params_conf_all)
   delete fft3;
 
   // finalize separated diagrams
-  Field *Fconn1_2 = new Field;
-  Fconn1_2->reset(2, Nvol, Nsrc_t);
-  Fconn1_2->set(0.0);
-  Field *Fconn2_1 = new Field;
-  Fconn2_1->reset(2, Nvol, Nsrc_t);
-  Fconn2_1->set(0.0);
+  Field *Fconn1_1 = new Field;
+  Fconn1_1->reset(2, Nvol, Nsrc_t);
+  Fconn1_1->set(0.0);
+  Field *Fconn2_2 = new Field;
+  Fconn2_2->reset(2, Nvol, Nsrc_t);
+  Fconn2_2->set(0.0);
 
   for(int tsrc=0;tsrc<Nsrc_t;tsrc++){
     for(int t=0;t<Nt;t++){
@@ -675,15 +565,15 @@ int main_core(Parameters *params_conf_all)
 	    int true_x = x + Nx * grid_coords[0];
 	    int true_y = y + Ny * grid_coords[1];
 	    int true_z = z + Nz * grid_coords[2];
-	    double pdotx = (2.0 * M_PI / Lx * (mom[0] * true_x) + 2.0 * M_PI / Ly * (mom[1] * true_y) + 2.0 * M_PI / Lz * (mom[2] * true_z)) / 2.0;
+	    double pdotx = (2.0 * M_PI / Lx * (mom[0] * true_x) + 2.0 * M_PI / Ly * (mom[1] * true_y) + 2.0 * M_PI / Lz * (2.0 * mom[2] * true_z)) / 2.0;
 	    dcomplex Fconn1_tmp = cmplx(std::cos(pdotx),-std::sin(pdotx)) * cmplx(Fconn1->cmp(0,v,tsrc),Fconn1->cmp(1,v,tsrc));
 	    dcomplex Fconn2_tmp = cmplx(std::cos(pdotx),std::sin(pdotx)) * cmplx(Fconn2->cmp(0,v,tsrc)/(double)Lxyz,Fconn2->cmp(1,v,tsrc)/(double)Lxyz);
 	    //dcomplex Fconn_tmp = cmplx(std::cos(pdotx),-std::sin(pdotx)) * cmplx(Fconn1->cmp(0,v,tsrc),Fconn1->cmp(1,v,tsrc));
 	    //dcomplex Fconn_tmp = cmplx(std::cos(pdotx),std::sin(pdotx)) * cmplx(Fconn2->cmp(0,v,tsrc)/(double)Lxyz,Fconn2->cmp(1,v,tsrc)/(double)Lxyz);
-	    Fconn1_2->set(0,v,tsrc,real(Fconn1_tmp));
-	    Fconn1_2->set(1,v,tsrc,imag(Fconn1_tmp));
-	    Fconn2_1->set(0,v,tsrc,real(Fconn2_tmp));
-	    Fconn2_1->set(1,v,tsrc,imag(Fconn2_tmp));
+	    Fconn1_1->set(0,v,tsrc,real(Fconn1_tmp));
+	    Fconn1_1->set(1,v,tsrc,imag(Fconn1_tmp));
+	    Fconn2_2->set(0,v,tsrc,real(Fconn2_tmp));
+	    Fconn2_2->set(1,v,tsrc,imag(Fconn2_tmp));
 	  }
 	}
       }
@@ -695,20 +585,19 @@ int main_core(Parameters *params_conf_all)
   delete[] xi;
   delete[] xi_mom;
 
-
   // 4pt correlator (total)//
-  dcomplex *Ftot1_2 = new dcomplex[Nvol*Nsrc_t];
-  dcomplex *Ftot2_1 = new dcomplex[Nvol*Nsrc_t];
+  dcomplex *Ftot1_1 = new dcomplex[Nvol*Nsrc_t];
+  dcomplex *Ftot2_2 = new dcomplex[Nvol*Nsrc_t];
   for(int t_src=0;t_src<Nsrc_t;t_src++){
     for(int v=0;v<Nvol;v++){
-      Ftot1_2[v+Nvol*t_src] = cmplx(Fsep1_2->cmp(0,v,t_src),Fsep1_2->cmp(1,v,t_src)) - cmplx(Fconn1_2->cmp(0,v,t_src),Fconn1_2->cmp(1,v,t_src));
-      Ftot2_1[v+Nvol*t_src] = cmplx(Fsep2_1->cmp(0,v,t_src),Fsep2_1->cmp(1,v,t_src)) - cmplx(Fconn2_1->cmp(0,v,t_src),Fconn2_1->cmp(1,v,t_src));
+      Ftot1_1[v+Nvol*t_src] = cmplx(Fsep1_1->cmp(0,v,t_src),Fsep1_1->cmp(1,v,t_src)) - cmplx(Fconn1_1->cmp(0,v,t_src),Fconn1_1->cmp(1,v,t_src));
+      Ftot2_2[v+Nvol*t_src] = cmplx(Fsep2_2->cmp(0,v,t_src),Fsep2_2->cmp(1,v,t_src)) - cmplx(Fconn2_2->cmp(0,v,t_src),Fconn2_2->cmp(1,v,t_src));
     }
   }
-  delete Fsep1_2;
-  delete Fconn1_2;
-  delete Fsep2_1;
-  delete Fconn2_1;
+  delete Fsep1_1;
+  delete Fconn1_1;
+  delete Fsep2_2;
+  delete Fconn2_2;
 
   dcomplex *F_final,*F_all,*F_in;
   if(Communicator::nodeid()==0){
@@ -719,7 +608,7 @@ int main_core(Parameters *params_conf_all)
 	for(int z=0;z<Nz;z++){
 	  for(int y=0;y<Ny;y++){
 	    for(int x=0;x<Nx;x++){
-	      F_all[x+Lx*(y+Ly*(z+Lz*(t+Lt*tt)))] = Ftot1_2[x+Nx*(y+Ny*(z+Nz*(t+Nt*tt)))];
+	      F_all[x+Lx*(y+Ly*(z+Lz*(t+Lt*tt)))] = Ftot1_1[x+Nx*(y+Ny*(z+Nz*(t+Nt*tt)))];
 	    }
 	  }
 	}
@@ -732,7 +621,7 @@ int main_core(Parameters *params_conf_all)
     Communicator::grid_coord(igrids,irank);
 
     Communicator::sync_global();
-    Communicator::send_1to1(2*Nvol*Nsrc_t,(double*)&F_in[0],(double*)&Ftot1_2[0],0,irank,irank);
+    Communicator::send_1to1(2*Nvol*Nsrc_t,(double*)&F_in[0],(double*)&Ftot1_1[0],0,irank,irank);
     
     if(Communicator::nodeid()==0){
       for(int tt=0;tt<Nsrc_t;tt++){
@@ -753,7 +642,7 @@ int main_core(Parameters *params_conf_all)
     }
     
   }//for irank
-  delete[] Ftot1_2;
+  delete[] Ftot1_1;
   if(Communicator::nodeid()==0){
     F_final = new dcomplex[Lvol];
     for(int n=0;n<Lvol;n++){
@@ -781,12 +670,13 @@ int main_core(Parameters *params_conf_all)
   if(Communicator::nodeid()==0){
     for(int t=0;t<Lt;t++){
       char filename[100];
-      string file_4pt("/4pt_correlator12_%d");
+      string file_4pt("/4pt_correlator11_%d");
       string ofname_4pt = outdir_name + file_4pt;
       //snprintf(filename, sizeof(filename),ofname_4pt.c_str(),fnum,t);
+      //for 48 calc.
       snprintf(filename, sizeof(filename),ofname_4pt.c_str(),t);
-      std::ofstream ofs_F(filename,std::ios::binary);
-      for(int vs=0;vs<Lxyz;vs++){
+      std::ofstream ofs_F(filename,std::ios::binary);                                     
+      for(int vs=0;vs<Lxyz;vs++){                                                               
 	ofs_F.write((char*)&F_final[vs+Lxyz*t],sizeof(double)*2); 
       }
     } // for t
@@ -803,7 +693,7 @@ int main_core(Parameters *params_conf_all)
 	for(int z=0;z<Nz;z++){
 	  for(int y=0;y<Ny;y++){
 	    for(int x=0;x<Nx;x++){
-	      F_all[x+Lx*(y+Ly*(z+Lz*(t+Lt*tt)))] = Ftot2_1[x+Nx*(y+Ny*(z+Nz*(t+Nt*tt)))];
+	      F_all[x+Lx*(y+Ly*(z+Lz*(t+Lt*tt)))] = Ftot2_2[x+Nx*(y+Ny*(z+Nz*(t+Nt*tt)))];
 	    }
 	  }
 	}
@@ -816,7 +706,7 @@ int main_core(Parameters *params_conf_all)
     Communicator::grid_coord(igrids,irank);
 
     Communicator::sync_global();
-    Communicator::send_1to1(2*Nvol*Nsrc_t,(double*)&F_in[0],(double*)&Ftot2_1[0],0,irank,irank);
+    Communicator::send_1to1(2*Nvol*Nsrc_t,(double*)&F_in[0],(double*)&Ftot2_2[0],0,irank,irank);
     
     if(Communicator::nodeid()==0){
       for(int tt=0;tt<Nsrc_t;tt++){
@@ -837,9 +727,9 @@ int main_core(Parameters *params_conf_all)
     }
     
   }//for irank
-  delete[] Ftot2_1;
+  delete[] Ftot2_2;
   if(Communicator::nodeid()==0){
-    F_final = new dcomplex[Lvol];
+    //F_final = new dcomplex[Lvol];
     for(int n=0;n<Lvol;n++){
       F_final[n] = cmplx(0.0,0.0);
     }
@@ -865,12 +755,13 @@ int main_core(Parameters *params_conf_all)
   if(Communicator::nodeid()==0){
     for(int t=0;t<Lt;t++){
       char filename[100];
-      string file_4pt("/4pt_correlator21_%d");
+      string file_4pt("/4pt_correlator22_%d");
       string ofname_4pt = outdir_name + file_4pt;
       //snprintf(filename, sizeof(filename),ofname_4pt.c_str(),fnum,t);
+      //for 48 calc.
       snprintf(filename, sizeof(filename),ofname_4pt.c_str(),t);
-      std::ofstream ofs_F(filename,std::ios::binary);
-      for(int vs=0;vs<Lxyz;vs++){
+      std::ofstream ofs_F(filename,std::ios::binary);                                     
+      for(int vs=0;vs<Lxyz;vs++){                                                               
 	ofs_F.write((char*)&F_final[vs+Lxyz*t],sizeof(double)*2); 
       }
     } // for t

@@ -35,7 +35,7 @@
 #include "Tools/gammaMatrixSet_Chiral.h"
 #include "Tools/gammaMatrixSet.h"
 #include "Tools/gammaMatrix.h"
-#include "Tools/fft_alt_3d_parallel3.h"
+#include "Tools/fft_3d_parallel3d.h"
 #include "Tools/timer.h"
 
 #include "IO/bridgeIO.h"
@@ -46,7 +46,7 @@ using  Bridge::vout;
 static Bridge::VerboseLevel vl = vout.set_verbose_level("General");
 
 //====================================================================
-int run_test()
+int main_core(Parameters *params_conf_all)
 {
   // ###  initialize  ###
 
@@ -72,6 +72,34 @@ int run_test()
   int NPEt = CommonParameters::NPEt();
   int Nxyz = Nx * Ny * Nz;
   int Lxyz = Lx * Ly * Lz;
+
+  vout.general("=== Calculation environment summary ===\n\n");
+
+  Parameters params_conf = params_conf_all->lookup("Conf");
+  Parameters params_eigen = params_conf_all->lookup("Eigensolver");
+  Parameters params_inversion = params_conf_all->lookup("Inversion");
+  Parameters params_noise = params_conf_all->lookup("Noise");
+  Parameters params_caa = params_conf_all->lookup("CAA");
+  Parameters params_smrdsink = params_conf_all->lookup("Smearing(sink)");
+  Parameters params_fileio = params_conf_all->lookup("File_io");
+
+  //- standard parameters
+  std::string conf_name, conf_format;
+  double csw, kappa_l, kappa_s;
+  std::vector<int> bc;
+  params_conf.fetch_string("confname",conf_name);
+  params_conf.fetch_string("confformat",conf_format);
+  params_conf.fetch_double("csw",csw);
+  params_conf.fetch_double("kappa_ud",kappa_l);
+  params_conf.fetch_double("kappa_s",kappa_s);
+  params_conf.fetch_int_vector("boundary",bc);
+
+  vout.general("Configuration parameters\n");
+  vout.general("  confname : %s\n", conf_name.c_str());
+  vout.general("  kappa_ud = %f\n", kappa_l);
+  vout.general("  kappa_s = %f\n", kappa_s);
+  vout.general("  Csw = %f\n",csw);
+  vout.general("  boundary condition : %s\n", Parameters::to_string(bc).c_str());
   
   int Nnoise = 2;
   
@@ -79,6 +107,40 @@ int run_test()
   int Ndil = Lt*Nc*Nd*2;
   int Ndil_tslice = Ndil / Lt;
   std::string dil_type("tcds-eo");
+
+  // random number seed
+  unsigned long noise_seed;
+  params_noise.fetch_unsigned_long("noise_seed",noise_seed);
+
+  vout.general("Noise vectors\n");
+  vout.general("  Nnoise : %d\n",Nnoise);
+  vout.general("  seed : %d\n",noise_seed);
+
+  //- inversion parameters
+  double inv_prec_full;
+  params_inversion.fetch_double("Precision",inv_prec_full);
+  vout.general("Inversion (full precision)\n");
+  vout.general("  precision = %12.6e\n", inv_prec_full);
+
+  //- smearing parameters (sink)
+  double a_sink, b_sink, thr_val_sink;
+  params_smrdsink.fetch_double("a",a_sink);
+  params_smrdsink.fetch_double("b",b_sink);
+  params_smrdsink.fetch_double("threshold",thr_val_sink);
+
+  vout.general("Smearing (sink)\n");
+  vout.general("  a = %12.6e\n", a_sink);
+  vout.general("  b = %12.6e\n", b_sink);
+  vout.general("  thr_val = %12.6e\n", thr_val_sink);
+
+  //- output directory name
+  std::string outdir_name;
+  params_fileio.fetch_string("outdir",outdir_name);
+  vout.general("File I/O\n");
+  vout.general("  output directory name : %s\n",outdir_name.c_str());
+
+  vout.general("\n=== Calculation environment summary END ===\n");
+
   
   /*  
   //for interlace and space eo  
@@ -128,7 +190,7 @@ int run_test()
 
   //////////////////////////////////////////////////////
   // ###  10 samples calculation parameter setting ###
-  
+  /*
   for(int lp=0;lp<60;lp++){
     
   int fnum = 410 + lp * 10;//1100 + lp * 10; //710+10*lp; //990+10*lp;
@@ -137,11 +199,12 @@ int run_test()
   string oname_base("./1-00%04d-nexttesti2_boosteqt_pp_smrrev");
   char fname[2048];
   snprintf(fname,sizeof(fname),fname_base,fnum);
+  */
   Field_G *U = new Field_G(Nvol, Ndim);
-  a2a::read_gconf(U,"ILDG",fname);
+  a2a::read_gconf(U,conf_format.c_str(),conf_name.c_str());
 
   Fopr_Clover *fopr = new Fopr_Clover("Dirac");
-  fopr -> set_parameters(0.13760, 1.761, {1,1,1,1});
+  fopr -> set_parameters(kappa_l, csw, bc);
   fopr -> set_config(U);
   
   //////////////////////////////////////////////////////
@@ -177,9 +240,9 @@ int run_test()
   
   vout.general("dilution type = %s\n", dil_type.c_str());    
   Field_F *noise = new Field_F[Nnoise];
-  unsigned long seed;
-  seed = 1234567 - lp;//1234537 - lp; //1234509 - lp;
-  a2a::gen_noise_Z4(noise,seed,Nnoise); 
+  //unsigned long seed;
+  //seed = 1234567 - lp;//1234537 - lp; //1234509 - lp;
+  a2a::gen_noise_Z4(noise,noise_seed,Nnoise); 
   //a2a::gen_noise_Z2(noise,1234567UL,Nnoise);
   
   
@@ -264,7 +327,7 @@ int run_test()
   // parameters 
   double a,b;
   a = 1.0;
-  b = 0.37;
+  b = 0.40;
   double thr_val;
   thr_val = (Lx - 1)/(double)2;
   // smearing
@@ -280,7 +343,7 @@ int run_test()
   Field_F *xi_mom = new Field_F[Nnoise*Ndil];
 
   Fopr_Clover_eo *fopr_eo = new Fopr_Clover_eo("Dirac");
-  fopr_eo -> set_parameters(0.13760, 1.761, {1,1,1,1});
+  fopr_eo -> set_parameters(kappa_l, csw, bc);
   fopr_eo -> set_config(U);
 
   //a2a::inversion_eo(xi,fopr_eo,fopr,dil_noise,Nnoise*Ndil);
@@ -347,8 +410,8 @@ int run_test()
 		for(int d=0;d<Nd;d++){
 		  for(int c=0;c<Nc;c++){
 		    double pdotx = 2 * M_PI / Lx * (mom[0] * true_x) + 2 * M_PI / Ly * (mom[1] * true_y) + 2 * M_PI / Lz * (mom[2] * true_z);
-		    corr_local[t+Nt*t_src] += xi[i+Nc*Nd*2*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Nc*Nd*2*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0));
-		    //corr_local[t+Nt*t_src] += cmplx(std::cos(pdotx),-std::sin(pdotx)) * xi[i+Ndil_tslice*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi_mom[i+Ndil_tslice*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0));
+		    //corr_local[t+Nt*t_src] += xi[i+Nc*Nd*2*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi[i+Nc*Nd*2*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0));
+		    corr_local[t+Nt*t_src] += cmplx(std::cos(pdotx),std::sin(pdotx)) * xi[i+Ndil_tslice*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi_mom[i+Ndil_tslice*(t_src+Lt*r)].cmp_ri(c,d,vs+Nxyz*t,0));
 		  }		  
 		}
 	      }
@@ -415,10 +478,10 @@ int run_test()
 
     char filename_2pt[100];
     string file_2pt("/2pt_correlator");
-    string ofname_2pt = oname_base + file_2pt;
-    snprintf(filename_2pt, sizeof(filename_2pt),ofname_2pt.c_str(),fnum);
+    string ofname_2pt = outdir_name + file_2pt;
+    //snprintf(filename_2pt, sizeof(filename_2pt),ofname_2pt.c_str(),fnum);
     //for 48 calc.
-    //snprintf(filename_2pt, sizeof(filename_2pt),ofname_2pt.c_str());
+    snprintf(filename_2pt, sizeof(filename_2pt),ofname_2pt.c_str());
     std::ofstream ofs_2pt(filename_2pt);                                     
     for(int t=0;t<Lt;t++){    
       ofs_2pt << std::setprecision(std::numeric_limits<double>::max_digits10) << t << " " << real(corr_final[t]) << " " << imag(corr_final[t]) << std::endl;
@@ -494,9 +557,9 @@ int run_test()
   tmp1_mom->reset(2,Nvol,Lt);
   tmp2_mom->reset(2,Nvol,Lt);
 
-  FFT_alt_3d_parallel3 *fft3 = new FFT_alt_3d_parallel3;
-  fft3->fft(*tmp1_mom,*tmp1,FFT_alt_3d_parallel3::FORWARD);
-  fft3->fft(*tmp2_mom,*tmp2,FFT_alt_3d_parallel3::BACKWARD);
+  FFT_3d_parallel3d *fft3 = new FFT_3d_parallel3d;
+  fft3->fft(*tmp1_mom,*tmp1,FFT_3d_parallel3d::FORWARD);
+  fft3->fft(*tmp2_mom,*tmp2,FFT_3d_parallel3d::BACKWARD);
   Communicator::sync_global();
   delete tmp1;
   delete tmp2;
@@ -504,7 +567,7 @@ int run_test()
   // check tmp2
   //Field *tmp2_parity = new Field;
   //tmp2_parity->reset(2,Nvol,Lt);
-  //fft3->fft(*tmp2_parity, *tmp2_mom, FFT_alt_3d_parallel3::FORWARD);
+  //fft3->fft(*tmp2_parity, *tmp2_mom, FFT_3d_parallel3d::FORWARD);
   Field *diff_tmp2 = new Field;
   diff_tmp2->reset(2,Nvol,Lt);
   for(int lt=0;lt<Lt;lt++){
@@ -558,8 +621,8 @@ int run_test()
   delete tmp2_mom_shifted;
   //printf("here4\n");
  
-  fft3->fft(*Fsep1,*Fsep_mom,FFT_alt_3d_parallel3::BACKWARD);
-  fft3->fft(*Fsep2,*Fsep_mom,FFT_alt_3d_parallel3::FORWARD);
+  fft3->fft(*Fsep1,*Fsep_mom,FFT_3d_parallel3d::BACKWARD);
+  fft3->fft(*Fsep2,*Fsep_mom,FFT_3d_parallel3d::FORWARD);
 
   delete Fsep_mom;
   
@@ -648,10 +711,10 @@ int run_test()
   Field *tmpmtx2_mom = new Field;
   tmpmtx2_mom->reset(2,Nvol,Ndil_tslice*Ndil_tslice*Lt);
 
-  fft3->fft(*tmpmtx1_mom,*tmpmtx1,FFT_alt_3d_parallel3::FORWARD);
+  fft3->fft(*tmpmtx1_mom,*tmpmtx1,FFT_3d_parallel3d::FORWARD);
   delete tmpmtx1;
 
-  fft3->fft(*tmpmtx2_mom,*tmpmtx2,FFT_alt_3d_parallel3::BACKWARD);
+  fft3->fft(*tmpmtx2_mom,*tmpmtx2,FFT_3d_parallel3d::BACKWARD);
   delete tmpmtx2;
 
   Field *tmpmtx2_mom_shifted = new Field;
@@ -698,8 +761,8 @@ int run_test()
   delete tmpmtx1_mom;
   delete tmpmtx2_mom_shifted;
 
-  fft3->fft(*Fconn1,*Fconn_mom,FFT_alt_3d_parallel3::BACKWARD);
-  fft3->fft(*Fconn2,*Fconn_mom,FFT_alt_3d_parallel3::FORWARD);
+  fft3->fft(*Fconn1,*Fconn_mom,FFT_3d_parallel3d::BACKWARD);
+  fft3->fft(*Fconn2,*Fconn_mom,FFT_3d_parallel3d::FORWARD);
 
   delete Fconn_mom;
   delete fft3;
@@ -844,10 +907,10 @@ int run_test()
     for(int t=0;t<Lt;t++){
       char filename[100];
       string file_4pt("/4pt_correlator_%d");
-      string ofname_4pt = oname_base + file_4pt;
-      snprintf(filename, sizeof(filename),ofname_4pt.c_str(),fnum,t);
+      string ofname_4pt = outdir_name + file_4pt;
+      //snprintf(filename, sizeof(filename),ofname_4pt.c_str(),fnum,t);
       //for 48 calc.
-      //snprintf(filename, sizeof(filename),ofname_4pt.c_str(),t);
+      snprintf(filename, sizeof(filename),ofname_4pt.c_str(),t);
       std::ofstream ofs_F(filename,std::ios::binary);                                     
       for(int vs=0;vs<Lxyz;vs++){                                                               
 	ofs_F.write((char*)&F_final[vs+Lxyz*t],sizeof(double)*2); 
@@ -897,7 +960,7 @@ int run_test()
 
   delete[] xi;
   delete[] xi_mom;
-  } // for lp
+  //} // for lp
 
   //////////////////////////////////////////////////////
   // ###  finalize  ###
