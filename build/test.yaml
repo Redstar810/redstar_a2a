@@ -48,4 +48,4 @@ File_io:
   #outdir        : ./consistency_check_boostneqt_set1_1unitmom
   #outdir        : ./consistency_check_boostneqt_set2_1unitmom
   #outdir        : ./consistency_check_boosteqt_2unitmom
-  outdir        : ./consistency_check_boostneqt_2unitmom
+  outdir        : ./consistency_check_i2pp

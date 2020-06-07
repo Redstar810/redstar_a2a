@@ -30,12 +30,14 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/main_core_pipi_box1_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_box2.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_box2_alt.cpp
+src_main_core = $(a2a_main_path)/main_core_pipi_i2.cpp
+
 # for boost HAL test
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedeqt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedneqt_set1.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedneqt_set2.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedeqt_pp.cpp
-src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedneqt_pp.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedneqt_pp.cpp
 
 # for the test of baryonic one-end trick
 #src_main_core = $(a2a_main_path)/main_core_NN_2pt_oneend.cpp
@@ -50,6 +52,7 @@ src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedneqt_pp.cpp
 #src_main_core = $(a2a_main_path)/a2a_nexttesti2_boostedneqt_set2rev.cpp
 #src_main_core = $(a2a_main_path)/a2a_nexttesti2_boostedeqt_pp.cpp
 #src_main_core = $(a2a_main_path)/a2a_nexttesti2_boostedneqt_pp.cpp
+#src_main_core = $(a2a_main_path)/a2a_nexttesti2.cpp
 
 # for solver test
 #src_main_core = $(a2a_main_path)/main_core_solver_alt.cpp
@@ -78,7 +81,7 @@ all:	msg program
 msg:	
 	@(\
 	echo; \
-	echo "===### REDSTAR-A2A codeset compilation ###===\n"; \
+	echo "===### REDSTAR-A2A codeset compilation ###==="; \
 	echo "CXX = " $(CXX); \
 	echo "CXXFLAGS = " $(CXXFLAGS); \
 	echo "LD = " $(LD);\
