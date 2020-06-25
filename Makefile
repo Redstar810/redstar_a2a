@@ -2,19 +2,35 @@
 
 ### definitions of variables ###
 # bridge++ library path
-#bridge_lib_path = ../bridge-1.5.3/build
-bridge_lib_path = ../alternative3/build_mpi_high
-bridge_lib_alt_path = ../alternative3/build_mpi_high
+bridge_lib_path = ../bridge-1.5.3/build
+#bridge_lib_path = ../alternative3/build_mpi_high
+#bridge_lib_alt_path = ../alternative3/build_mpi_high
 a2a_base_path = .
 a2a_src_path = $(a2a_base_path)/src
 a2a_lib_path = $(a2a_src_path)/lib
-a2a_lib_alt_path = $(a2a_src_path)/lib_alt
+#a2a_lib_alt_path = $(a2a_src_path)/lib_alt
 a2a_main_path = $(a2a_src_path)/Main
 a2a_build_path = $(a2a_base_path)/build
 a2a_include_path = $(a2a_src_path)/include
 
 # main_core() is separatedly defined main_core_XXX.cpp files.
 # they are different in terms of choice of src op, sink op, diagrams, dilutions.
+
+
+## for doi-san ##
+# I=1 pipi codes
+#src_main_core = $(a2a_main_path)/main_core_pipi_tri.cpp # triangle diagram
+#src_main_core = $(a2a_main_path)/main_core_pipi_sep.cpp # separated diagram
+#src_main_core = $(a2a_main_path)/main_core_pipi_box1.cpp # box diagram 1
+#src_main_core = $(a2a_main_path)/main_core_pipi_box2.cpp # box diagram 2
+
+# for the test of baryon one-end trick
+src_main_core = $(a2a_main_path)/main_core_NN_2pt_oneend.cpp
+
+##             ##
+
+
+## all main_cores in redstar_a2a codeset (need Kanamori-san's alternative code) ##
 #src_main_core = $(a2a_main_path)/main_core_pik_sepconn.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_sepconn_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_box_alt.cpp
@@ -30,7 +46,7 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/main_core_pipi_box1_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_box2.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_box2_alt.cpp
-src_main_core = $(a2a_main_path)/main_core_pipi_i2.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_i2.cpp
 
 # for boost HAL test
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedeqt.cpp
@@ -54,8 +70,9 @@ src_main_core = $(a2a_main_path)/main_core_pipi_i2.cpp
 #src_main_core = $(a2a_main_path)/a2a_nexttesti2_boostedneqt_pp.cpp
 #src_main_core = $(a2a_main_path)/a2a_nexttesti2.cpp
 
-# for solver test
+# for test
 #src_main_core = $(a2a_main_path)/main_core_solver_alt.cpp
+#src_main_core = $(a2a_main_path)/main_core_noise_test.cpp
 
 # include compilation environment summary
 include $(bridge_lib_path)/make.inc

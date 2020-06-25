@@ -63,7 +63,7 @@ int a2a::gen_noise_Z4(Field_F* eta, const unsigned long seed, const int Nnoise)
   RandomNumberManager::initialize("Mseries", seed);
   RandomNumbers *rand = RandomNumberManager::getInstance();
   rand -> uniform_lex_global(*noise);
-#pragma omp parallel for
+  //#pragma omp parallel for
   for(int r=0;r<Nnoise;r++){
     for(int v=0;v<Nvol;v++){
       for(int d=0;d<Nd;d++){
@@ -92,7 +92,7 @@ int a2a::gen_noise_Z4(Field_F* eta, const unsigned long seed, const int Nnoise)
   return 0;
 }
 
-// for baryonic one-end trick (test)
+// for baryon one-end trick (test)
 int a2a::gen_noise_Z3(Field_F* eta, const unsigned long seed, const int Nnoise)
 {
   int Nc = CommonParameters::Nc();
@@ -108,7 +108,7 @@ int a2a::gen_noise_Z3(Field_F* eta, const unsigned long seed, const int Nnoise)
   RandomNumberManager::initialize("Mseries", seed);
   RandomNumbers *rand = RandomNumberManager::getInstance();
   rand -> uniform_lex_global(*noise);
-#pragma omp parallel for
+  //#pragma omp parallel for
   for(int r=0;r<Nnoise;r++){
     for(int v=0;v<Nvol;v++){
       double rnum = floor(3.0*noise->cmp(0,v,r));
@@ -122,14 +122,14 @@ int a2a::gen_noise_Z3(Field_F* eta, const unsigned long seed, const int Nnoise)
       else if((int)rnum == 1){
 	for(int d=0;d<Nd;d++){
 	  for(int c=0;c<Nc;c++){
-	    eta[r].set_ri(c,d,v,0,-1.0/2.0,sqrt(3.0)/2.0);
+	    eta[r].set_ri(c,d,v,0,-1.0/2.0,std::sqrt(3.0)/2.0);
 	  }
 	}
       }
       else if((int)rnum == 2){
 	for(int d=0;d<Nd;d++){
 	  for(int c=0;c<Nc;c++){
-	    eta[r].set_ri(c,d,v,0,-1.0/2.0,-sqrt(3.0)/2.0);
+	    eta[r].set_ri(c,d,v,0,-1.0/2.0,-std::sqrt(3.0)/2.0);
 	  }
 	}
       }
@@ -615,6 +615,7 @@ int a2a::dirac_dil(Field_F* ddil_noise, const Field_F* noise_vec,const int Nnois
   return 0;  
 }
 
+
 int a2a::spaceeo_dil(Field_F* sdil_noise, const Field_F* noise_vec,const int Nnoise, const bool do_check)
 {
   int Nc = CommonParameters::Nc();
@@ -918,6 +919,177 @@ int a2a::spaceobl_dil(Field_F* sdil_noise, const Field_F* noise_vec,const int Nn
   }
   return 0;  
 }
+
+int a2a::space2_dil(Field_F* sdil_noise, const Field_F* noise_vec,const int Nnoise, const bool do_check)
+{
+  int Nc = CommonParameters::Nc();
+  int Nd = CommonParameters::Nd();
+  int Nx = CommonParameters::Nx();
+  int Ny = CommonParameters::Ny();
+  int Nz = CommonParameters::Nz();
+  int Nt = CommonParameters::Nt();
+  int Nvol = CommonParameters::Nvol();
+  int Nxyz = Nx * Ny * Nz;
+  int igrids[4];
+
+  // get grid coord. 
+  Communicator::grid_coord(igrids,Communicator::nodeid());
+
+  // initialization //
+  for(int i=0;i<Nnoise*2;i++){
+    sdil_noise[i].set(0.0);
+  }
+
+  // generate space even-odd diluted noise vectors //
+#pragma omp parallel for 
+  for(int r=0;r<Nnoise;r++){
+    for(int t=0;t<Nt;t++){
+      for(int z=0;z<Nz;z++){ 
+	for(int y=0;y<Ny;y++){
+	  for(int x=0;x<Nx;x++){
+	    int true_x = x + Nx * igrids[0];
+	    int true_y = y + Ny * igrids[1];
+	    int true_z = z + Nz * igrids[2];
+	    int vs = x+Nx*(y+Ny*z);
+	    int v = vs+Nxyz*t;
+	    int vsum_global = true_x + true_y + true_z;   
+	    for(int d=0;d<Nd;d++){
+	      for(int c=0;c<Nc;c++)
+		{
+		  if(vsum_global % 2 == 0){
+		    sdil_noise[0+2*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  else if(vsum_global % 2 == 1){
+		    sdil_noise[1+2*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		}
+	    }
+	  }
+	}
+      }
+    }
+  }
+  
+  // check diluted noise vectors //
+  if(do_check){
+  std::ofstream ofs_sdiltest("./sdil_test.txt");  
+  for (int r=0; r<2*Nnoise; r++){
+    for(int t=0; t<Nt; t++){
+      for(int x=0;x<Nx;x++){
+	for(int y=0;y<Ny;y++){
+	  for(int z=0;z<Nz;z++){ 
+	    for(int d=0;d<Nd;d++){
+	      for(int c=0;c<Nc;c++)
+		{
+		  int vs = x+Nx*(y+Ny*z);
+		  int v = vs+Nxyz*t;
+		  int idx = c+Nc*(d+Nd*v);
+		  ofs_sdiltest << idx << " " << r << " " << vs << " " << abs(sdil_noise[r].cmp_ri(c,d,v,0)) << " " << std::endl;	      
+		}
+	    }
+	  }
+	}
+      }
+    }
+  }
+  ofs_sdiltest.close();
+  }
+  return 0;  
+}
+
+int a2a::space4_dil(Field_F* s4dil_noise, const Field_F* noise_vec,const int Nnoise, const bool do_check)
+{
+  int Nc = CommonParameters::Nc();
+  int Nd = CommonParameters::Nd();
+  int Nx = CommonParameters::Nx();
+  int Ny = CommonParameters::Ny();
+  int Nz = CommonParameters::Nz();
+  int Nt = CommonParameters::Nt();
+  int Nvol = CommonParameters::Nvol();
+  int Nxyz = Nx * Ny * Nz;
+  int igrids[4];
+
+  // get grid coord. 
+  Communicator::grid_coord(igrids,Communicator::nodeid());
+
+  // initialization //
+  for(int i=0;i<Nnoise*4;i++){
+    s4dil_noise[i].set(0.0);
+  }
+
+  // generate space 4 diluted noise vectors //
+#pragma omp parallel for 
+  for(int r=0;r<Nnoise;r++){
+    for(int t=0;t<Nt;t++){
+      for(int z=0;z<Nz;z++){ 
+	for(int y=0;y<Ny;y++){
+	  for(int x=0;x<Nx;x++){
+	    int true_x = x + Nx * igrids[0];
+	    int true_y = y + Ny * igrids[1];
+	    int true_z = z + Nz * igrids[2];
+	    int vs = x+Nx*(y+Ny*z);
+	    int v = vs+Nxyz*t;
+	    //int vsum_global = true_x + true_y + true_z;   
+	    for(int d=0;d<Nd;d++){
+	      for(int c=0;c<Nc;c++){
+		  // 0
+		  if(true_x % 2 == 0 && true_y % 2 == 0 && true_z % 2 == 0){
+		    s4dil_noise[0+4*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  else if(true_x % 2 == 1 && true_y % 2 == 1 && true_z % 2 == 1){
+		    s4dil_noise[0+4*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 1
+		  else if(true_x % 2 == 1 && true_y % 2 == 0 && true_z % 2 == 0){
+		    s4dil_noise[1+4*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  else if(true_x % 2 == 0 && true_y % 2 == 1 && true_z % 2 == 1){
+		    s4dil_noise[1+4*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 2
+		  else if(true_x % 2 == 0 && true_y % 2 == 1 && true_z % 2 == 0){
+		    s4dil_noise[2+4*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  else if(true_x % 2 == 1 && true_y % 2 == 0 && true_z % 2 == 1){
+		    s4dil_noise[2+4*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 3
+		  else if(true_x % 2 == 0 && true_y % 2 == 0 && true_z % 2 == 1){
+		    s4dil_noise[3+4*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  else if(true_x % 2 == 1 && true_y % 2 == 1 && true_z % 2 == 0){
+		    s4dil_noise[3+4*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+  
+  
+  // check diluted noise vectors //
+  if(do_check){
+    int z=3;
+    int r=0;
+    int t=0;
+    int c=0;
+    int d=0;
+    std::ofstream ofs_sbdiltest("./sbdil_testr0z3t0.txt");  
+      for(int x=0;x<Nx;x++){
+	for(int y=0;y<Ny;y++){ 
+	  int vs = x+Nx*(y+Ny*z);
+	  int v = vs + Nxyz * t;
+	  ofs_sbdiltest << x << " " << y << " " << abs(s4dil_noise[r].cmp_ri(c,d,v,0)) << " " << std::endl;	      
+	}
+      }
+  ofs_sbdiltest.close();
+  }
+  return 0;  
+}
+
+
 
 int a2a::space8_dil(Field_F* sdil_noise, const Field_F* noise_vec,const int Nnoise, const bool do_check)
 {

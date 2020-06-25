@@ -66,6 +66,8 @@ namespace a2a
   int spaceeomesh_dil(Field_F*, const Field_F*, const int, const bool do_check = false);
   int spaceblk_dil(Field_F*, const Field_F*,const int, const bool do_check = false);
   int spaceobl_dil(Field_F*, const Field_F*, const int, const bool do_check = false);
+  int space2_dil(Field_F*, const Field_F*, const int, const bool do_check = false);
+  int space4_dil(Field_F*, const Field_F*, const int, const bool do_check = false);
   int space8_dil(Field_F*, const Field_F*, const int, const bool do_check = false);
   // ** under construction ** 
   int space16_dil(Field_F*, const Field_F*, const int, const bool do_check = false);

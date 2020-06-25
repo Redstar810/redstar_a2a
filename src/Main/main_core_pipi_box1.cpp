@@ -236,7 +236,8 @@ int main_core(Parameters *params_conf_all)
   //a2a::time_dil(dil_noise,noise,Nnoise);
   //a2a::color_dil(dil_noise,tdil_noise,Nnoise*Lt);
   //a2a::dirac_dil(dil_noise,tcdil_noise,Nnoise*Lt*Nc);
-  a2a::spaceeomesh_dil(dil_noise_allt,tcddil_noise,Nnoise*Lt*Nc*Nd);  
+  //a2a::spaceeomesh_dil(dil_noise_allt,tcddil_noise,Nnoise*Lt*Nc*Nd);
+  a2a::space2_dil(dil_noise_allt,tcddil_noise,Nnoise*Lt*Nc*Nd);  
   
   //delete[] noise;
   //delete[] tdil_noise;

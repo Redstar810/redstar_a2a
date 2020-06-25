@@ -1,0 +1,26 @@
+
+
+  REDSTAR_A2A codeset
+  written by: Yutaro Akahoshi
+
+
+Overview:
+---------
+
+This is a codeset for all-to-all calculations (hybrid method, one-end trick, etc...) and diagram calculations using the all-to-all propagators. Codes are written by using Bridge++ code set.
+
+Installation:
+-------------
+
+(1) To run this codeset, one needs the installation of Bridge++ codeset first.
+For the installation of Bridge++, please see the documents of Bridge++.
+
+(2) After the installation of Bridge++, please put redstar_a2a directory
+with the same place as Bridge++ root directory:
+
+ - work (working directory) ----- bridge-1.5.3 : Bridge++ code set
+   		 	      |
+			      |
+			      --- redstar_a2a : REDSTAR_A2A code set
+
+Note: you can use other directory structure, but you need to modify Makefile in redstar_a2a codeset.
