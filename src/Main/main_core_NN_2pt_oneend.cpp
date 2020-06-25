@@ -210,7 +210,7 @@ int main_core(Parameters *params_conf_all)
 
   a2a::gen_noise_Z3(noise,noise_seed,Nnoise); 
   
-  // tcd(or other) dilution
+  // dilution
   Field_F *tdil_noise = new Field_F[Nnoise*Lt];
   a2a::time_dil(tdil_noise,noise,Nnoise);
   delete[] noise;
@@ -223,15 +223,25 @@ int main_core(Parameters *params_conf_all)
 
   Field_F *dil_noise_allt = new Field_F[Nnoise*Ndil];
   a2a::space2_dil(dil_noise_allt,tcddil_noise,Nnoise*Lt*Nc*Nd);
+  delete[] tcddil_noise;
+  
+  // Note: Above dilution gives the structure of the external index of diluted noise as follows
+  // #. of components = 2 * Nc * Nd * Lt
+  // index structure = (s2 dil, 0 or 1) + 2 * ((color 3 components) + Nc * ((spin 4 components) + Nd * (time slice Lt components)))
+  // if you use a finer space dilution (e.g. space4 dilution), the innermost structure will be changed.
+  // (s2 dil, 0 or 1) + 2 * (...) -> (s4 dil, 0~3) + 4 * (...)
+  // I'm planning to improve this implementation... 
   
   //delete[] noise;
   //delete[] tdil_noise;
   //delete[] tcdil_noise;
-  delete[] tcddil_noise;
+  
   
   //diltimer -> stop();
 
-  // source time slice determination 
+  // source time slice determination
+  // default: full source time average.
+  
   vout.general("===== source time setup =====\n");
   int Nsrc_t = Lt; // #. of source time you use 
   int Ndil_red = Ndil / Lt * Nsrc_t; // reduced d.o.f. of noise vectors 
@@ -245,6 +255,7 @@ int main_core(Parameters *params_conf_all)
   vout.general("#. of source time = %d \n",Nsrc_t);
   int srct_list[Nsrc_t];
   for(int n=0;n<Nsrc_t;n++){
+    // here you determine how to take Nsrc_t source times
     srct_list[n] = n; // full time average
     //srct_list[n] = (Lt / Nsrc_t) * n; // even time average 
     //srct_list[n] = (Lt / Nsrc_t) * n + 1; // odd time average
@@ -253,6 +264,7 @@ int main_core(Parameters *params_conf_all)
 
   vout.general("==========\n");
 
+  // diluted vectors with specified source times
   Field_F *dil_noise = new Field_F[Nnoise*Ndil_red];
   for(int i=0;i<Nnoise;i++){
     for(int t=0;t<Nsrc_t;t++){
