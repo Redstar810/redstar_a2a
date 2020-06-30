@@ -86,6 +86,7 @@ int main_core(Parameters *params_conf_all)
   Parameters params_noise = params_conf_all->lookup("Noise");
   Parameters params_caa = params_conf_all->lookup("CAA");
   Parameters params_smrdsink = params_conf_all->lookup("Smearing(sink)");
+  Parameters params_smrdsrc = params_conf_all->lookup("Smearing(src)");
   Parameters params_fileio = params_conf_all->lookup("File_io");
   
   //- standard parameters
@@ -183,6 +184,17 @@ int main_core(Parameters *params_conf_all)
   vout.general("  a = %12.6e\n", a_sink);
   vout.general("  b = %12.6e\n", b_sink);
   vout.general("  thr_val = %12.6e\n", thr_val_sink);
+
+  //- smearing parameters (src)
+  double a_src, b_src, thr_val_src;
+  params_smrdsrc.fetch_double("a",a_src);
+  params_smrdsrc.fetch_double("b",b_src);
+  thr_val_src = (Lx - 1) / (double)2; // threshold value for source smearing is fixed
+
+  vout.general("Smearing (src)\n");
+  vout.general("  a = %12.6e\n", a_src);
+  vout.general("  b = %12.6e\n", b_src);
+  vout.general("  thr_val = %12.6e\n", thr_val_src);
   
   //- output directory name
   std::string outdir_name;
@@ -319,56 +331,31 @@ int main_core(Parameters *params_conf_all)
 
   vout.general("==========\n");
 
+  // smearing the noise sources
+  a2a::Exponential_smearing *smear_src = new a2a::Exponential_smearing;
+  smear_src->set_parameters(a_src,b_src,thr_val_src);
+  Field_F *dil_noise_allt_smr = new Field_F[Nnoise*Ndil];
+  smear_src->smear(dil_noise_allt_smr, dil_noise_allt, Nnoise*Ndil);
+  delete smear_src;
+  delete[] dil_noise_allt;
+
   Field_F *dil_noise = new Field_F[Nnoise*Ndil_red];
   for(int i=0;i<Nnoise;i++){
     for(int t=0;t<Nsrc_t;t++){
       for(int n=0;n<Ndil_tslice;n++){
-	copy(dil_noise[n+Ndil_tslice*(t+Nsrc_t*i)],dil_noise_allt[n+Ndil_tslice*(srct_list[t]+Lt*i)]);
+	copy(dil_noise[n+Ndil_tslice*(t+Nsrc_t*i)],dil_noise_allt_smr[n+Ndil_tslice*(srct_list[t]+Lt*i)]);
       }
     }
   }
-  delete[] dil_noise_allt;
+  delete[] dil_noise_allt_smr;
   
   Field_F *xi_l = new Field_F[Nnoise*Ndil_red];
 
-  // solve inversions
-  if(solver_type_full=="Double_eo"){
-  
-    // bridge core lib.   
-    Fopr_Clover_eo *fopr_l_eo = new Fopr_Clover_eo("Dirac");
-    fopr_l_eo -> set_parameters(kappa_l, csw, bc);
-    fopr_l_eo -> set_config(U);
-    Timer invtimer_org("Inversion (org, BiCGStab_eo)");
-    invtimer_org.start();
-    a2a::inversion_eo(xi_l,fopr_l_eo,fopr_l,dil_noise,Nnoise*Ndil_red);
-    invtimer_org.stop();
-    invtimer_org.report();
-    delete fopr_l_eo;
-  }
-  else if(solver_type_full=="Mixed_eo"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec. + e/o precond.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover_eo(xi_l, dil_noise, U, kappa_l, csw, bc,
-				       Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				       Nmaxiter, Nmaxres);
 
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
-  else if(solver_type_full=="Mixed"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover(xi_l, dil_noise, U, kappa_l, csw, bc,
-				    Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				    Nmaxiter, Nmaxres);
-    
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
+  a2a::inversion_alt_Clover_eo(xi_l, dil_noise, U, kappa_l, csw, bc,
+			       Nnoise*Ndil_red, inv_prec_full,
+			       Nmaxiter, Nmaxres);
 
-  
   ////////////////////////////////
   // calc sequential propagator //
 
@@ -414,54 +401,10 @@ int main_core(Parameters *params_conf_all)
   Communicator::sync_global();
 
   Field_F *chi_ll = new Field_F[Nnoise*Ndil_red];
-  // bridge core lib.
-  //a2a::inversion(chi_ll,fopr_l,seq_src,Nnoise*Ndil_red);
-  //a2a::inversion_eo(chi_ll,fopr_l_eo,fopr_l,seq_src,Nnoise*Ndil_red);
-  // alternative code (mixed prec.)
-  //a2a::inversion_alt_mixed_Clover_eo(chi_ll, seq_src, U, kappa_l, csw, bc,
-  /*
-  a2a::inversion_alt_mixed_Clover_eo(chi_ll, seq_src, U, kappa_l, csw, bc,
-				     Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
+  a2a::inversion_alt_Clover_eo(chi_ll, seq_src, U, kappa_l, csw, bc,
+				     Nnoise*Ndil_red, inv_prec_full,
 				     Nmaxiter, Nmaxres);
-  */
   
-  // solve inversions
-  if(solver_type_full=="Double_eo"){
-  
-    // bridge core lib.   
-    Fopr_Clover_eo *fopr_l_eo = new Fopr_Clover_eo("Dirac");
-    fopr_l_eo -> set_parameters(kappa_l, csw, bc);
-    fopr_l_eo -> set_config(U);
-    Timer invtimer_org("Inversion (org, BiCGStab_eo)");
-    invtimer_org.start();
-    a2a::inversion_eo(chi_ll,fopr_l_eo,fopr_l,seq_src,Nnoise*Ndil_red);
-    invtimer_org.stop();
-    invtimer_org.report();
-    delete fopr_l_eo;
-  }
-  else if(solver_type_full=="Mixed_eo"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec. + e/o precond.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover_eo(chi_ll, seq_src, U, kappa_l, csw, bc,
-				       Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				       Nmaxiter, Nmaxres);
-
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
-  else if(solver_type_full=="Mixed"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover(chi_ll, seq_src, U, kappa_l, csw, bc,
-				    Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				    Nmaxiter, Nmaxres);
-    
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
-
   delete[] seq_src;
 
   // parameters for sink smearing
@@ -479,55 +422,9 @@ int main_core(Parameters *params_conf_all)
   delete[] chi_ll;
 
   Field_F *xi_s = new Field_F[Nnoise*Ndil_red];
-  // bridge core lib.
-  //Fopr_Clover_eo *fopr_s_eo = new Fopr_Clover_eo("Dirac");
-  //fopr_s_eo -> set_parameters(kappa_l, csw, bc);
-  //fopr_s_eo -> set_config(U);
-
-  //a2a::inversion(xi_s,fopr_s,dil_noise,Nnoise*Ndil_red);
-  //a2a::inversion_eo(xi_s,fopr_s_eo,fopr_s,dil_noise,Nnoise*Ndil_red);
-  //a2a::inversion_alt_mixed_Clover_eo(xi_s, dil_noise, U, kappa_s, csw, bc,
-  /*
-  a2a::inversion_alt_mixed_Clover_eo(xi_s, dil_noise, U, kappa_s, csw, bc,
-				     Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				     Nmaxiter, Nmaxres);
-  */
-  
-  // solve inversions
-  if(solver_type_full=="Double_eo"){
-  
-    // bridge core lib.   
-    Fopr_Clover_eo *fopr_s_eo = new Fopr_Clover_eo("Dirac");
-    fopr_s_eo -> set_parameters(kappa_s, csw, bc);
-    fopr_s_eo -> set_config(U);
-    Timer invtimer_org("Inversion (org, BiCGStab_eo)");
-    invtimer_org.start();
-    a2a::inversion_eo(xi_s,fopr_s_eo,fopr_s,dil_noise,Nnoise*Ndil_red);
-    invtimer_org.stop();
-    invtimer_org.report();
-    delete fopr_s_eo;
-  }
-  else if(solver_type_full=="Mixed_eo"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec. + e/o precond.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover_eo(xi_s, dil_noise, U, kappa_s, csw, bc,
-				       Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				       Nmaxiter, Nmaxres);
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
-  else if(solver_type_full=="Mixed"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover(xi_s, dil_noise, U, kappa_s, csw, bc,
-				    Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				    Nmaxiter, Nmaxres);
-    
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
+  a2a::inversion_alt_Clover_eo(xi_s, dil_noise, U, kappa_s, csw, bc,
+			       Nnoise*Ndil_red, inv_prec_full,
+			       Nmaxiter, Nmaxres);
   
   delete[] dil_noise;
 
@@ -535,118 +432,6 @@ int main_core(Parameters *params_conf_all)
   Field_F *xi_s_smrdsink = new Field_F[Nnoise*Ndil_red];
   smear->smear(xi_s_smrdsink, xi_s, Nnoise*Ndil_red);
   delete[] xi_s;
-
-  // bridge core lib.
-  //delete fopr_s_eo;
-  //delete fopr_s;
-
-
-  
-  /*// for test
-  for(int n=0;n<Nnoise*Ndil_red;n++){
-    vout.general("norm of xi_s[%d] : %f\n",n,xi_s[n].norm() );
-  }
-
-  for(int n=0;n<Nnoise*Ndil_red;n++){
-    vout.general("norm of chi_ll[%d] : %f\n",n,chi_ll[n].norm() );
-  }
-  delete[] xi_s;
-  delete[] chi_ll;
-  */
-  /*
-  // for wall source
-#pragma omp parallel for
-  for(int n=0;n<Ndil_red*Nnoise/Nd;n++){
-    //mult_GM(tmpgm3,gm_5,dil_noise[n]);
-    //mult_GM(dil_noise[n],gm_3,tmpgm3);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(0),xi[0+Nd*n]);
-    copy(chi[0+Nd*n],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(1),xi[1+Nd*n]);
-    copy(chi[1+Nd*n],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(2),xi[2+Nd*n]);
-    copy(chi[2+Nd*n],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(3),xi[3+Nd*n]);
-    copy(chi[3+Nd*n],tmpgm35);
-  }
-  */
-  /*
-  // for tcds4 dilution
-  for(int n=0;n<Ndil_red*Nnoise/(Nd*4);n++){
-    //mult_GM(tmpgm3,gm_5,dil_noise[n]);
-    //mult_GM(dil_noise[n],gm_3,tmpgm3);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(0),xi[0+4*(0+Nd*n)]);
-    copy(chi[0+4*(0+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(0),xi[1+4*(0+Nd*n)]);
-    copy(chi[1+4*(0+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(0),xi[2+4*(0+Nd*n)]);
-    copy(chi[2+4*(0+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(0),xi[3+4*(0+Nd*n)]);
-    copy(chi[3+4*(0+Nd*n)],tmpgm35);
-
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(1),xi[0+4*(1+Nd*n)]);
-    copy(chi[0+4*(1+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(1),xi[1+4*(1+Nd*n)]);
-    copy(chi[1+4*(1+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(1),xi[2+4*(1+Nd*n)]);
-    copy(chi[2+4*(1+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(1),xi[3+4*(1+Nd*n)]);
-    copy(chi[3+4*(1+Nd*n)],tmpgm35);
-
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(2),xi[0+4*(2+Nd*n)]);
-    copy(chi[0+4*(2+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(2),xi[1+4*(2+Nd*n)]);
-    copy(chi[1+4*(2+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(2),xi[2+4*(2+Nd*n)]);
-    copy(chi[2+4*(2+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(2),xi[3+4*(2+Nd*n)]);
-    copy(chi[3+4*(2+Nd*n)],tmpgm35);
-
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(3),xi[0+4*(3+Nd*n)]);
-    copy(chi[0+4*(3+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(3),xi[1+4*(3+Nd*n)]);
-    copy(chi[1+4*(3+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(3),xi[2+4*(3+Nd*n)]);
-    copy(chi[2+4*(3+Nd*n)],tmpgm35);
-    tmpgm35.set(0.0);
-    axpy(tmpgm35,gm_35.value(3),xi[3+4*(3+Nd*n)]);
-    copy(chi[3+4*(3+Nd*n)],tmpgm35);
-  }
-  */
-  
-  /*
-  // smearing
-  Field_F *chi_smrdsink = new Field_F[Nnoise*Ndil_red];
-  Field_F *xi_smrdsink = new Field_F[Nnoise*Ndil_red];
-  a2a::Exponential_smearing *smear = new a2a::Exponential_smearing;
-  smear->set_parameters(a_sink,b_sink,thr_val_sink);
-  smeartimer->start();
-  smear->smear(chi_smrdsink, chi, Nnoise*Ndil_red);
-  smear->smear(xi_smrdsink, xi, Nnoise*Ndil_red);
-  smeartimer->stop();
-  smeartimer->report();
-
-  delete[] xi;
-  delete[] chi;
-  */
   
   ///////////////////////////////////////////////////////////////////////
   ///// ### calc. box diagram using one-end + sequential + CAA ### //
@@ -805,53 +590,10 @@ int main_core(Parameters *params_conf_all)
   delete[] smrd_src_exa; 
   
   fopr_l->set_mode("D");
-  //a2a::inversion_eo(Hinv,fopr_l_eo,fopr_l,point_src_exagm5,Nc*Nd*Lt);
-  //delete[] point_src_exagm5;
-  // bridge core lib.
-  //a2a::inversion_eo(Hinv,fopr_l_eo,fopr_l,smrd_src_exagm5,Nc*Nd*Lt, inv_prec_full);
-  // alternative code
-  //a2a::inversion_alt_mixed_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
-  /*
-  a2a::inversion_alt_mixed_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
-				  Nc*Nd*Lt, inv_prec_full, inv_prec_inner,
-				  Nmaxiter, Nmaxres);
-  */
-  // solve inversions
-  if(solver_type_caa=="Double_eo"){  
-    // bridge core lib.   
-    Fopr_Clover_eo *fopr_l_eo = new Fopr_Clover_eo("Dirac");
-    fopr_l_eo -> set_parameters(kappa_s, csw, bc);
-    fopr_l_eo -> set_config(U);
-    Timer invtimer_org("Inversion (org, BiCGStab_eo)");
-    invtimer_org.start();
-    a2a::inversion_eo(Hinv,fopr_l_eo,fopr_l,smrd_src_exagm5,Nc*Nd*Lt, inv_prec_full);
-    invtimer_org.stop();
-    invtimer_org.report();
-    delete fopr_l_eo;
-  }
-  else if(solver_type_caa=="Mixed_eo"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec. + e/o precond.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
-				       Nc*Nd*Lt, inv_prec_full, inv_prec_inner,
-				       Nmaxiter, Nmaxres);
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
-  else if(solver_type_caa=="Mixed"){
-    // alternative code implementation (mixed prec)
-    Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec.)");
-    invtimer_alt.start();
-    a2a::inversion_alt_mixed_Clover(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
-				    Nc*Nd*Lt, inv_prec_full, inv_prec_inner,
-				    Nmaxiter, Nmaxres);
-    invtimer_alt.stop();
-    invtimer_alt.report();
-  }
-
+  a2a::inversion_alt_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
+			       Nc*Nd*Lt, inv_prec_full,
+			       Nmaxiter, Nmaxres);
   
- 
   delete[] smrd_src_exagm5;
 
   // smeared sink
@@ -1014,52 +756,11 @@ int main_core(Parameters *params_conf_all)
     delete[] smrd_src_rel;
 
     fopr_l->set_mode("D");
-    //a2a::inversion_eo(Hinv_rel,fopr_l_eo,fopr_l,point_src_relgm5,Nc*Nd*Lt, res2);
-    //delete[] point_src_relgm5;
-    // bridge core lib.
-    //a2a::inversion_eo(Hinv_rel,fopr_l_eo,fopr_l,smrd_src_relgm5,Nc*Nd*Lt, inv_prec_caa);
-    // alternative code
-    //double inv_prec_inner_caa = 3.0e-3;
-    //a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
-    /*
-    a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
-				    Nc*Nd*Lt, inv_prec_caa, inv_prec_inner_caa,
-				    Nmaxiter, Nmaxres);
-    */
-    // solve inversions
-    if(solver_type_caa=="Double_eo"){  
-      // bridge core lib.   
-      Fopr_Clover_eo *fopr_l_eo = new Fopr_Clover_eo("Dirac");
-      fopr_l_eo -> set_parameters(kappa_s, csw, bc);
-      fopr_l_eo -> set_config(U);
-      Timer invtimer_org("Inversion (org, BiCGStab_eo)");
-      invtimer_org.start();
-      a2a::inversion_eo(Hinv_rel,fopr_l_eo,fopr_l,smrd_src_relgm5,Nc*Nd*Lt, inv_prec_caa);
-      invtimer_org.stop();
-      invtimer_org.report();
-      delete fopr_l_eo;
-    }
-    else if(solver_type_caa=="Mixed_eo"){
-      // alternative code implementation (mixed prec)
-      Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec. + e/o precond.)");
-      invtimer_alt.start();
-      a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
-					 Nc*Nd*Lt, inv_prec_caa, inv_prec_inner_caa,
-					 Nmaxiter, Nmaxres);
-      invtimer_alt.stop();
-      invtimer_alt.report();
-    }
-    else if(solver_type_caa=="Mixed"){
-      // alternative code implementation (mixed prec)
-      Timer invtimer_alt("Inversion (alt, BiCGStab w/ mixed prec.)");
-      invtimer_alt.start();
-      a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
-					 Nc*Nd*Lt, inv_prec_caa, inv_prec_inner_caa,
-					 Nmaxiter, Nmaxres);
-      invtimer_alt.stop();
-      invtimer_alt.report();
-    }
-
+   
+    a2a::inversion_alt_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
+				 Nc*Nd*Lt, inv_prec_caa,
+				 Nmaxiter, Nmaxres);
+    
     delete[] smrd_src_relgm5;
 
     // smeared sink

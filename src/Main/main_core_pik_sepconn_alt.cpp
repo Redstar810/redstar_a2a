@@ -82,6 +82,7 @@ int main_core(Parameters *params_conf_all)
   Parameters params_noise = params_conf_all->lookup("Noise");
   Parameters params_caa = params_conf_all->lookup("CAA");
   Parameters params_smrdsink = params_conf_all->lookup("Smearing(sink)");
+  Parameters params_smrdsrc = params_conf_all->lookup("Smearing(src)");
   Parameters params_fileio = params_conf_all->lookup("File_io");
 
   //- standard parameters
@@ -176,6 +177,17 @@ int main_core(Parameters *params_conf_all)
   vout.general("  b = %12.6e\n", b_sink);
   vout.general("  thr_val = %12.6e\n", thr_val_sink);
 
+  //- smearing parameters (src)
+  double a_src, b_src, thr_val_src;
+  params_smrdsrc.fetch_double("a",a_src);
+  params_smrdsrc.fetch_double("b",b_src);
+  thr_val_src = (Lx - 1) / (double)2; // threshold value for source smearing is fixed
+
+  vout.general("Smearing (src)\n");
+  vout.general("  a = %12.6e\n", a_src);
+  vout.general("  b = %12.6e\n", b_src);
+  vout.general("  thr_val = %12.6e\n", thr_val_src);
+
   //- output directory name 
   std::string outdir_name;
   params_fileio.fetch_string("outdir",outdir_name);
@@ -253,15 +265,24 @@ int main_core(Parameters *params_conf_all)
 
   vout.general("==========\n");
 
+  // smearing the noise sources
+  a2a::Exponential_smearing *smear_src = new a2a::Exponential_smearing;
+  smear_src->set_parameters(a_src,b_src,thr_val_src);
+  Field_F *dil_noise_allt_smr = new Field_F[Nnoise*Ndil];
+  smear_src->smear(dil_noise_allt_smr, dil_noise_allt, Nnoise*Ndil);
+  delete smear_src;
+  delete[] dil_noise_allt;
+
   Field_F *dil_noise = new Field_F[Nnoise*Ndil_red];
   for(int i=0;i<Nnoise;i++){
     for(int t=0;t<Nsrc_t;t++){
       for(int n=0;n<Ndil_tslice;n++){
-        copy(dil_noise[n+Ndil_tslice*(t+Nsrc_t*i)],dil_noise_allt[n+Ndil_tslice*(srct_list[t]+Lt*i)]);
+        copy(dil_noise[n+Ndil_tslice*(t+Nsrc_t*i)],dil_noise_allt_smr[n+Ndil_tslice*(srct_list[t]+Lt*i)]);
       }
     }
   }
-  delete[] dil_noise_allt;
+  
+  delete[] dil_noise_allt_smr;
 
   
   //////////////////////////////////////////////////////
@@ -296,10 +317,16 @@ int main_core(Parameters *params_conf_all)
   //a2a::inversion_eo(xi_l,fopr_l_eo,fopr_l,dil_noise,Nnoise*Ndil_red);
 
   // alternative code
+  /*
   //a2a::inversion_alt_mixed_Clover_eo(xi_l, dil_noise, U, kappa_l, csw, bc,
   a2a::inversion_alt_mixed_Clover_eo(xi_l, dil_noise, U, kappa_l, csw, bc,
 				     Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
 				     Nmaxiter, Nmaxres);
+  */
+  a2a::inversion_alt_Clover_eo(xi_l, dil_noise, U, kappa_l, csw, bc,
+			       Nnoise*Ndil_red, inv_prec_full,
+                               Nmaxiter, Nmaxres);
+
   // sink smearing
   Field_F *xi_l_smrdsink = new Field_F[Nnoise*Ndil_red];
   smear->smear(xi_l_smrdsink, xi_l, Nnoise*Ndil_red);
@@ -310,10 +337,15 @@ int main_core(Parameters *params_conf_all)
   //a2a::inversion_eo(xi_s,fopr_s_eo,fopr_s,dil_noise,Nnoise*Ndil_red);
 
   // alternative code
+  /*
   a2a::inversion_alt_mixed_Clover_eo(xi_s, dil_noise, U, kappa_s, csw, bc,
 				     Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
 				     Nmaxiter, Nmaxres);
-    
+  */
+  a2a::inversion_alt_Clover_eo(xi_s, dil_noise, U, kappa_s, csw, bc,
+                               Nnoise*Ndil_red, inv_prec_full,
+                               Nmaxiter, Nmaxres);
+  
   // sink smearing
   Field_F *xi_s_smrdsink = new Field_F[Nnoise*Ndil_red];
   smear->smear(xi_s_smrdsink, xi_s, Nnoise*Ndil_red);

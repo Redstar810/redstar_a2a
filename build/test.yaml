@@ -40,6 +40,10 @@ Smearing(sink): # assume using exp. smearing a * exp{-b * r} (r < threshold)
   b            : 1.0
   threshold    : 3.5
 
+Smearing(src): # assume using exp. smearing a * exp{-b * r} (r < (L-1)/2 )
+  a            : 1.0
+  b            : 1.0
+
 File_io:
   #outdir       : ./test_output
   #outdir       : ./consistency_check_pik_sepconn_threadtest
@@ -48,4 +52,4 @@ File_io:
   #outdir        : ./consistency_check_boostneqt_set1_1unitmom
   #outdir        : ./consistency_check_boostneqt_set2_1unitmom
   #outdir        : ./consistency_check_boosteqt_2unitmom
-  outdir        : ./consistency_check_i2pp
+  #outdir        : ./consistency_check_i2pp

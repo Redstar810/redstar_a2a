@@ -17,7 +17,7 @@ a2a_include_path = $(a2a_src_path)/include
 # they are different in terms of choice of src op, sink op, diagrams, dilutions.
 #src_main_core = $(a2a_main_path)/main_core_pik_sepconn.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_sepconn_alt.cpp
-#src_main_core = $(a2a_main_path)/main_core_pik_box_alt.cpp
+src_main_core = $(a2a_main_path)/main_core_pik_box_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_box.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_tri_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_tri_wall.cpp
@@ -30,7 +30,7 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/main_core_pipi_box1_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_box2.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_box2_alt.cpp
-src_main_core = $(a2a_main_path)/main_core_pipi_i2.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_i2.cpp
 
 # for boost HAL test
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedeqt.cpp
