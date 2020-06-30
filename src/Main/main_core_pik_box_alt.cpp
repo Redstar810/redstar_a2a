@@ -143,13 +143,11 @@ int main_core(Parameters *params_conf_all)
   int Nmaxiter;
   int Nmaxres;
   string solver_type_full;
-  params_inversion.fetch_string("Solver_type",solver_type_full);
   params_inversion.fetch_double("Precision",inv_prec_full);
   params_inversion.fetch_double("Precision_in",inv_prec_inner);
   params_inversion.fetch_int("Nmaxiter",Nmaxiter);
   params_inversion.fetch_int("Nmaxres",Nmaxres);
   vout.general("Inversion (full precision)\n");
-  vout.general("  solver type : %s\n",solver_type_full.c_str());
   vout.general("  precision = %12.6e\n", inv_prec_full);  
   vout.general("  precision (inner) = %12.6e\n", inv_prec_inner);
   vout.general("  Nmaxiter = %d\n", Nmaxiter);
@@ -162,14 +160,12 @@ int main_core(Parameters *params_conf_all)
   unsigned long caa_seed;
   string solver_type_caa;
   params_caa.fetch_int_vector("caa_grid",caa_grid);
-  params_caa.fetch_string("Solver_type",solver_type_caa);
   params_caa.fetch_double("Precision",inv_prec_caa);
   params_caa.fetch_double("Precision_in",inv_prec_inner_caa);
   params_caa.fetch_unsigned_long("point_seed",caa_seed);
 
   vout.general("CAA\n");
   vout.general("  translation grid : %s\n", Parameters::to_string(caa_grid).c_str());
-  vout.general("  solver type : %s\n",solver_type_caa.c_str());
   vout.general("  precision (relaxed) : %12.6e\n", inv_prec_caa);
   vout.general("  precision (relaxed, inner) : %12.6e\n", inv_prec_inner_caa);
   vout.general("  seed (for determining ref. src pt) : %d\n", caa_seed);
@@ -336,7 +332,7 @@ int main_core(Parameters *params_conf_all)
   smear_src->set_parameters(a_src,b_src,thr_val_src);
   Field_F *dil_noise_allt_smr = new Field_F[Nnoise*Ndil];
   smear_src->smear(dil_noise_allt_smr, dil_noise_allt, Nnoise*Ndil);
-  delete smear_src;
+  
   delete[] dil_noise_allt;
 
   Field_F *dil_noise = new Field_F[Nnoise*Ndil_red];
@@ -356,6 +352,10 @@ int main_core(Parameters *params_conf_all)
 			       Nnoise*Ndil_red, inv_prec_full,
 			       Nmaxiter, Nmaxres);
 
+  Field_F *xi_l_smr = new Field_F[Nnoise*Ndil_red];
+  smear_src->smear(xi_l_smr, xi_l, Nnoise*Ndil_red);
+  delete[] xi_l;
+  
   ////////////////////////////////
   // calc sequential propagator //
 
@@ -363,10 +363,10 @@ int main_core(Parameters *params_conf_all)
   for(int n=0;n<Ndil_red*Nnoise;n++){
     Field_F tmp;
     tmp.reset(Nvol,1);
-    mult_GM(tmp,gm_5,xi_l[n]);
+    mult_GM(tmp,gm_5,xi_l_smr[n]);
 #pragma omp parallel
     {
-      copy(xi_l[n],tmp);
+      copy(xi_l_smr[n],tmp);
     }
     seq_src[n].reset(Nvol,1);
     seq_src[n].set(0.0);
@@ -386,7 +386,7 @@ int main_core(Parameters *params_conf_all)
             for(int vs=0;vs<Nxyz;vs++){
 	      for(int d=0;d<Nd;d++){
 		for(int c=0;c<Nc;c++){
-		  seq_src[i+Ndil_tslice*(t_src+Nsrc_t*r)].set_ri(c,d,vs+Nxyz*t,0,xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0));
+		  seq_src[i+Ndil_tslice*(t_src+Nsrc_t*r)].set_ri(c,d,vs+Nxyz*t,0,xi_l_smr[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0));
 		}
 	      }
 	    }
@@ -397,16 +397,20 @@ int main_core(Parameters *params_conf_all)
     }
   } // for r  
 
-  delete[] xi_l;
+  delete[] xi_l_smr;
   Communicator::sync_global();
 
-  Field_F *chi_ll = new Field_F[Nnoise*Ndil_red];
-  a2a::inversion_alt_Clover_eo(chi_ll, seq_src, U, kappa_l, csw, bc,
-				     Nnoise*Ndil_red, inv_prec_full,
-				     Nmaxiter, Nmaxres);
-  
+  Field_F *seq_src_smr = new Field_F[Nnoise*Ndil_red];
+  smear_src->smear(seq_src_smr, seq_src, Nnoise*Ndil_red);
   delete[] seq_src;
 
+  Field_F *chi_ll = new Field_F[Nnoise*Ndil_red];
+  a2a::inversion_alt_Clover_eo(chi_ll, seq_src_smr, U, kappa_l, csw, bc,
+			       Nnoise*Ndil_red, inv_prec_full,
+			       Nmaxiter, Nmaxres);
+  
+  delete[] seq_src_smr;
+  delete smear_src;
   // parameters for sink smearing
   //double a_sink,b_sink,thr_val_sink;
   //a_sink = 1.0;
@@ -424,8 +428,7 @@ int main_core(Parameters *params_conf_all)
   Field_F *xi_s = new Field_F[Nnoise*Ndil_red];
   a2a::inversion_alt_Clover_eo(xi_s, dil_noise, U, kappa_s, csw, bc,
 			       Nnoise*Ndil_red, inv_prec_full,
-			       Nmaxiter, Nmaxres);
-  
+			       Nmaxiter, Nmaxres);  
   delete[] dil_noise;
 
   // sink smearing
