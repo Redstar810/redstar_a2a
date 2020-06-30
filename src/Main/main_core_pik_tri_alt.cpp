@@ -670,11 +670,11 @@ int main_core(Parameters *params_conf_all)
 
   for(int n=0;n<Nsrcpt;n++){
 
-    for(int n=0;n<Nc*Nd*Lt;n++){
-      point_src_rel[n].reset(Nvol,1);
+    for(int m=0;m<Nc*Nd*Lt;m++){
+      point_src_rel[m].reset(Nvol,1);
 #pragma omp parallel
       {
-	point_src_rel[n].set(0.0);
+	point_src_rel[m].set(0.0);
       }
     }
     
