@@ -36,12 +36,12 @@ CAA:
   point_seed   : 810
 
 Smearing(sink): # assume using exp. smearing a * exp{-b * r} (r < threshold)
-  a            : 1.0
+  a            : 0.0
   b            : 1.0
   threshold    : 3.5
 
 Smearing(src): # assume using exp. smearing a * exp{-b * r} (r < (L-1)/2 )
-  a            : 1.0
+  a            : 0.0
   b            : 1.0
 
 File_io:

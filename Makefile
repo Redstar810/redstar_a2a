@@ -15,10 +15,7 @@ a2a_include_path = $(a2a_src_path)/include
 
 # main_core() is separatedly defined main_core_XXX.cpp files.
 # they are different in terms of choice of src op, sink op, diagrams, dilutions.
-#src_main_core = $(a2a_main_path)/main_core_pik_sepconn.cpp
-#src_main_core = $(a2a_main_path)/main_core_pik_sepconn_alt.cpp
-src_main_core = $(a2a_main_path)/main_core_pik_box_alt.cpp
-#src_main_core = $(a2a_main_path)/main_core_pik_box.cpp
+# for I=1 pipi rho resonance study
 #src_main_core = $(a2a_main_path)/main_core_pik_tri_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_tri_wall.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_tri.cpp
@@ -30,6 +27,8 @@ src_main_core = $(a2a_main_path)/main_core_pik_box_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_box1_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_box2.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_box2_alt.cpp
+
+# for I=2 pipi interaction
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2.cpp
 
 # for boost HAL test
@@ -38,6 +37,15 @@ src_main_core = $(a2a_main_path)/main_core_pik_box_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedneqt_set2.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedeqt_pp.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedneqt_pp.cpp
+
+# for kappa resonance study
+#src_main_core = $(a2a_main_path)/main_core_pik_sepconn.cpp
+#src_main_core = $(a2a_main_path)/main_core_pik_sepconn_alt.cpp
+#src_main_core = $(a2a_main_path)/main_core_pik_box_alt.cpp
+#src_main_core = $(a2a_main_path)/main_core_pik_box.cpp
+
+# for sigma resonance study
+src_main_core = $(a2a_main_path)/main_core_pipi_i0disc_3pt.cpp
 
 # for the test of baryonic one-end trick
 #src_main_core = $(a2a_main_path)/main_core_NN_2pt_oneend.cpp
