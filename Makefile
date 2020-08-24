@@ -16,7 +16,7 @@ a2a_include_path = $(a2a_src_path)/include
 # main_core() is separatedly defined main_core_XXX.cpp files.
 # they are different in terms of choice of src op, sink op, diagrams, dilutions.
 # for I=1 pipi rho resonance study
-#src_main_core = $(a2a_main_path)/main_core_pik_tri_alt.cpp
+
 #src_main_core = $(a2a_main_path)/main_core_pipi_tri_wall.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_tri.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_tri_alt.cpp
@@ -43,15 +43,18 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/main_core_pik_sepconn_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_box_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_box.cpp
+#src_main_core = $(a2a_main_path)/main_core_pik_tri_alt.cpp
+src_main_core = $(a2a_main_path)/main_core_pik_sepconn_alt_wall.cpp
+#src_main_core = $(a2a_main_path)/main_core_pik_tri_alt_wall.cpp
 
 # for sigma resonance study
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0disc_3pt.cpp
-src_main_core = $(a2a_main_path)/main_core_pipi_i0tri.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_i0tri.cpp
 
 # for the test of baryonic one-end trick
 #src_main_core = $(a2a_main_path)/main_core_NN_2pt_oneend.cpp
 
-# for consistency check
+# for consistency check (debug)
 #src_main_core = $(a2a_main_path)/a2a_nexttesti1pisep_smrdsink.cpp
 #src_main_core = $(a2a_main_path)/a2a_nexttesti1tri_caasmrdsink.cpp
 #src_main_core = $(a2a_main_path)/a2a_nexttesti1pibox1_caasmrdsink.cpp
