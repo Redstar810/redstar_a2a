@@ -44,7 +44,7 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/main_core_pik_box_alt.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_box.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_tri_alt.cpp
-src_main_core = $(a2a_main_path)/main_core_pik_sepconn_alt_wall.cpp
+#src_main_core = $(a2a_main_path)/main_core_pik_sepconn_alt_wall.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_tri_alt_wall.cpp
 
 # for sigma resonance study
@@ -53,6 +53,7 @@ src_main_core = $(a2a_main_path)/main_core_pik_sepconn_alt_wall.cpp
 
 # for the test of baryonic one-end trick
 #src_main_core = $(a2a_main_path)/main_core_NN_2pt_oneend.cpp
+src_main_core = $(a2a_main_path)/main_core_NN_2pt_oneend_finesdil.cpp
 
 # for consistency check (debug)
 #src_main_core = $(a2a_main_path)/a2a_nexttesti1pisep_smrdsink.cpp
@@ -68,6 +69,9 @@ src_main_core = $(a2a_main_path)/main_core_pik_sepconn_alt_wall.cpp
 
 # for solver test
 #src_main_core = $(a2a_main_path)/main_core_solver_alt.cpp
+
+# for dilution test
+#src_main_core = $(a2a_main_path)/main_core_noise_test.cpp
 
 # include compilation environment summary
 include $(bridge_lib_path)/make.inc

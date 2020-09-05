@@ -24,6 +24,7 @@ namespace a2a
   int corr_o(const dcomplex*, const int, const string);
   // writing vectors //
   int vector_io(Field_F*, const int, const char*, const int);
+  int vector_io(std::vector<Field_F> &vec, const char *filename, const int io_type);
 
   // eigensolver //
   int eigensolver(Field_F*, double*, Fopr*, const int, const int, const int);
@@ -214,6 +215,7 @@ namespace a2a
   // ### new codes (using one-end trick, etc...) ### 
   // output 2pt correlator (src time averaged)
   int output_2ptcorr(const dcomplex*, const int, const int*, const string);
+  int output_2ptcorr(const dcomplex *corr_local, const std::vector<int> &srctime_list, const string output_filename);
   // contraction (separated diagram)
   int contraction_separated(Field*, const Field_F*, const Field_F*, const Field_F*, const Field_F*,const int*, const int, const int);
   int contraction_separated_1dir(Field*, const Field_F*, const Field_F*, const Field_F*, const Field_F*,const int*, const int, const int, const int);
@@ -248,6 +250,7 @@ namespace a2a
     Exponential_smearing(); // constructor
     ~Exponential_smearing(); // destructor 
     void smear(Field_F *dst, const Field_F *src, const int Next); // execute exp. smearing
+    void smear(std::vector<Field_F> &dst, const std::vector<Field_F> &src); // execute exp. smearing
     void set_parameters(const double a, const double b, const double thrval); // parameter setting method
     void output_smrfunc(Field *o_smrfunc); // for bug check
   };
@@ -305,7 +308,39 @@ namespace a2a
 				  const int Nmaxiter,
 				  const int Nmaxres);
 
+
+  int inversion_alt_Clover_eo(std::vector<Field_F> &xi, const std::vector<Field_F> &src, Field_G *U,
+			      const double kappa,
+			      const double csw,
+			      const std::vector<int> bc,
+			      const double prec,
+			      const int Nmaxiter,
+			      const int Nmaxres);
+
+
   
 } // namespace a2a
+
+namespace one_end // functions and classes for calculation using the one-end trick (for both mesons and baryons)
+{
+  // Here, we also define the noise vector generation code and dilution codes, but they are not the same as the a2a:: functions.
+  // one_end:: implementation is the latest.
+  // generate noise vectors //                                                          
+  int gen_noise_Z2(std::vector<Field_F>& eta, const unsigned long seed);
+  int gen_noise_Z4(std::vector<Field_F>& eta, const unsigned long seed);
+  int gen_noise_Z3(std::vector<Field_F>& eta, const unsigned long seed);
+
+  // dilution //
+  int time_dil(std::vector<Field_F>& tdil_noise, const std::vector<Field_F>& noise_vec, const std::vector<int>& timeslice_list);
+  int color_dil(std::vector<Field_F>& cdil_noise, const std::vector<Field_F>& noise_vec);
+  int dirac_dil(std::vector<Field_F>& cdil_noise, const std::vector<Field_F>& noise_vec);
+  int space2_dil(std::vector<Field_F>& cdil_noise, const std::vector<Field_F>& noise_vec);
+  int space4_dil(std::vector<Field_F>& cdil_noise, const std::vector<Field_F>& noise_vec);
+  int space8_dil(std::vector<Field_F>& cdil_noise, const std::vector<Field_F>& noise_vec);
+  int space16_dil(std::vector<Field_F>& cdil_noise, const std::vector<Field_F>& noise_vec);
+  int space32_dil(std::vector<Field_F>& cdil_noise, const std::vector<Field_F>& noise_vec);
+
+}
+
 
 #endif /* ALL2ALL_REDSTAR_INCLUDED */

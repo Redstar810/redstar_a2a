@@ -165,7 +165,7 @@ int a2a::hyb_io(Field_F *w, Field_F *u, const int Nnoise, const int Nhl, const i
   return 0;
 }    
 
-int a2a::vector_io(Field_F *vec, const int Nex, const char *output_name, const int io_type)
+int a2a::vector_io(Field_F *vec, const int Nex, const char *filename, const int io_type)
 {
   // how to use : io_type = 1...input io_type = 0...output 
   int Nvol = CommonParameters::Nvol();
@@ -174,7 +174,55 @@ int a2a::vector_io(Field_F *vec, const int Nex, const char *output_name, const i
   Communicator::grid_coord(igrids, Communicator::nodeid());
   vout.general("===== vector I/O =====\n");  
 
-  snprintf(fname_vec, sizeof(fname_vec),"%s_%04d.%02d.%02d.%02d.%02d",output_name,Nex,igrids[0],igrids[1],igrids[2],igrids[3]);
+  snprintf(fname_vec, sizeof(fname_vec),"%s_%04d.%02d.%02d.%02d.%02d",filename,Nex,igrids[0],igrids[1],igrids[2],igrids[3]);
+  
+  if(io_type == 0){
+    
+    std::ofstream ofs_vec(fname_vec, std::ios::binary);
+        
+    vout.general("writing vector data...\n");
+    for(int r=0; r<Nex; r++){
+      ofs_vec.write((char*)vec[r].ptr(0), sizeof(double) * vec[r].size());
+    }
+    vout.general("OK!\n");
+    Communicator::sync_global();
+    ofs_vec.close();
+  }
+  else if(io_type == 1){
+    for(int i=0;i<Nex;i++){
+      vec[i].reset(Nvol, 1);
+    }
+    
+    std::ifstream ifs_vec(fname_vec, std::ios::binary);
+    
+    vout.general("reading vector data...\n");
+    for(int r=0; r<Nex; r++){
+      ifs_vec.read((char*)vec[r].ptr(0), sizeof(double) * vec[r].size());
+    } 
+    vout.general("OK!\n");
+    
+    Communicator::sync_global();
+    ifs_vec.close();
+  }
+  else{
+    vout.general("error.\n");
+  }
+  vout.general("==========\n");
+  return 0;
+}    
+
+int a2a::vector_io(std::vector<Field_F> &vec, const char *filename, const int io_type)
+{
+  // how to use : io_type = 1...input io_type = 0...output 
+  int Nvol = CommonParameters::Nvol();
+  char fname_vec[256];
+  int  igrids[4];
+  int Nex = vec.size();
+  
+  Communicator::grid_coord(igrids, Communicator::nodeid());
+  vout.general("===== vector I/O =====\n");  
+
+  snprintf(fname_vec, sizeof(fname_vec),"%s_%04d.%02d.%02d.%02d.%02d",filename,Nex,igrids[0],igrids[1],igrids[2],igrids[3]);
   
   if(io_type == 0){
     
@@ -238,6 +286,82 @@ int a2a::output_2ptcorr(const dcomplex *corr_local, const int Nsrc_time, const i
   int Lt = CommonParameters::Lt();
   int Nt = CommonParameters::Nt();
   int NPE = CommonParameters::NPE();
+
+  vout.general("===== output 2pt function =====\n");
+  vout.general("output filename: %s\n",output_filename.c_str());
+  vout.general("#. of src timeslice: %d\n",Nsrc_time);
+  for(int t=0;t<Nsrc_time;t++){
+    vout.general("  srct[%d] = %d\n",t,srctime_list[t]);
+  }
+  dcomplex *corr_all,*corr_in;
+  if(Communicator::nodeid()==0){
+    corr_all = new dcomplex[Lt*Nsrc_time];
+    corr_in = new dcomplex[Nt*Nsrc_time];
+    for(int n=0;n<Lt*Nsrc_time;n++){
+      corr_all[n] = cmplx(0.0,0.0);
+    }
+    for(int lt=0;lt<Nsrc_time;lt++){
+      for(int t=0;t<Nt;t++){
+        corr_all[t+Lt*lt] += corr_local[t+Nt*lt];
+      }
+    }
+  }
+  Communicator::sync_global();
+  for(int irank=1;irank<NPE;irank++){
+    int igrids[4];
+    Communicator::grid_coord(igrids,irank);
+    Communicator::send_1to1(2*Nsrc_time*Nt,(double*)corr_in,(double*)corr_local,0,irank,irank);
+    if(Communicator::nodeid()==0){
+      for(int lt=0;lt<Nsrc_time;lt++){
+        for(int t=0;t<Nt;t++){
+          corr_all[(t+igrids[3]*Nt)+Lt*lt] += corr_in[t+Nt*lt];
+        }
+      }
+    }// if nodeid         
+    Communicator::sync_global();
+  } // for irank                          
+
+  if(Communicator::nodeid()==0){
+    dcomplex *corr_final = new dcomplex[Lt];
+    for(int n=0;n<Lt;n++){
+      corr_final[n] = cmplx(0.0,0.0);
+    }
+    for(int t_src=0;t_src<Nsrc_time;t_src++){
+      for(int lt=0;lt<Lt;lt++){
+        int tt = (lt + srctime_list[t_src]) % Lt;
+        corr_final[lt] += corr_all[tt+Lt*t_src];
+      }
+    } // for t_src
+    delete[] corr_all;
+    delete[] corr_in;
+
+    // output correlator values
+    vout.general("===== correlator values ===== \n");
+    vout.general(" time|   real|   imag| \n");
+    for(int lt=0;lt<Lt;lt++){
+      printf("%d|%12.4e|%12.4e\n",lt,real(corr_final[lt]),imag(corr_final[lt]));
+    }
+
+    std::ofstream ofs_2pt(output_filename.c_str());
+    for(int t=0;t<Lt;t++){
+      ofs_2pt << std::setprecision(std::numeric_limits<double>::max_digits10) << t << " " << real(corr_final[t]) << " " << imag(corr_final[t]) << std::endl;
+    }
+    delete[] corr_final;
+
+  } // if nodeid                          
+  
+  vout.general("output finished. \n");
+
+  return 0;
+
+}
+
+int a2a::output_2ptcorr(const dcomplex *corr_local, const std::vector<int> &srctime_list, const string output_filename)
+{
+  int Lt = CommonParameters::Lt();
+  int Nt = CommonParameters::Nt();
+  int NPE = CommonParameters::NPE();
+  int Nsrc_time = srctime_list.size();
 
   vout.general("===== output 2pt function =====\n");
   vout.general("output filename: %s\n",output_filename.c_str());

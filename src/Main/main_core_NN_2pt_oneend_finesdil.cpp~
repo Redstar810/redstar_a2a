@@ -84,6 +84,7 @@ int main_core(Parameters *params_conf_all)
   Parameters params_noise = params_conf_all->lookup("Noise");
   Parameters params_caa = params_conf_all->lookup("CAA");
   Parameters params_smrdsink = params_conf_all->lookup("Smearing(sink)");
+  Parameters params_smrdsrc = params_conf_all->lookup("Smearing(src)");
   Parameters params_fileio = params_conf_all->lookup("File_io");
 
   //- standard parameters
@@ -109,15 +110,22 @@ int main_core(Parameters *params_conf_all)
   int Nnoise = 1;
   //for tcds dilution  
   int Ndil_space = 4;
-  int Ndil = Lt*Nc*Nd*Ndil_space;
-  int Ndil_tslice = Ndil / Lt;
+  //int Ndil = Lt*Nc*Nd*Ndil_space;
+  int Ndil_tslice = Ndil_space*Nc*Nd;
 
   unsigned long noise_seed;
+  std::vector<int> timeslice_list;
+  std::string timeave;
+  params_noise.fetch_string("timeave",timeave);
   params_noise.fetch_unsigned_long("noise_seed",noise_seed);
+  params_noise.fetch_int_vector("timeslice",timeslice_list);
+  int Nsrc_t = timeslice_list.size();
 
   vout.general("Noise vectors\n");
   vout.general("  Nnoise : %d\n",Nnoise);
   vout.general("  seed : %d\n",noise_seed);
+  vout.general("  Nsrct : %d\n",Nsrc_t);
+  vout.general("  Time slices: %s\n", Parameters::to_string(timeslice_list).c_str());
 
   //- eigensolver parameters
   // fundamentals
@@ -179,6 +187,17 @@ int main_core(Parameters *params_conf_all)
   vout.general("  b = %12.6e\n", b_sink);
   vout.general("  thr_val = %12.6e\n", thr_val_sink);
 
+  //- smearing parameters (src) 
+  double a_src, b_src, thr_val_src;
+  params_smrdsrc.fetch_double("a",a_src);
+  params_smrdsrc.fetch_double("b",b_src);
+  thr_val_src = (Lx - 1) / (double)2; // threshold value for source smearing is fixed
+
+  vout.general("Smearing (src)\n");
+  vout.general("  a = %12.6e\n", a_src);
+  vout.general("  b = %12.6e\n", b_src);
+  vout.general("  thr_val = %12.6e\n", thr_val_src);
+
   //- output directory name 
   std::string outdir_name;
   params_fileio.fetch_string("outdir",outdir_name);
@@ -206,66 +225,30 @@ int main_core(Parameters *params_conf_all)
   //diltimer -> start();
   
   vout.general("dilution type = %s\n", dil_type.c_str());    
-  Field_F *noise = new Field_F[Nnoise];
-
-  a2a::gen_noise_Z3(noise,noise_seed,Nnoise); 
+  //Field_F *noise = new Field_F[Nnoise];
+  std::vector<Field_F> noise(Nnoise);
+  //a2a::gen_noise_Z3(noise,noise_seed,Nnoise); 
+  one_end::gen_noise_Z3(noise,noise_seed);
   
   // tcd(or other) dilution
-  Field_F *tdil_noise = new Field_F[Nnoise*Lt];
-  a2a::time_dil(tdil_noise,noise,Nnoise);
-  delete[] noise;
-  Field_F *tcdil_noise =new Field_F[Nnoise*Lt*Nc];
-  a2a::color_dil(tcdil_noise,tdil_noise,Nnoise*Lt);
-  delete[] tdil_noise;
-  Field_F *tcddil_noise = new Field_F[Nnoise*Lt*Nc*Nd];
-  a2a::dirac_dil(tcddil_noise,tcdil_noise,Nnoise*Lt*Nc);
-  delete[] tcdil_noise;
 
-  Field_F *dil_noise_allt = new Field_F[Nnoise*Ndil];
-  //a2a::time_dil(dil_noise,noise,Nnoise);
-  //a2a::color_dil(dil_noise,tdil_noise,Nnoise*Lt);
-  //a2a::dirac_dil(dil_noise,tcdil_noise,Nnoise*Lt*Nc);
-  //a2a::spaceeomesh_dil(dil_noise_allt,tcddil_noise,Nnoise*Lt*Nc*Nd);
-  a2a::spaceblk_dil(dil_noise_allt,tcddil_noise,Nnoise*Lt*Nc*Nd);  
-  
-  //delete[] noise;
-  //delete[] tdil_noise;
-  //delete[] tcdil_noise;
-  delete[] tcddil_noise;
-  
-  //diltimer -> stop();
+  std::vector<Field_F> tdil_noise(Nnoise*Nsrc_t);
+  one_end::time_dil(tdil_noise,noise,timeslice_list);
+  std::vector<Field_F>().swap(noise);
 
-  // source time slice determination 
-  vout.general("===== source time setup =====\n");
-  int Nsrc_t = Lt; // #. of source time you use 
-  int Ndil_red = Ndil / Lt * Nsrc_t; // reduced d.o.f. of noise vectors 
-  string numofsrct = std::to_string(Nsrc_t);
-  string timeave_base("tave"); // full time average
-  //string timeave_base("teave"); // even time average
-  //string timeave_base("toave"); // odd time average
-  string timeave = numofsrct + timeave_base;
-  vout.general("Ndil = %d \n", Ndil);
-  vout.general("Ndil_red = %d \n", Ndil_red);
-  vout.general("#. of source time = %d \n",Nsrc_t);
-  int srct_list[Nsrc_t];
-  for(int n=0;n<Nsrc_t;n++){
-    srct_list[n] = n; // full time average
-    //srct_list[n] = (Lt / Nsrc_t) * n; // even time average 
-    //srct_list[n] = (Lt / Nsrc_t) * n + 1; // odd time average
-    vout.general("  source time %d = %d\n",n,srct_list[n]);
-  }
+  std::vector<Field_F> tcdil_noise(Nnoise*Nsrc_t*Nc);
+  one_end::color_dil(tcdil_noise,tdil_noise);
+  std::vector<Field_F>().swap(tdil_noise);
 
-  vout.general("==========\n");
+  std::vector<Field_F> tcddil_noise(Nnoise*Nsrc_t*Nc*Nd);
+  one_end::dirac_dil(tcddil_noise,tcdil_noise);
+  std::vector<Field_F>().swap(tcdil_noise);
 
-  Field_F *dil_noise = new Field_F[Nnoise*Ndil_red];
-  for(int i=0;i<Nnoise;i++){
-    for(int t=0;t<Nsrc_t;t++){
-      for(int n=0;n<Ndil_tslice;n++){
-        copy(dil_noise[n+Ndil_tslice*(t+Nsrc_t*i)],dil_noise_allt[n+Ndil_tslice*(srct_list[t]+Lt*i)]);
-      }
-    }
-  }
-  delete[] dil_noise_allt;
+  std::vector<Field_F> dil_noise(Nnoise*Nsrc_t*Nc*Nd*Ndil_space);
+  //one_end::space32_dil(dil_noise,tcddil_noise);
+  //one_end::space2_dil(dil_noise,tcddil_noise);
+  one_end::space4_dil(dil_noise,tcddil_noise);
+  std::vector<Field_F>().swap(tcddil_noise);
 
   
   //////////////////////////////////////////////////////
@@ -279,44 +262,29 @@ int main_core(Parameters *params_conf_all)
   for(int n=0;n<Nd;n++){
     vout.general("index of Cgamma5 (row %d) = %d, value of Cgamma5 (row %d) = (%f,%f)\n", n, cgm5.index(n), n, real(cgm5.value(n)), imag(cgm5.value(n)) );
   }
-  /*
-  // smearing the noise sources
-  // parameters 
-  double a,b;
-  a = 1.0;
-  b = 0.42;
-  //Field_F *dil_noise_smr = new Field_F[Nnoise*Ndil];
-  //a2a::smearing_exp(dil_noise_smr,dil_noise,Nnoise*Ndil,a,b);
-  */
-  
-  //a2a::Exponential_smearing *smear = new a2a::Exponential_smearing;
-  //smear->set_parameters(a_sink,b_sink,thr_val_sink);
 
-  Field_F *xi_l = new Field_F[Nnoise*Ndil_red];
-  // bridge core lib.
-  Fopr_Clover_eo *fopr_l_eo = new Fopr_Clover_eo("Dirac");
-  fopr_l_eo -> set_parameters(kappa_l, csw, bc);
-  fopr_l_eo -> set_config(U);
-  a2a::inversion_eo(xi_l,fopr_l_eo,fopr_l,dil_noise,Nnoise*Ndil_red,inv_prec_full);
-  /*
-  // alternative code
-  //a2a::inversion_alt_mixed_Clover_eo(xi_l, dil_noise, U, kappa_l, csw, bc,
-  a2a::inversion_alt_mixed_Clover_eo(xi_l, dil_noise, U, kappa_l, csw, bc,
-				     Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
-				     Nmaxiter, Nmaxres);
-  */
-  
-  delete[] dil_noise;
-  //delete[] dil_noise_smr;
+  // smearing the noise sources
+  std::vector<Field_F> dil_noise_smr(dil_noise.size());
+  a2a::Exponential_smearing *smear_src = new a2a::Exponential_smearing;
+  smear_src->set_parameters(a_src,b_src,thr_val_src);
+  smear_src->smear(dil_noise_smr, dil_noise);
+  std::vector<Field_F>().swap(dil_noise);
+
+  std::vector<Field_F> xi_l(dil_noise_smr.size());
+  a2a::inversion_alt_Clover_eo(xi_l, dil_noise_smr, U, kappa_l, csw, bc,
+                               inv_prec_full, Nmaxiter, Nmaxres);
+
+  std::vector<Field_F>().swap(dil_noise_smr);
 
   delete fopr_l;
-  delete fopr_l_eo;
+  //delete fopr_l_eo;
   delete U;
 
-  //delete smear;
+  delete smear_src;
 
   ////////////////////////////////////////////////////////////
   // ### calc. 2pt correlator (for NN, using baryonic one-end trick)### //
+
   EpsilonTensor eps_src;
   EpsilonTensor eps_sink;
   
@@ -363,7 +331,7 @@ int main_core(Parameters *params_conf_all)
 	  }
 	}
       }
-      
+
 #pragma omp parallel for
       for(int n=0;n<Nt*Nsrc_t;n++){
 	corr_local_N[n] /= (double)Nnoise;
@@ -374,12 +342,13 @@ int main_core(Parameters *params_conf_all)
       char output_2pt[100];
       snprintf(output_2pt, sizeof(output_2pt), output_2pt_base.c_str(), alpha, beta);
       string output_2pt_final(output_2pt);
-      a2a::output_2ptcorr(corr_local_N, Nsrc_t, srct_list, outdir_name+output_2pt_final+timeave);
+      a2a::output_2ptcorr(corr_local_N, timeslice_list, outdir_name+output_2pt_final+timeave);
 
       
-    }
-  }
-  
+    } // for beta
+  } // for alpha
+
+  std::vector<Field_F>().swap(xi_l);
   delete[] corr_local_N;  
   delete dirac;
   

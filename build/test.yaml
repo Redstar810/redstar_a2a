@@ -11,6 +11,8 @@ Conf:
 
 Noise:
   noise_seed   : 1234567
+  timeslice    : [0,1,2,3,4,5,6,7]
+  timeave      : fulltave
 
 Eigensolver:
   Precision    : 1.0e-24
