@@ -1936,6 +1936,83 @@ int one_end::space64_dil_sprs16(std::vector<Field_F>& sdil_noise, const std::vec
 }
 
 
+// s512 dilution: distance is 8 [lattice unit]
+// sprs1: we only use a single vector from 512 diluted vectors.
+// index_group determines which vector we use (index_group = int, 0~511)
+// in main function, we need to set index_group randomly.
+int one_end::space512_dil_sprs1(std::vector<Field_F>& sdil_noise, const std::vector<Field_F>& noise_vec, const int index_group)
+{
+  int Nc = CommonParameters::Nc();
+  int Nd = CommonParameters::Nd();
+  int Nx = CommonParameters::Nx();
+  int Ny = CommonParameters::Ny();
+  int Nz = CommonParameters::Nz();
+  int Nt = CommonParameters::Nt();
+  int Nvol = CommonParameters::Nvol();
+  int Nxyz = Nx * Ny * Nz;
+  int igrids[4];
+
+  int Nnoise = noise_vec.size();
+
+  // get grid coord.
+  Communicator::grid_coord(igrids,Communicator::nodeid());
+
+  // check size 
+  if(sdil_noise.size() != Nnoise){
+    vout.general("Error: size of array mismatch. \n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  // initialization //
+  for(int i=0;i<Nnoise;i++){
+    sdil_noise[i].set(0.0);
+  }
+
+  // generate space 512 diluted noise vectors //
+  
+  // check index_group value
+  if(index_group >= 512){
+    vout.general("Error: invalid value for index_group. \n");
+    std::exit(EXIT_FAILURE);
+  }
+  
+  // determine the condition of dilution
+  // remainder of (x,y,z)
+  int rem_x = index_group % 8;
+  int rem_y = (index_group / 8) % 8;
+  int rem_z = ((index_group / 8) / 8) % 8;
+  
+  for(int r=0;r<Nnoise;r++){
+    for(int t=0;t<Nt;t++){
+      for(int z=0;z<Nz;z++){
+	for(int y=0;y<Ny;y++){
+	  for(int x=0;x<Nx;x++){
+	    int x_global = x + Nx * igrids[0];
+	    int y_global = y + Ny * igrids[1];
+	    int z_global = z + Nz * igrids[2];
+	    int vs = x+Nx*(y+Ny*z);
+	    int v = vs+Nxyz*t;
+	    //int vsum_global = x_global + y_global + z_global;
+	    for(int d=0;d<Nd;d++){
+	      for(int c=0;c<Nc;c++){
+		// 0
+		if(x_global % 8 == rem_x && y_global % 8 == rem_y && z_global % 8 == rem_z){
+		  sdil_noise[r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		}
+
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  } // for noise
+
+  Communicator::sync_global();
+  return 0;
+}
+
+
 
 /*
 // s32 dilution: distance is 2 \sqrt{2} [lattice unit]
