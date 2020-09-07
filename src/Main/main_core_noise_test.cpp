@@ -218,7 +218,7 @@ int main_core(Parameters *params_conf_all)
   
   // output original noise vector
   char outnoise_name[] = "test_noise_parallel/noise";
-  a2a::vector_io(noise, outnoise_name, 0);
+  //a2a::vector_io(noise, outnoise_name, 0);
 
   
   // generate Z3 noise vector
@@ -228,7 +228,7 @@ int main_core(Parameters *params_conf_all)
 
   // output original noise vector
   char outnoise_Z3_name[] = "test_noise_parallel/noise_Z3";
-  a2a::vector_io(noise_Z3, outnoise_Z3_name, 0);
+  //a2a::vector_io(noise_Z3, outnoise_Z3_name, 0);
 
   
   // time dilution test
@@ -238,7 +238,7 @@ int main_core(Parameters *params_conf_all)
   //vout.general("capacity: %d \n",tdil_noise.capacity() );
 
   char outtdilnoise_name[] = "test_noise_parallel/tdil_noise";
-  a2a::vector_io(tdil_noise, outtdilnoise_name, 0);
+  //a2a::vector_io(tdil_noise, outtdilnoise_name, 0);
   
   // delete vector
   std::vector<Field_F>().swap(tdil_noise);
@@ -251,7 +251,7 @@ int main_core(Parameters *params_conf_all)
   one_end::color_dil(cdil_noise,noise);
 
   char outcdilnoise_name[] = "test_noise_parallel/cdil_noise";
-  a2a::vector_io(cdil_noise, outcdilnoise_name, 0);
+  //a2a::vector_io(cdil_noise, outcdilnoise_name, 0);
   
   // delete vector
   std::vector<Field_F>().swap(cdil_noise);
@@ -262,7 +262,7 @@ int main_core(Parameters *params_conf_all)
   one_end::dirac_dil(ddil_noise,noise);
 
   char outddilnoise_name[] = "test_noise_parallel/ddil_noise";
-  a2a::vector_io(ddil_noise, outddilnoise_name, 0);
+  //a2a::vector_io(ddil_noise, outddilnoise_name, 0);
   
   // delete vector
   std::vector<Field_F>().swap(ddil_noise);
@@ -273,7 +273,7 @@ int main_core(Parameters *params_conf_all)
   one_end::space16_dil(s16dil_noise,noise);
 
   char outs16dilnoise_name[] = "test_noise_parallel/s16dil_noise";
-  a2a::vector_io(s16dil_noise, outs16dilnoise_name, 0);
+  //a2a::vector_io(s16dil_noise, outs16dilnoise_name, 0);
   
   // delete vector
   std::vector<Field_F>().swap(s16dil_noise);
@@ -284,10 +284,35 @@ int main_core(Parameters *params_conf_all)
   one_end::space32_dil(s32dil_noise,noise);
 
   char outs32dilnoise_name[] = "test_noise_parallel/s32dil_noise";
-  a2a::vector_io(s32dil_noise, outs32dilnoise_name, 0);
+  //a2a::vector_io(s32dil_noise, outs32dilnoise_name, 0);
   
   // delete vector
   std::vector<Field_F>().swap(s32dil_noise);
+
+  // s64 sparse 8 test
+  for(int n=0;n<8;n++){
+    std::vector<Field_F> s64dil_noise(Nnoise*8);
+    one_end::space64_dil_sprs8(s64dil_noise,noise,n);
+    
+    char outs64dilnoise_name_base[] = "test_noise_parallel/s64dil_noise_sprs8_%d";
+    char outs64dilnoise_name[256];
+    snprintf(outs64dilnoise_name,sizeof(outs64dilnoise_name),outs64dilnoise_name_base, n);
+    a2a::vector_io(s64dil_noise, outs64dilnoise_name, 0);
+
+  }
+  
+  // s64 sparse 16 test
+  for(int n=0;n<4;n++){
+    std::vector<Field_F> s64dil_noise(Nnoise*16);
+    one_end::space64_dil_sprs16(s64dil_noise,noise,n);
+    
+    char outs64dilnoise_name_base[] = "test_noise_parallel/s64dil_noise_sprs16_%d";
+    char outs64dilnoise_name[256];
+    snprintf(outs64dilnoise_name,sizeof(outs64dilnoise_name),outs64dilnoise_name_base, n);
+    a2a::vector_io(s64dil_noise, outs64dilnoise_name, 0);
+
+  }
+
 
 
   

@@ -339,6 +339,8 @@ namespace one_end // functions and classes for calculation using the one-end tri
   int space8_dil(std::vector<Field_F>& cdil_noise, const std::vector<Field_F>& noise_vec);
   int space16_dil(std::vector<Field_F>& cdil_noise, const std::vector<Field_F>& noise_vec);
   int space32_dil(std::vector<Field_F>& cdil_noise, const std::vector<Field_F>& noise_vec);
+  int space64_dil_sprs8(std::vector<Field_F>& sdil_noise, const std::vector<Field_F>& noise_vec, const int index_group);
+  int space64_dil_sprs16(std::vector<Field_F>& sdil_noise, const std::vector<Field_F>& noise_vec, const int index_group);
 
 }
 

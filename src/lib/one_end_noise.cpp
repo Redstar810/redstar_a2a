@@ -983,6 +983,959 @@ int one_end::space32_dil(std::vector<Field_F>& sdil_noise, const std::vector<Fie
   return 0;
 }
 
+// s64 dilution: distance is 4 [lattice unit]
+// sprs8: we only use 8 vectors from 64 diluted vectors.
+// index_group determines which 8 vectors we use (index_group = int, 0~7)
+// in main function, we need to set index_group randomly.
+int one_end::space64_dil_sprs8(std::vector<Field_F>& sdil_noise, const std::vector<Field_F>& noise_vec, const int index_group)
+{
+  int Nc = CommonParameters::Nc();
+  int Nd = CommonParameters::Nd();
+  int Nx = CommonParameters::Nx();
+  int Ny = CommonParameters::Ny();
+  int Nz = CommonParameters::Nz();
+  int Nt = CommonParameters::Nt();
+  int Nvol = CommonParameters::Nvol();
+  int Nxyz = Nx * Ny * Nz;
+  int igrids[4];
+
+  int Nnoise = noise_vec.size();
+
+  // get grid coord.
+  Communicator::grid_coord(igrids,Communicator::nodeid());
+
+  // check size 
+  if(sdil_noise.size() != Nnoise*8){
+    vout.general("Error: size of array mismatch. \n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  // initialization //
+  for(int i=0;i<Nnoise*8;i++){
+    sdil_noise[i].set(0.0);
+  }
+
+  // generate space 64 diluted noise vectors //
+  //#pragma omp parallel for
+  if(index_group == 0){
+  
+    for(int r=0;r<Nnoise;r++){
+      for(int t=0;t<Nt;t++){
+	for(int z=0;z<Nz;z++){
+	  for(int y=0;y<Ny;y++){
+	    for(int x=0;x<Nx;x++){
+	      int x_global = x + Nx * igrids[0];
+	      int y_global = y + Ny * igrids[1];
+	      int z_global = z + Nz * igrids[2];
+	      int vs = x+Nx*(y+Ny*z);
+	      int v = vs+Nxyz*t;
+	      //int vsum_global = x_global + y_global + z_global;
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  // 0
+		  if(x_global % 4 == 0 && y_global % 4 == 0 && z_global % 4 == 0){
+		    sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 1
+		  else if(x_global % 4 == 2 && y_global % 4 == 2 && z_global % 4 == 2){
+		    sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 2
+		  else if(x_global % 4 == 2 && y_global % 4 == 0 && z_global % 4 == 0){
+		    sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 3
+		  else if(x_global % 4 == 0 && y_global % 4 == 2 && z_global % 4 == 2){
+		    sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 4
+		  else if(x_global % 4 == 0 && y_global % 4 == 2 && z_global % 4 == 0){
+		    sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 5
+		  else if(x_global % 4 == 2 && y_global % 4 == 0 && z_global % 4 == 2){
+		    sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 6
+		  else if(x_global % 4 == 0 && y_global % 4 == 0 && z_global % 4 == 2){
+		    sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 7
+		  else if(x_global % 4 == 2 && y_global % 4 == 2 && z_global % 4 == 0){
+		    sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    } // for noise
+
+  }
+
+  else if(index_group == 1){
+  
+    for(int r=0;r<Nnoise;r++){
+      for(int t=0;t<Nt;t++){
+	for(int z=0;z<Nz;z++){
+	  for(int y=0;y<Ny;y++){
+	    for(int x=0;x<Nx;x++){
+	      int x_global = x + Nx * igrids[0];
+	      int y_global = y + Ny * igrids[1];
+	      int z_global = z + Nz * igrids[2];
+	      int vs = x+Nx*(y+Ny*z);
+	      int v = vs+Nxyz*t;
+	      //int vsum_global = x_global + y_global + z_global;
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  // 0
+		  if(x_global % 4 == 1 && y_global % 4 == 0 && z_global % 4 == 0){
+		    sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 1
+		  else if(x_global % 4 == 3 && y_global % 4 == 2 && z_global % 4 == 2){
+		    sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 2
+		  else if(x_global % 4 == 3 && y_global % 4 == 0 && z_global % 4 == 0){
+		    sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 3
+		  else if(x_global % 4 == 1 && y_global % 4 == 2 && z_global % 4 == 2){
+		    sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 4
+		  else if(x_global % 4 == 1 && y_global % 4 == 2 && z_global % 4 == 0){
+		    sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 5
+		  else if(x_global % 4 == 3 && y_global % 4 == 0 && z_global % 4 == 2){
+		    sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 6
+		  else if(x_global % 4 == 1 && y_global % 4 == 0 && z_global % 4 == 2){
+		    sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 7
+		  else if(x_global % 4 == 3 && y_global % 4 == 2 && z_global % 4 == 0){
+		    sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    } // for noise
+
+  }
+
+  else if(index_group == 2){
+  
+    for(int r=0;r<Nnoise;r++){
+      for(int t=0;t<Nt;t++){
+	for(int z=0;z<Nz;z++){
+	  for(int y=0;y<Ny;y++){
+	    for(int x=0;x<Nx;x++){
+	      int x_global = x + Nx * igrids[0];
+	      int y_global = y + Ny * igrids[1];
+	      int z_global = z + Nz * igrids[2];
+	      int vs = x+Nx*(y+Ny*z);
+	      int v = vs+Nxyz*t;
+	      //int vsum_global = x_global + y_global + z_global;
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  // 0
+		  if(x_global % 4 == 0 && y_global % 4 == 1 && z_global % 4 == 0){
+		    sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 1
+		  else if(x_global % 4 == 2 && y_global % 4 == 3 && z_global % 4 == 2){
+		    sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 2
+		  else if(x_global % 4 == 2 && y_global % 4 == 1 && z_global % 4 == 0){
+		    sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 3
+		  else if(x_global % 4 == 0 && y_global % 4 == 3 && z_global % 4 == 2){
+		    sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 4
+		  else if(x_global % 4 == 0 && y_global % 4 == 3 && z_global % 4 == 0){
+		    sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 5
+		  else if(x_global % 4 == 2 && y_global % 4 == 1 && z_global % 4 == 2){
+		    sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 6
+		  else if(x_global % 4 == 0 && y_global % 4 == 1 && z_global % 4 == 2){
+		    sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 7
+		  else if(x_global % 4 == 2 && y_global % 4 == 3 && z_global % 4 == 0){
+		    sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    } // for noise
+
+  }
+
+  else if(index_group == 3){
+  
+    for(int r=0;r<Nnoise;r++){
+      for(int t=0;t<Nt;t++){
+	for(int z=0;z<Nz;z++){
+	  for(int y=0;y<Ny;y++){
+	    for(int x=0;x<Nx;x++){
+	      int x_global = x + Nx * igrids[0];
+	      int y_global = y + Ny * igrids[1];
+	      int z_global = z + Nz * igrids[2];
+	      int vs = x+Nx*(y+Ny*z);
+	      int v = vs+Nxyz*t;
+	      //int vsum_global = x_global + y_global + z_global;
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  // 0
+		  if(x_global % 4 == 0 && y_global % 4 == 0 && z_global % 4 == 1){
+		    sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 1
+		  else if(x_global % 4 == 2 && y_global % 4 == 2 && z_global % 4 == 3){
+		    sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 2
+		  else if(x_global % 4 == 2 && y_global % 4 == 0 && z_global % 4 == 1){
+		    sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 3
+		  else if(x_global % 4 == 0 && y_global % 4 == 2 && z_global % 4 == 3){
+		    sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 4
+		  else if(x_global % 4 == 0 && y_global % 4 == 2 && z_global % 4 == 1){
+		    sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 5
+		  else if(x_global % 4 == 2 && y_global % 4 == 0 && z_global % 4 == 3){
+		    sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 6
+		  else if(x_global % 4 == 0 && y_global % 4 == 0 && z_global % 4 == 3){
+		    sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 7
+		  else if(x_global % 4 == 2 && y_global % 4 == 2 && z_global % 4 == 1){
+		    sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    } // for noise
+
+  }
+  else if(index_group == 4){
+  
+    for(int r=0;r<Nnoise;r++){
+      for(int t=0;t<Nt;t++){
+	for(int z=0;z<Nz;z++){
+	  for(int y=0;y<Ny;y++){
+	    for(int x=0;x<Nx;x++){
+	      int x_global = x + Nx * igrids[0];
+	      int y_global = y + Ny * igrids[1];
+	      int z_global = z + Nz * igrids[2];
+	      int vs = x+Nx*(y+Ny*z);
+	      int v = vs+Nxyz*t;
+	      //int vsum_global = x_global + y_global + z_global;
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  // 0
+		  if(x_global % 4 == 1 && y_global % 4 == 1 && z_global % 4 == 0){
+		    sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 1
+		  else if(x_global % 4 == 3 && y_global % 4 == 3 && z_global % 4 == 2){
+		    sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 2
+		  else if(x_global % 4 == 3 && y_global % 4 == 1 && z_global % 4 == 0){
+		    sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 3
+		  else if(x_global % 4 == 1 && y_global % 4 == 3 && z_global % 4 == 2){
+		    sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 4
+		  else if(x_global % 4 == 1 && y_global % 4 == 3 && z_global % 4 == 0){
+		    sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 5
+		  else if(x_global % 4 == 3 && y_global % 4 == 1 && z_global % 4 == 2){
+		    sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 6
+		  else if(x_global % 4 == 1 && y_global % 4 == 1 && z_global % 4 == 2){
+		    sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 7
+		  else if(x_global % 4 == 3 && y_global % 4 == 3 && z_global % 4 == 0){
+		    sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    } // for noise
+
+  }
+  else if(index_group == 5){
+  
+    for(int r=0;r<Nnoise;r++){
+      for(int t=0;t<Nt;t++){
+	for(int z=0;z<Nz;z++){
+	  for(int y=0;y<Ny;y++){
+	    for(int x=0;x<Nx;x++){
+	      int x_global = x + Nx * igrids[0];
+	      int y_global = y + Ny * igrids[1];
+	      int z_global = z + Nz * igrids[2];
+	      int vs = x+Nx*(y+Ny*z);
+	      int v = vs+Nxyz*t;
+	      //int vsum_global = x_global + y_global + z_global;
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  // 0
+		  if(x_global % 4 == 1 && y_global % 4 == 0 && z_global % 4 == 1){
+		    sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 1
+		  else if(x_global % 4 == 3 && y_global % 4 == 2 && z_global % 4 == 3){
+		    sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 2
+		  else if(x_global % 4 == 3 && y_global % 4 == 0 && z_global % 4 == 1){
+		    sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 3
+		  else if(x_global % 4 == 1 && y_global % 4 == 2 && z_global % 4 == 3){
+		    sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 4
+		  else if(x_global % 4 == 1 && y_global % 4 == 2 && z_global % 4 == 1){
+		    sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 5
+		  else if(x_global % 4 == 3 && y_global % 4 == 0 && z_global % 4 == 3){
+		    sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 6
+		  else if(x_global % 4 == 1 && y_global % 4 == 0 && z_global % 4 == 3){
+		    sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 7
+		  else if(x_global % 4 == 3 && y_global % 4 == 2 && z_global % 4 == 1){
+		    sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    } // for noise
+
+  }
+  else if(index_group == 6){
+  
+    for(int r=0;r<Nnoise;r++){
+      for(int t=0;t<Nt;t++){
+	for(int z=0;z<Nz;z++){
+	  for(int y=0;y<Ny;y++){
+	    for(int x=0;x<Nx;x++){
+	      int x_global = x + Nx * igrids[0];
+	      int y_global = y + Ny * igrids[1];
+	      int z_global = z + Nz * igrids[2];
+	      int vs = x+Nx*(y+Ny*z);
+	      int v = vs+Nxyz*t;
+	      //int vsum_global = x_global + y_global + z_global;
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  // 0
+		  if(x_global % 4 == 0 && y_global % 4 == 1 && z_global % 4 == 1){
+		    sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 1
+		  else if(x_global % 4 == 2 && y_global % 4 == 3 && z_global % 4 == 3){
+		    sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 2
+		  else if(x_global % 4 == 2 && y_global % 4 == 1 && z_global % 4 == 1){
+		    sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 3
+		  else if(x_global % 4 == 0 && y_global % 4 == 3 && z_global % 4 == 3){
+		    sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 4
+		  else if(x_global % 4 == 0 && y_global % 4 == 3 && z_global % 4 == 1){
+		    sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 5
+		  else if(x_global % 4 == 2 && y_global % 4 == 1 && z_global % 4 == 3){
+		    sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 6
+		  else if(x_global % 4 == 0 && y_global % 4 == 1 && z_global % 4 == 3){
+		    sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 7
+		  else if(x_global % 4 == 2 && y_global % 4 == 3 && z_global % 4 == 1){
+		    sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    } // for noise
+
+  }
+  else if(index_group == 7){
+  
+    for(int r=0;r<Nnoise;r++){
+      for(int t=0;t<Nt;t++){
+	for(int z=0;z<Nz;z++){
+	  for(int y=0;y<Ny;y++){
+	    for(int x=0;x<Nx;x++){
+	      int x_global = x + Nx * igrids[0];
+	      int y_global = y + Ny * igrids[1];
+	      int z_global = z + Nz * igrids[2];
+	      int vs = x+Nx*(y+Ny*z);
+	      int v = vs+Nxyz*t;
+	      //int vsum_global = x_global + y_global + z_global;
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  // 0
+		  if(x_global % 4 == 1 && y_global % 4 == 1 && z_global % 4 == 1){
+		    sdil_noise[0+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 1
+		  else if(x_global % 4 == 3 && y_global % 4 == 3 && z_global % 4 == 3){
+		    sdil_noise[1+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 2
+		  else if(x_global % 4 == 3 && y_global % 4 == 1 && z_global % 4 == 1){
+		    sdil_noise[2+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 3
+		  else if(x_global % 4 == 1 && y_global % 4 == 3 && z_global % 4 == 3){
+		    sdil_noise[3+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 4
+		  else if(x_global % 4 == 1 && y_global % 4 == 3 && z_global % 4 == 1){
+		    sdil_noise[4+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 5
+		  else if(x_global % 4 == 3 && y_global % 4 == 1 && z_global % 4 == 3){
+		    sdil_noise[5+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 6
+		  else if(x_global % 4 == 1 && y_global % 4 == 1 && z_global % 4 == 3){
+		    sdil_noise[6+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 7
+		  else if(x_global % 4 == 3 && y_global % 4 == 3 && z_global % 4 == 1){
+		    sdil_noise[7+8*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    } // for noise
+
+  }
+  else {
+    vout.general("Error: invalid value for index_group. \n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  Communicator::sync_global();
+  return 0;
+}
+
+// s64 dilution: distance is 4 [lattice unit]
+// sprs16: we only use 16 vectors from 64 diluted vectors.
+// index_group determines which 16 vectors we use (index_group = int, 0~3)
+// in main function, we need to set index_group randomly.
+int one_end::space64_dil_sprs16(std::vector<Field_F>& sdil_noise, const std::vector<Field_F>& noise_vec, const int index_group)
+{
+  int Nc = CommonParameters::Nc();
+  int Nd = CommonParameters::Nd();
+  int Nx = CommonParameters::Nx();
+  int Ny = CommonParameters::Ny();
+  int Nz = CommonParameters::Nz();
+  int Nt = CommonParameters::Nt();
+  int Nvol = CommonParameters::Nvol();
+  int Nxyz = Nx * Ny * Nz;
+  int igrids[4];
+
+  int Nnoise = noise_vec.size();
+
+  // get grid coord.
+  Communicator::grid_coord(igrids,Communicator::nodeid());
+
+  // check size 
+  if(sdil_noise.size() != Nnoise*16){
+    vout.general("Error: size of array mismatch. \n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  // initialization //
+  for(int i=0;i<Nnoise*16;i++){
+    sdil_noise[i].set(0.0);
+  }
+
+  // generate space 64 diluted noise vectors //
+  //#pragma omp parallel for
+  if(index_group == 0){
+  
+    for(int r=0;r<Nnoise;r++){
+      for(int t=0;t<Nt;t++){
+	for(int z=0;z<Nz;z++){
+	  for(int y=0;y<Ny;y++){
+	    for(int x=0;x<Nx;x++){
+	      int x_global = x + Nx * igrids[0];
+	      int y_global = y + Ny * igrids[1];
+	      int z_global = z + Nz * igrids[2];
+	      int vs = x+Nx*(y+Ny*z);
+	      int v = vs+Nxyz*t;
+	      //int vsum_global = x_global + y_global + z_global;
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  // 0
+		  if(x_global % 4 == 0 && y_global % 4 == 0 && z_global % 4 == 0){
+		    sdil_noise[0+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 1
+		  else if(x_global % 4 == 2 && y_global % 4 == 2 && z_global % 4 == 2){
+		    sdil_noise[1+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 2
+		  else if(x_global % 4 == 2 && y_global % 4 == 0 && z_global % 4 == 0){
+		    sdil_noise[2+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 3
+		  else if(x_global % 4 == 0 && y_global % 4 == 2 && z_global % 4 == 2){
+		    sdil_noise[3+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 4
+		  else if(x_global % 4 == 0 && y_global % 4 == 2 && z_global % 4 == 0){
+		    sdil_noise[4+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 5
+		  else if(x_global % 4 == 2 && y_global % 4 == 0 && z_global % 4 == 2){
+		    sdil_noise[5+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 6
+		  else if(x_global % 4 == 0 && y_global % 4 == 0 && z_global % 4 == 2){
+		    sdil_noise[6+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 7
+		  else if(x_global % 4 == 2 && y_global % 4 == 2 && z_global % 4 == 0){
+		    sdil_noise[7+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  
+		  // 8
+		  else if(x_global % 4 == 1 && y_global % 4 == 1 && z_global % 4 == 1){
+		    sdil_noise[8+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 9
+		  else if(x_global % 4 == 3 && y_global % 4 == 3 && z_global % 4 == 3){
+		    sdil_noise[9+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 10
+		  else if(x_global % 4 == 3 && y_global % 4 == 1 && z_global % 4 == 1){
+		    sdil_noise[10+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 11
+		  else if(x_global % 4 == 1 && y_global % 4 == 3 && z_global % 4 == 3){
+		    sdil_noise[11+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 12
+		  else if(x_global % 4 == 1 && y_global % 4 == 3 && z_global % 4 == 1){
+		    sdil_noise[12+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 13
+		  else if(x_global % 4 == 3 && y_global % 4 == 1 && z_global % 4 == 3){
+		    sdil_noise[13+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 14
+		  else if(x_global % 4 == 1 && y_global % 4 == 1 && z_global % 4 == 3){
+		    sdil_noise[14+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 15
+		  else if(x_global % 4 == 3 && y_global % 4 == 3 && z_global % 4 == 1){
+		    sdil_noise[15+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    } // for noise
+
+  }
+
+  else if(index_group == 1){
+  
+    for(int r=0;r<Nnoise;r++){
+      for(int t=0;t<Nt;t++){
+	for(int z=0;z<Nz;z++){
+	  for(int y=0;y<Ny;y++){
+	    for(int x=0;x<Nx;x++){
+	      int x_global = x + Nx * igrids[0];
+	      int y_global = y + Ny * igrids[1];
+	      int z_global = z + Nz * igrids[2];
+	      int vs = x+Nx*(y+Ny*z);
+	      int v = vs+Nxyz*t;
+	      //int vsum_global = x_global + y_global + z_global;
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  // 0
+		  if(x_global % 4 == 1 && y_global % 4 == 0 && z_global % 4 == 0){
+		    sdil_noise[0+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 1
+		  else if(x_global % 4 == 3 && y_global % 4 == 2 && z_global % 4 == 2){
+		    sdil_noise[1+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 2
+		  else if(x_global % 4 == 3 && y_global % 4 == 0 && z_global % 4 == 0){
+		    sdil_noise[2+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 3
+		  else if(x_global % 4 == 1 && y_global % 4 == 2 && z_global % 4 == 2){
+		    sdil_noise[3+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 4
+		  else if(x_global % 4 == 1 && y_global % 4 == 2 && z_global % 4 == 0){
+		    sdil_noise[4+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 5
+		  else if(x_global % 4 == 3 && y_global % 4 == 0 && z_global % 4 == 2){
+		    sdil_noise[5+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 6
+		  else if(x_global % 4 == 1 && y_global % 4 == 0 && z_global % 4 == 2){
+		    sdil_noise[6+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 7
+		  else if(x_global % 4 == 3 && y_global % 4 == 2 && z_global % 4 == 0){
+		    sdil_noise[7+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+
+		  // 8
+		  if(x_global % 4 == 0 && y_global % 4 == 1 && z_global % 4 == 1){
+		    sdil_noise[8+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 9
+		  else if(x_global % 4 == 2 && y_global % 4 == 3 && z_global % 4 == 3){
+		    sdil_noise[9+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 10
+		  else if(x_global % 4 == 2 && y_global % 4 == 1 && z_global % 4 == 1){
+		    sdil_noise[10+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 11
+		  else if(x_global % 4 == 0 && y_global % 4 == 3 && z_global % 4 == 3){
+		    sdil_noise[11+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 12
+		  else if(x_global % 4 == 0 && y_global % 4 == 3 && z_global % 4 == 1){
+		    sdil_noise[12+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 13
+		  else if(x_global % 4 == 2 && y_global % 4 == 1 && z_global % 4 == 3){
+		    sdil_noise[13+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 14
+		  else if(x_global % 4 == 0 && y_global % 4 == 1 && z_global % 4 == 3){
+		    sdil_noise[14+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 15
+		  else if(x_global % 4 == 2 && y_global % 4 == 3 && z_global % 4 == 1){
+		    sdil_noise[15+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    } // for noise
+
+  }
+
+  else if(index_group == 2){
+  
+    for(int r=0;r<Nnoise;r++){
+      for(int t=0;t<Nt;t++){
+	for(int z=0;z<Nz;z++){
+	  for(int y=0;y<Ny;y++){
+	    for(int x=0;x<Nx;x++){
+	      int x_global = x + Nx * igrids[0];
+	      int y_global = y + Ny * igrids[1];
+	      int z_global = z + Nz * igrids[2];
+	      int vs = x+Nx*(y+Ny*z);
+	      int v = vs+Nxyz*t;
+	      //int vsum_global = x_global + y_global + z_global;
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  // 0
+		  if(x_global % 4 == 0 && y_global % 4 == 1 && z_global % 4 == 0){
+		    sdil_noise[0+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 1
+		  else if(x_global % 4 == 2 && y_global % 4 == 3 && z_global % 4 == 2){
+		    sdil_noise[1+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 2
+		  else if(x_global % 4 == 2 && y_global % 4 == 1 && z_global % 4 == 0){
+		    sdil_noise[2+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 3
+		  else if(x_global % 4 == 0 && y_global % 4 == 3 && z_global % 4 == 2){
+		    sdil_noise[3+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 4
+		  else if(x_global % 4 == 0 && y_global % 4 == 3 && z_global % 4 == 0){
+		    sdil_noise[4+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 5
+		  else if(x_global % 4 == 2 && y_global % 4 == 1 && z_global % 4 == 2){
+		    sdil_noise[5+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 6
+		  else if(x_global % 4 == 0 && y_global % 4 == 1 && z_global % 4 == 2){
+		    sdil_noise[6+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 7
+		  else if(x_global % 4 == 2 && y_global % 4 == 3 && z_global % 4 == 0){
+		    sdil_noise[7+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+
+		  // 8
+		  if(x_global % 4 == 1 && y_global % 4 == 0 && z_global % 4 == 1){
+		    sdil_noise[8+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 9
+		  else if(x_global % 4 == 3 && y_global % 4 == 2 && z_global % 4 == 3){
+		    sdil_noise[9+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 10
+		  else if(x_global % 4 == 3 && y_global % 4 == 0 && z_global % 4 == 1){
+		    sdil_noise[10+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 11
+		  else if(x_global % 4 == 1 && y_global % 4 == 2 && z_global % 4 == 3){
+		    sdil_noise[11+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 12
+		  else if(x_global % 4 == 1 && y_global % 4 == 2 && z_global % 4 == 1){
+		    sdil_noise[12+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 13
+		  else if(x_global % 4 == 3 && y_global % 4 == 0 && z_global % 4 == 3){
+		    sdil_noise[13+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 14
+		  else if(x_global % 4 == 1 && y_global % 4 == 0 && z_global % 4 == 3){
+		    sdil_noise[14+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 15
+		  else if(x_global % 4 == 3 && y_global % 4 == 2 && z_global % 4 == 1){
+		    sdil_noise[15+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    } // for noise
+
+  }
+
+  else if(index_group == 3){
+  
+    for(int r=0;r<Nnoise;r++){
+      for(int t=0;t<Nt;t++){
+	for(int z=0;z<Nz;z++){
+	  for(int y=0;y<Ny;y++){
+	    for(int x=0;x<Nx;x++){
+	      int x_global = x + Nx * igrids[0];
+	      int y_global = y + Ny * igrids[1];
+	      int z_global = z + Nz * igrids[2];
+	      int vs = x+Nx*(y+Ny*z);
+	      int v = vs+Nxyz*t;
+	      //int vsum_global = x_global + y_global + z_global;
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  // 0
+		  if(x_global % 4 == 0 && y_global % 4 == 0 && z_global % 4 == 1){
+		    sdil_noise[0+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 1
+		  else if(x_global % 4 == 2 && y_global % 4 == 2 && z_global % 4 == 3){
+		    sdil_noise[1+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 2
+		  else if(x_global % 4 == 2 && y_global % 4 == 0 && z_global % 4 == 1){
+		    sdil_noise[2+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 3
+		  else if(x_global % 4 == 0 && y_global % 4 == 2 && z_global % 4 == 3){
+		    sdil_noise[3+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 4
+		  else if(x_global % 4 == 0 && y_global % 4 == 2 && z_global % 4 == 1){
+		    sdil_noise[4+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 5
+		  else if(x_global % 4 == 2 && y_global % 4 == 0 && z_global % 4 == 3){
+		    sdil_noise[5+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 6
+		  else if(x_global % 4 == 0 && y_global % 4 == 0 && z_global % 4 == 3){
+		    sdil_noise[6+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 7
+		  else if(x_global % 4 == 2 && y_global % 4 == 2 && z_global % 4 == 1){
+		    sdil_noise[7+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+
+		  // 8
+		  if(x_global % 4 == 1 && y_global % 4 == 1 && z_global % 4 == 0){
+		    sdil_noise[8+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 9
+		  else if(x_global % 4 == 3 && y_global % 4 == 3 && z_global % 4 == 2){
+		    sdil_noise[9+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 10
+		  else if(x_global % 4 == 3 && y_global % 4 == 1 && z_global % 4 == 0){
+		    sdil_noise[10+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 11
+		  else if(x_global % 4 == 1 && y_global % 4 == 3 && z_global % 4 == 2){
+		    sdil_noise[11+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 12
+		  else if(x_global % 4 == 1 && y_global % 4 == 3 && z_global % 4 == 0){
+		    sdil_noise[12+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 13
+		  else if(x_global % 4 == 3 && y_global % 4 == 1 && z_global % 4 == 2){
+		    sdil_noise[13+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+		  // 14
+		  else if(x_global % 4 == 1 && y_global % 4 == 1 && z_global % 4 == 2){
+		    sdil_noise[14+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		  // 15
+		  else if(x_global % 4 == 3 && y_global % 4 == 3 && z_global % 4 == 0){
+		    sdil_noise[15+16*r].set_ri(c,d,v,0,noise_vec[r].cmp_ri(c,d,v,0));
+		  }
+		
+
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    } // for noise
+
+  }
+  else {
+    vout.general("Error: invalid value for index_group. \n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  Communicator::sync_global();
+  return 0;
+}
+
+
 
 /*
 // s32 dilution: distance is 2 \sqrt{2} [lattice unit]
