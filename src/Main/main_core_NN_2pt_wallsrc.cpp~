@@ -16,6 +16,7 @@
 #include <string>
 #include <iomanip>
 #include <limits>
+#include <time.h>
 
 #include "Tools/randomNumberManager.h"
 #include "Measurements/Fermion/noiseVector_Z2.h"
@@ -37,6 +38,8 @@
 #include "Tools/fft_3d_parallel3d.h"
 #include "Tools/timer.h"
 #include "Fopr/fopr_Clover_eo.h"
+
+#include "Tools/epsilonTensor.h"
 
 #include "IO/bridgeIO.h"
 
@@ -82,6 +85,7 @@ int main_core(Parameters *params_conf_all)
   Parameters params_noise = params_conf_all->lookup("Noise");
   Parameters params_caa = params_conf_all->lookup("CAA");
   Parameters params_smrdsink = params_conf_all->lookup("Smearing(sink)");
+  Parameters params_smrdsrc = params_conf_all->lookup("Smearing(src)");
   Parameters params_fileio = params_conf_all->lookup("File_io");
 
   //- standard parameters
@@ -103,24 +107,27 @@ int main_core(Parameters *params_conf_all)
   vout.general("  boundary condition : %s\n", Parameters::to_string(bc).c_str());
 
   //- dilution and noise vectors (tcds-eo dil)
-  std::string dil_type("tcds-eo"); 
+  std::string dil_type("tcd"); 
   int Nnoise = 1;
   //for tcds dilution  
-  //int Ndil = Lt*Nc*Nd*2;
-  //int Ndil_tslice = Ndil / Lt;
+  int Ndil_space = 1;
+  //int Ndil = Lt*Nc*Nd*Ndil_space;
+  int Ndil_tslice = Ndil_space*Nc*Nd;
 
   unsigned long noise_seed;
   std::vector<int> timeslice_list;
+  std::string timeave;
+  params_noise.fetch_string("timeave",timeave);
   params_noise.fetch_unsigned_long("noise_seed",noise_seed);
   params_noise.fetch_int_vector("timeslice",timeslice_list);
-  int Nsrct = timeslice_list.size();
+  int Nsrc_t = timeslice_list.size();
 
   vout.general("Noise vectors\n");
   vout.general("  Nnoise : %d\n",Nnoise);
   vout.general("  seed : %d\n",noise_seed);
-  vout.general("  Nsrct : %d\n",Nsrct);
+  vout.general("  Nsrct : %d\n",Nsrc_t);
   vout.general("  Time slices: %s\n", Parameters::to_string(timeslice_list).c_str());
-  
+
   //- eigensolver parameters
   // fundamentals
   int Neigen, Nworkv, Nmargin;
@@ -153,18 +160,21 @@ int main_core(Parameters *params_conf_all)
   vout.general("  precision (inner) = %12.6e\n", inv_prec_inner);
   vout.general("  Nmaxiter = %d\n", Nmaxiter);
   vout.general("  Nmaxres = %d\n", Nmaxres);
-  
+
   //- covariant approximation averaging parameters
   std::vector<int> caa_grid;
   double inv_prec_caa;
+  double inv_prec_inner_caa;
   unsigned long caa_seed;
   params_caa.fetch_int_vector("caa_grid",caa_grid);
   params_caa.fetch_double("Precision",inv_prec_caa);
+  params_caa.fetch_double("Precision_in",inv_prec_inner_caa);
   params_caa.fetch_unsigned_long("point_seed",caa_seed);
 
   vout.general("CAA\n");
   vout.general("  translation grid : %s\n", Parameters::to_string(caa_grid).c_str());
   vout.general("  precision (relaxed) : %12.6e\n", inv_prec_caa);
+  vout.general("  precision (relaxed, inner) : %12.6e\n", inv_prec_inner_caa);
   vout.general("  seed (for determining ref. src pt) : %d\n", caa_seed);
 
   //- smearing parameters (sink)
@@ -177,6 +187,17 @@ int main_core(Parameters *params_conf_all)
   vout.general("  a = %12.6e\n", a_sink);
   vout.general("  b = %12.6e\n", b_sink);
   vout.general("  thr_val = %12.6e\n", thr_val_sink);
+
+  //- smearing parameters (src) 
+  double a_src, b_src, thr_val_src;
+  params_smrdsrc.fetch_double("a",a_src);
+  params_smrdsrc.fetch_double("b",b_src);
+  thr_val_src = (Lx - 1) / (double)2; // threshold value for source smearing is fixed
+
+  vout.general("Smearing (src)\n");
+  vout.general("  a = %12.6e\n", a_src);
+  vout.general("  b = %12.6e\n", b_src);
+  vout.general("  thr_val = %12.6e\n", thr_val_src);
 
   //- output directory name 
   std::string outdir_name;
@@ -202,178 +223,140 @@ int main_core(Parameters *params_conf_all)
   
   //////////////////////////////////////////////////////
   // ###  generate diluted noises  ###
-
-  // in this test, we use one_end namespace implementation using vector<Field_F>.
-  
   //diltimer -> start();
   
   vout.general("dilution type = %s\n", dil_type.c_str());    
   //Field_F *noise = new Field_F[Nnoise];
   std::vector<Field_F> noise(Nnoise);
-  // generate Z4 noise vector
-  one_end::gen_noise_Z4(noise,noise_seed);
-  vout.general("size of nex: %d \n",noise[0].nex() );
-  vout.general("size of nin: %d \n",noise[0].nin() );
-  vout.general("size of nvol: %d \n",noise[0].nvol() );
-  
-  // output original noise vector
-  char outnoise_name[] = "test_noise_parallel/noise";
-  //a2a::vector_io(noise, outnoise_name, 0);
 
-  
-  // generate Z3 noise vector
-  //Field_F *noise_Z3 = new Field_F[Nnoise];
-  std::vector<Field_F> noise_Z3(Nnoise);
-  one_end::gen_noise_Z3(noise_Z3,noise_seed);
-
-  // output original noise vector
-  char outnoise_Z3_name[] = "test_noise_parallel/noise_Z3";
-  //a2a::vector_io(noise_Z3, outnoise_Z3_name, 0);
-
-  
-  // time dilution test
-  std::vector<Field_F> tdil_noise(Nnoise*Nsrct);
-  one_end::time_dil(tdil_noise,noise,timeslice_list);
-  //vout.general("size : %d \n",tdil_noise.size() );
-  //vout.general("capacity: %d \n",tdil_noise.capacity() );
-
-  char outtdilnoise_name[] = "test_noise_parallel/tdil_noise";
-  //a2a::vector_io(tdil_noise, outtdilnoise_name, 0);
-  
-  // delete vector
-  std::vector<Field_F>().swap(tdil_noise);
-  //vout.general("size : %d \n",tdil_noise.size() );
-  //vout.general("capacity: %d \n",tdil_noise.capacity() );
-
-
-  // color dilution test
-  std::vector<Field_F> cdil_noise(Nnoise*Nc);
-  one_end::color_dil(cdil_noise,noise);
-
-  char outcdilnoise_name[] = "test_noise_parallel/cdil_noise";
-  //a2a::vector_io(cdil_noise, outcdilnoise_name, 0);
-  
-  // delete vector
-  std::vector<Field_F>().swap(cdil_noise);
-
-  
-  // dirac dilution test
-  std::vector<Field_F> ddil_noise(Nnoise*Nd);
-  one_end::dirac_dil(ddil_noise,noise);
-
-  char outddilnoise_name[] = "test_noise_parallel/ddil_noise";
-  //a2a::vector_io(ddil_noise, outddilnoise_name, 0);
-  
-  // delete vector
-  std::vector<Field_F>().swap(ddil_noise);
-  
-
-  // s16 dilution test
-  std::vector<Field_F> s16dil_noise(Nnoise*16);
-  one_end::space16_dil(s16dil_noise,noise);
-
-  char outs16dilnoise_name[] = "test_noise_parallel/s16dil_noise";
-  //a2a::vector_io(s16dil_noise, outs16dilnoise_name, 0);
-  
-  // delete vector
-  std::vector<Field_F>().swap(s16dil_noise);
-
-  
-  // s32 dilution test
-  std::vector<Field_F> s32dil_noise(Nnoise*32);
-  one_end::space32_dil(s32dil_noise,noise);
-
-  char outs32dilnoise_name[] = "test_noise_parallel/s32dil_noise";
-  //a2a::vector_io(s32dil_noise, outs32dilnoise_name, 0);
-  
-  // delete vector
-  std::vector<Field_F>().swap(s32dil_noise);
-
-  // s64 sparse 8 test
-  for(int n=0;n<8;n++){
-    std::vector<Field_F> s64dil_noise(Nnoise*8);
-    one_end::space64_dil_sprs8(s64dil_noise,noise,n);
-    
-    char outs64dilnoise_name_base[] = "test_noise_parallel/s64dil_noise_sprs8_%d";
-    char outs64dilnoise_name[256];
-    snprintf(outs64dilnoise_name,sizeof(outs64dilnoise_name),outs64dilnoise_name_base, n);
-    //a2a::vector_io(s64dil_noise, outs64dilnoise_name, 0);
-
-  }
-  
-  // s64 sparse 16 test
-  for(int n=0;n<4;n++){
-    std::vector<Field_F> s64dil_noise(Nnoise*16);
-    one_end::space64_dil_sprs16(s64dil_noise,noise,n);
-    
-    char outs64dilnoise_name_base[] = "test_noise_parallel/s64dil_noise_sprs16_%d";
-    char outs64dilnoise_name[256];
-    snprintf(outs64dilnoise_name,sizeof(outs64dilnoise_name),outs64dilnoise_name_base, n);
-    //a2a::vector_io(s64dil_noise, outs64dilnoise_name, 0);
-
-  }
-
-  // s512 sparse 8 test
-  for(int n=0;n<1;n++){
-    std::vector<Field_F> s64dil_noise(Nnoise*8);
-    one_end::space512_dil_sprs8(s64dil_noise,noise,n);
-    
-    char outs64dilnoise_name_base[] = "test_noise_serial/s512dil_noise_sprs8_%d";
-    char outs64dilnoise_name[256];
-    snprintf(outs64dilnoise_name,sizeof(outs64dilnoise_name),outs64dilnoise_name_base, n);
-    a2a::vector_io(s64dil_noise, outs64dilnoise_name, 0);
-
-  }
-
-
-
-  
-  /*
-  // source time slice determination 
-  vout.general("===== source time setup =====\n");
-  int Nsrc_t = 1; // #. of source time you use 
-  int Ndil_red = Ndil / Lt * Nsrc_t; // reduced d.o.f. of noise vectors 
-  string numofsrct = std::to_string(Nsrc_t);
-  //string timeave_base("tave"); // full time average
-  string timeave_base("teave"); // even time average
-  //string timeave_base("toave"); // odd time average
-  string timeave = numofsrct + timeave_base;
-  vout.general("Ndil = %d \n", Ndil);
-  vout.general("Ndil_red = %d \n", Ndil_red);
-  vout.general("#. of source time = %d \n",Nsrc_t);
-  int srct_list[Nsrc_t];
-  for(int n=0;n<Nsrc_t;n++){
-    //srct_list[n] = n; // full time average
-    srct_list[n] = (Lt / Nsrc_t) * n; // even time average 
-    //srct_list[n] = (Lt / Nsrc_t) * n + 1; // odd time average
-    vout.general("  source time %d = %d\n",n,srct_list[n]);
-  }
-
-  vout.general("==========\n");
-
-  Field_F *dil_noise = new Field_F[Nnoise*Ndil_red];
+  // for wall source calculation
   for(int i=0;i<Nnoise;i++){
-    for(int t=0;t<Nsrc_t;t++){
-      for(int n=0;n<Ndil_tslice;n++){
-        copy(dil_noise[n+Ndil_tslice*(t+Nsrc_t*i)],dil_noise_allt[n+Ndil_tslice*(srct_list[t]+Lt*i)]);
+    noise[i].reset(Nvol,1);
+    for(int v=0;v<Nvol;v++){
+      for(int d=0;d<Nd;d++){
+        for(int c=0;c<Nc;c++){
+          noise[i].set_r(c,d,v,0,1.0);
+          noise[i].set_i(c,d,v,0,0.0);
+        }
       }
     }
   }
-
-
-
-
   
-  delete[] dil_noise_allt;  
-  delete[] dil_noise;
-  //delete[] dil_noise_smr;
-  */
+  // tcd(or other) dilution
+  std::vector<Field_F> tdil_noise(Nnoise*Nsrc_t);
+  one_end::time_dil(tdil_noise,noise,timeslice_list);
+  std::vector<Field_F>().swap(noise);
+
+  std::vector<Field_F> tcdil_noise(Nnoise*Nsrc_t*Nc);
+  one_end::color_dil(tcdil_noise,tdil_noise);
+  std::vector<Field_F>().swap(tdil_noise);
+
+  std::vector<Field_F> dil_noise(Nnoise*Nsrc_t*Nc*Nd);
+  one_end::dirac_dil(dil_noise,tcdil_noise);
+  std::vector<Field_F>().swap(tcdil_noise);
   
+  //////////////////////////////////////////////////////
+  // ###  make one-end vectors  ###
+
+  GammaMatrixSet_Dirac *dirac = new GammaMatrixSet_Dirac();
+  GammaMatrix gm_5, cc, cgm5;
+  gm_5 = dirac->get_GM(dirac->GAMMA5);
+  cc = dirac->get_GM(dirac->CHARGECONJG);
+  cgm5 = cc.mult(gm_5);
+  for(int n=0;n<Nd;n++){
+    vout.general("index of Cgamma5 (row %d) = %d, value of Cgamma5 (row %d) = (%f,%f)\n", n, cgm5.index(n), n, real(cgm5.value(n)), imag(cgm5.value(n)) );
+  }
+
+  // smearing the noise sources
+  std::vector<Field_F> dil_noise_smr(dil_noise.size());
+  a2a::Exponential_smearing *smear_src = new a2a::Exponential_smearing;
+  smear_src->set_parameters(a_src,b_src,thr_val_src);
+  smear_src->smear(dil_noise_smr, dil_noise);
+  std::vector<Field_F>().swap(dil_noise);
+
+  std::vector<Field_F> xi_l(dil_noise_smr.size());
+  a2a::inversion_alt_Clover_eo(xi_l, dil_noise_smr, U, kappa_l, csw, bc,
+                               inv_prec_full, Nmaxiter, Nmaxres);
+
+  std::vector<Field_F>().swap(dil_noise_smr);
+
   delete fopr_l;
-  delete fopr_s;
-  //delete fopr_s_eo;
+  //delete fopr_l_eo;
   delete U;
 
+  delete smear_src;
+
+  ////////////////////////////////////////////////////////////
+  // ### calc. 2pt correlator (for NN, using baryonic one-end trick)### //
+
+  EpsilonTensor eps_src;
+  EpsilonTensor eps_sink;
+  
+  // calc. local sum for each combination of spin indices
+  dcomplex *corr_local_N = new dcomplex[Nt*Nsrc_t];
+  for(int alpha=0;alpha<Nd;alpha++){ // loop of the sink spin index
+    //for(int beta=0;beta<Nd;beta++){ // loop of the src spin index
+    int beta = alpha;
+    
+#pragma omp parallel for
+      for(int n=0;n<Nt*Nsrc_t;n++){
+	corr_local_N[n] = cmplx(0.0,0.0);
+      }
+      
+      for(int r=0;r<Nnoise;r++){
+	for(int t_src=0;t_src<Nsrc_t;t_src++){
+	  for(int t=0;t<Nt;t++){
+	    for(int i=0;i<Ndil_space;i++){
+	      
+	      for(int vs=0;vs<Nxyz;vs++){
+		for(int spin_gamma=0;spin_gamma<Nd;spin_gamma++){
+		  for(int spin_mu=0;spin_mu<Nd;spin_mu++){
+		    for(int color_sink=0;color_sink<6;color_sink++){
+		      for(int color_src=0;color_src<6;color_src++){
+			corr_local_N[t+Nt*t_src] +=
+			  xi_l[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
+			  xi_l[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
+			  xi_l[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
+			  cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
+			  cgm5.value(spin_gamma) * cgm5.value(spin_mu)
+			  
+			  -xi_l[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
+			  xi_l[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
+			  xi_l[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
+			  cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
+			  cgm5.value(spin_gamma) * cgm5.value(spin_mu);
+
+		      }
+		    }
+		  }
+		}
+		    
+	      }
+	    }
+	  }
+	}
+      }
+
+#pragma omp parallel for
+      for(int n=0;n<Nt*Nsrc_t;n++){
+	corr_local_N[n] /= (double)Nnoise;
+      }
+      
+      //output 2pt correlator test
+      string output_2pt_base("/2pt_N_%d%d_");
+      char output_2pt[100];
+      snprintf(output_2pt, sizeof(output_2pt), output_2pt_base.c_str(), alpha, beta);
+      string output_2pt_final(output_2pt);
+      a2a::output_2ptcorr(corr_local_N, timeslice_list, outdir_name+output_2pt_final+timeave);
+
+      
+      //} // for beta
+  } // for alpha
+
+  std::vector<Field_F>().swap(xi_l);
+  delete[] corr_local_N;  
+  delete dirac;
+  
   //////////////////////////////////////////////////////
   // ###  finalize  ###
 

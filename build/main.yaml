@@ -4,7 +4,7 @@ Main:
   ## lattice_size = [Lx, Ly, Lz, Lt]
   lattice_size             : [8,8,8,8]
   ## NB. an empty grid_size [] leads to automatic adjustment
-  grid_size                : [1,1,1,2]
+  grid_size                : [1,1,2,1]
   number_of_thread         : 1
   number_of_color          : 3
   ## log_filename = {stdout, or "filename"}

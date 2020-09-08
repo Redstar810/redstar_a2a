@@ -86,6 +86,7 @@ int main_core(Parameters *params_conf_all)
   Parameters params_caa = params_conf_all->lookup("CAA");
   Parameters params_smrdsink = params_conf_all->lookup("Smearing(sink)");
   Parameters params_smrdsrc = params_conf_all->lookup("Smearing(src)");
+  Parameters params_srcmom = params_conf_all->lookup("Momentum(src)");
   Parameters params_fileio = params_conf_all->lookup("File_io");
 
   //- standard parameters
@@ -199,6 +200,13 @@ int main_core(Parameters *params_conf_all)
   vout.general("  b = %12.6e\n", b_src);
   vout.general("  thr_val = %12.6e\n", thr_val_src);
 
+  //- source momentum
+  std::vector<int> mom;
+  params_srcmom.fetch_int_vector("momentum",mom);
+
+  vout.general("Momentum projection\n");
+  vout.general("  source momentum : %s\n", Parameters::to_string(mom).c_str());
+
   //- output directory name 
   std::string outdir_name;
   params_fileio.fetch_string("outdir",outdir_name);
@@ -276,6 +284,33 @@ int main_core(Parameters *params_conf_all)
   one_end::space64_dil_sprs8(dil_noise,tcddil_noise,index_group);
   std::vector<Field_F>().swap(tcddil_noise);
   
+  /*
+  // s512 dil sparse 1 (randomly choose a group index)
+  // randomly choose the dilution vectors
+  int dilution_seed = time(NULL);
+  vout.general("s512 sprs1 dilution: dilution seed = %d\n",dilution_seed);
+  RandomNumberManager::initialize("Mseries", time(NULL)); // seed = UNIX time
+  RandomNumbers *rand = RandomNumberManager::getInstance();
+  double rnum = floor( 512.0 * rand->get() );
+  int index_group = (int)rnum;
+  vout.general("index_group = %d\n",index_group);
+  one_end::space512_dil_sprs1(dil_noise,tcddil_noise,index_group);
+  std::vector<Field_F>().swap(tcddil_noise);
+  */
+  /*  
+  // s512 dil sparse 8 (randomly choose a group index)
+  // randomly choose the dilution vectors
+  int dilution_seed = time(NULL);
+  vout.general("s512 sprs8 dilution: dilution seed = %d\n",dilution_seed);
+  RandomNumberManager::initialize("Mseries", time(NULL)); // seed = UNIX time
+  RandomNumbers *rand = RandomNumberManager::getInstance();
+  double rnum = floor( 64.0 * rand->get() );
+  //double rnum = floor( 64.0 * 0.5 ); // for bug check
+  int index_group = (int)rnum;
+  vout.general("index_group = %d\n",index_group);
+  one_end::space512_dil_sprs8(dil_noise,tcddil_noise,index_group);
+  std::vector<Field_F>().swap(tcddil_noise);
+  */
   
   //////////////////////////////////////////////////////
   // ###  make one-end vectors  ###
@@ -300,6 +335,10 @@ int main_core(Parameters *params_conf_all)
   a2a::inversion_alt_Clover_eo(xi_l, dil_noise_smr, U, kappa_l, csw, bc,
                                inv_prec_full, Nmaxiter, Nmaxres);
 
+  std::vector<Field_F> xi_mom_l(dil_noise_smr.size());
+  a2a::inversion_mom_alt_Clover_eo(xi_mom_l, dil_noise_smr, U, kappa_l, csw, bc, mom,
+                               inv_prec_full, Nmaxiter, Nmaxres);
+
   std::vector<Field_F>().swap(dil_noise_smr);
 
   delete fopr_l;
@@ -316,6 +355,8 @@ int main_core(Parameters *params_conf_all)
   
   // calc. local sum for each combination of spin indices
   dcomplex *corr_local_N = new dcomplex[Nt*Nsrc_t];
+  int grid_coords[4];
+  Communicator::grid_coord(grid_coords,Communicator::nodeid());
   for(int alpha=0;alpha<Nd;alpha++){ // loop of the sink spin index
     //for(int beta=0;beta<Nd;beta++){ // loop of the src spin index
     int beta = alpha;
@@ -330,44 +371,55 @@ int main_core(Parameters *params_conf_all)
 	  for(int t=0;t<Nt;t++){
 	    for(int i=0;i<Ndil_space;i++){
 	      
-	      for(int vs=0;vs<Nxyz;vs++){
-		for(int spin_gamma=0;spin_gamma<Nd;spin_gamma++){
-		  for(int spin_mu=0;spin_mu<Nd;spin_mu++){
-		    for(int color_sink=0;color_sink<6;color_sink++){
-		      for(int color_src=0;color_src<6;color_src++){
-			corr_local_N[t+Nt*t_src] +=
-			  xi_l[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
-			  xi_l[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
-			  xi_l[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
-			  cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
-			  cgm5.value(spin_gamma) * cgm5.value(spin_mu)
+	      //for(int vs=0;vs<Nxyz;vs++){
+	      for(int z=0;z<Nz;z++){
+                for(int y=0;y<Ny;y++){
+                  for(int x=0;x<Nx;x++){
+                    int vs = x + Nx * (y + Ny * z);
+                    int true_x = Nx * grid_coords[0] + x;
+                    int true_y = Ny * grid_coords[1] + y;
+                    int true_z = Nz * grid_coords[2] + z;
+                    double mpdotx = 2 * M_PI / (double)Lx * (mom[0] * true_x) + 2 * M_PI / (double)Ly * (mom[1] * true_y) + 2 * M_PI / (double)Lz * (mom[2] * true_z);
+		    for(int spin_gamma=0;spin_gamma<Nd;spin_gamma++){
+		      for(int spin_mu=0;spin_mu<Nd;spin_mu++){
+			for(int color_sink=0;color_sink<6;color_sink++){
+			  for(int color_src=0;color_src<6;color_src++){
+			    corr_local_N[t+Nt*t_src] +=
+			      xi_mom_l[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
+			      xi_l[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
+			      xi_l[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
+			      cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
+			      cgm5.value(spin_gamma) * cgm5.value(spin_mu) * cmplx(std::cos(mpdotx),std::sin(mpdotx))
 			  
-			  -xi_l[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
-			  xi_l[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
-			  xi_l[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
-			  cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
-			  cgm5.value(spin_gamma) * cgm5.value(spin_mu);
+			      -xi_mom_l[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
+			      xi_l[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
+			      xi_l[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
+			      cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
+			      cgm5.value(spin_gamma) * cgm5.value(spin_mu) * cmplx(std::cos(mpdotx),std::sin(mpdotx));
 
+			  }
+			}
 		      }
 		    }
+
 		  }
 		}
-		    
 	      }
+		    
 	    }
 	  }
 	}
       }
-
+  
 #pragma omp parallel for
       for(int n=0;n<Nt*Nsrc_t;n++){
 	corr_local_N[n] /= (double)Nnoise;
       }
       
       //output 2pt correlator test
-      string output_2pt_base("/2pt_N_%d%d_");
+      string output_2pt_base("/2pt_N_mom%d%d%d_%d%d_");
       char output_2pt[100];
-      snprintf(output_2pt, sizeof(output_2pt), output_2pt_base.c_str(), alpha, beta);
+      snprintf(output_2pt, sizeof(output_2pt), output_2pt_base.c_str(), mom[0], mom[1], mom[2], alpha, beta);
       string output_2pt_final(output_2pt);
       a2a::output_2ptcorr(corr_local_N, timeslice_list, outdir_name+output_2pt_final+timeave);
 
@@ -376,6 +428,7 @@ int main_core(Parameters *params_conf_all)
   } // for alpha
 
   std::vector<Field_F>().swap(xi_l);
+  std::vector<Field_F>().swap(xi_mom_l);
   delete[] corr_local_N;  
   delete dirac;
   

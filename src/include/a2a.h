@@ -318,6 +318,14 @@ namespace a2a
 			      const int Nmaxres);
 
 
+  int inversion_mom_alt_Clover_eo(std::vector<Field_F> &xi, const std::vector<Field_F> &src, Field_G *U,
+				  const double kappa,
+				  const double csw,
+				  const std::vector<int> bc,
+				  const std::vector<int> mom,
+				  const double prec,
+				  const int Nmaxiter,
+				  const int Nmaxres);
   
 } // namespace a2a
 
@@ -342,7 +350,7 @@ namespace one_end // functions and classes for calculation using the one-end tri
   int space64_dil_sprs8(std::vector<Field_F>& sdil_noise, const std::vector<Field_F>& noise_vec, const int index_group);
   int space64_dil_sprs16(std::vector<Field_F>& sdil_noise, const std::vector<Field_F>& noise_vec, const int index_group);
   int space512_dil_sprs1(std::vector<Field_F>& sdil_noise, const std::vector<Field_F>& noise_vec, const int index_group);
-  
+  int space512_dil_sprs8(std::vector<Field_F>& sdil_noise, const std::vector<Field_F>& noise_vec, const int index_group);
 }
 
 

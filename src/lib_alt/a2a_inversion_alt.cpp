@@ -855,3 +855,173 @@ int a2a::inversion_mom_alt_Clover_eo(Field_F *xi, const Field_F *src, Field_G *U
   return 0;
   
 }
+
+int a2a::inversion_mom_alt_Clover_eo(std::vector<Field_F> &xi, const std::vector<Field_F> &src, Field_G *U,
+				     const double kappa,
+				     const double csw,
+				     const std::vector<int> bc,
+				     const std::vector<int> mom,
+				     const double prec,
+				     const int Nmaxiter,
+				     const int Nmaxres)
+{
+  int Nt = CommonParameters::Nt();
+  int Nx = CommonParameters::Nx();
+  int Ny = CommonParameters::Ny();
+  int Nz = CommonParameters::Nz();
+  int Nc = CommonParameters::Nc();
+  int Nd = CommonParameters::Nd();
+  int Lx = CommonParameters::Lx();
+  int Ly = CommonParameters::Ly();
+  int Lz = CommonParameters::Lz();
+  int igrids[4];
+  
+  int Nsrc = src.size();
+  int Nin = src[0].nin();
+  int Nvol = src[0].nvol();
+  int Nex = src[0].nex();
+  int Niter2 = Nmaxiter * Nmaxres;
+
+  // check
+  if(xi.size() != Nsrc){
+    vout.general("Error: shape mismatch between xi and src.\n ");
+    std::exit(EXIT_FAILURE);
+  } 
+
+  Index_lex_alt<double> index_alt;
+  Index_eo_alt<double> index_eo;
+
+  vout.general("===== solve inversions (alternative, e/o precond.) =====\n");
+
+  // grid_coords
+  Communicator::grid_coord(igrids, Communicator::nodeid());
+
+  // mom
+  vout.general("momentum = (%d,%d,%d)\n",mom[0],mom[1],mom[2]);
+  
+  // fopr                                                  
+  unique_ptr< AFopr_Clover_eo<AFIELD_d> > afopr(new AFopr_Clover_eo<AFIELD_d >);
+  afopr->set_parameters(kappa, csw, bc);
+  afopr->set_config(U);
+  vout.general("fermion operator is ready\n");
+  
+  // outer solver 
+  unique_ptr< ASolver_BiCGStab_Cmplx<AFIELD_d> >
+    solver(new ASolver_BiCGStab_Cmplx<AFIELD_d >(afopr.get() ) );
+  solver->set_parameters(Niter2, prec);
+
+  // for check
+  unique_ptr< AFopr_Clover<AFIELD_d> > afopr_check(new AFopr_Clover<AFIELD_d >);
+  afopr_check->set_parameters(kappa, csw, bc);
+  afopr_check->set_config(U);
+  afopr_check->set_mode("D");
+  vout.general("setup finished.\n");
+
+  // initialize solution vectors  
+  //#pragma omp parallel for
+    for(int r=0;r<Nsrc;r++){
+      xi[r].reset(Nvol,1);
+      xi[r].set(0.0);
+    }
+
+  Timer timer_solver("Inversion");
+  int Nvol2 = Nvol / 2;
+  AFIELD_d src_alt(Nin, Nvol, Nex), dst_alt(Nin, Nvol, Nex);
+  
+  AFIELD_d be(Nin, Nvol2, Nex), bo(Nin, Nvol2, Nex);
+  AFIELD_d xe(Nin, Nvol2, Nex), xo(Nin, Nvol2, Nex);
+  
+  AFIELD_d y1(Nin, Nvol2, Nex), y2(Nin, Nvol2, Nex);
+  AFIELD_d y(Nin, Nvol, Nex);
+  
+  vout.general("=======================================\n");
+  vout.general(" Nsrc| Nconv|  Final diff|  Check diff\n");
+  
+  timer_solver.start();
+  for(int r=0;r<Nsrc;r++){
+    int Nconv=-1;
+    double diff=-1.0;
+    double diff2;
+
+    // momentum projection 
+    Field_F src_mom;
+    src_mom.reset(Nvol,1);
+
+    for(int nt=0;nt<Nt;nt++){
+      for(int nz=0;nz<Nz;nz++){
+	for(int ny=0;ny<Ny;ny++){
+	  for(int nx=0;nx<Nx;nx++){
+	    int v = nx+Nx*(ny+Ny*(nz+Nz*nt));
+	    int true_x = Nx * igrids[0] + nx;
+	    int true_y = Ny * igrids[1] + ny;
+	    int true_z = Nz * igrids[2] + nz;
+	    for(int d=0;d<Nd;d++){
+	      for(int c=0;c<Nc;c++){
+		double pdotx = 2 * M_PI / (double)Lx * (mom[0] * true_x) + 2 * M_PI / (double)Ly * (mom[1] * true_y) + 2 * M_PI / (double)Lz * (mom[2] * true_z);
+		dcomplex tmp = cmplx(std::cos(pdotx),-std::sin(pdotx)) * src[r].cmp_ri(c,d,v,0);
+		src_mom.set_ri(c,d,v,0,tmp);
+	      }
+	    }
+	  }
+	}
+      }
+    }
+
+    // convert Field_F -> AField
+    convert_strict(index_alt, src_alt, src_mom);
+
+#pragma omp parallel
+    {
+      index_eo.split(be, bo, src_alt);
+#pragma omp barrier
+
+      // set even source vector.
+      afopr->mult(y1, bo, "Doo_inv");
+#pragma omp barrier
+
+      afopr->mult(y2, y1, "Deo");
+#pragma omp barrier
+
+      axpy(be, -1.0, y2);
+#pragma omp barrier
+
+      afopr->mult(y1, be, "Dee_inv");
+    }
+    afopr->set_mode("D");
+
+#pragma omp parallel
+    {
+      solver->solve(xe, y1, Nconv, diff);
+#pragma omp barrier
+
+      afopr->mult(y1, xe, "Doe");
+#pragma omp barrier
+
+      aypx(-1.0, y1, bo);
+#pragma omp barrier
+
+      afopr->mult(xo, y1, "Doo_inv");
+#pragma omp barrier
+
+      index_eo.merge(dst_alt, xe, xo);
+#pragma omp barrier
+      
+      // for check
+      afopr_check->mult(y, dst_alt);
+      axpy(y, -1.0, src_alt);
+
+    }
+    diff2 = y.norm2() / src_alt.norm2();
+    vout.general("%6d|%6d|%12.4e|%12.4e\n", r, 2*Nconv, diff, diff2);
+
+    // convert AField -> Field_F
+    revert_strict(index_alt, xi[r], dst_alt);
+
+  }
+  timer_solver.stop();
+  vout.general("======\n");
+  timer_solver.report();
+  
+  return 0;
+  
+}

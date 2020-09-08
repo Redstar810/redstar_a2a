@@ -110,7 +110,7 @@ int main_core(Parameters *params_conf_all)
   std::string dil_type("tcds"); 
   int Nnoise = 1;
   //for tcds dilution  
-  int Ndil_space = 1;
+  int Ndil_space = 8;
   //int Ndil = Lt*Nc*Nd*Ndil_space;
   int Ndil_tslice = Ndil_space*Nc*Nd;
 
@@ -276,16 +276,33 @@ int main_core(Parameters *params_conf_all)
   one_end::space64_dil_sprs8(dil_noise,tcddil_noise,index_group);
   std::vector<Field_F>().swap(tcddil_noise);
   */
+  /*
   // s512 dil sparse 1 (randomly choose a group index)
   // randomly choose the dilution vectors
   int dilution_seed = time(NULL);
   vout.general("s512 sprs1 dilution: dilution seed = %d\n",dilution_seed);
   RandomNumberManager::initialize("Mseries", time(NULL)); // seed = UNIX time
   RandomNumbers *rand = RandomNumberManager::getInstance();
-  double rnum = floor( 512.0 * rand->get() );                                        
+  double rnum = floor( 512.0 * rand->get() );
   int index_group = (int)rnum;
+  vout.general("index_group = %d\n",index_group);
   one_end::space512_dil_sprs1(dil_noise,tcddil_noise,index_group);
   std::vector<Field_F>().swap(tcddil_noise);
+  */
+  
+  // s512 dil sparse 8 (randomly choose a group index)
+  // randomly choose the dilution vectors
+  int dilution_seed = time(NULL);
+  vout.general("s512 sprs8 dilution: dilution seed = %d\n",dilution_seed);
+  RandomNumberManager::initialize("Mseries", time(NULL)); // seed = UNIX time
+  RandomNumbers *rand = RandomNumberManager::getInstance();
+  double rnum = floor( 64.0 * rand->get() );
+  //double rnum = floor( 64.0 * 0.5 ); // for bug check
+  int index_group = (int)rnum;
+  vout.general("index_group = %d\n",index_group);
+  one_end::space512_dil_sprs8(dil_noise,tcddil_noise,index_group);
+  std::vector<Field_F>().swap(tcddil_noise);
+  
   
   //////////////////////////////////////////////////////
   // ###  make one-end vectors  ###
