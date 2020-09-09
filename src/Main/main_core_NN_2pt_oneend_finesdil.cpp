@@ -115,11 +115,13 @@ int main_core(Parameters *params_conf_all)
   int Ndil_tslice = Ndil_space*Nc*Nd;
 
   unsigned long noise_seed;
+  unsigned long noise_sprs1end;
   std::vector<int> timeslice_list;
   std::string timeave;
   params_noise.fetch_string("timeave",timeave);
   params_noise.fetch_unsigned_long("noise_seed",noise_seed);
   params_noise.fetch_int_vector("timeslice",timeslice_list);
+  params_noise.fetch_unsigned_long("noise_sparse1end",noise_sprs1end);
   int Nsrc_t = timeslice_list.size();
 
   vout.general("Noise vectors\n");
@@ -127,6 +129,7 @@ int main_core(Parameters *params_conf_all)
   vout.general("  seed : %d\n",noise_seed);
   vout.general("  Nsrct : %d\n",Nsrc_t);
   vout.general("  Time slices: %s\n", Parameters::to_string(timeslice_list).c_str());
+  vout.general("  seed (for sparse one-end trick) : %d\n",noise_sprs1end);
 
   //- eigensolver parameters
   // fundamentals
@@ -255,9 +258,9 @@ int main_core(Parameters *params_conf_all)
   /*
   // s64 dil sparse 16 (randomly choose a group index)
   // randomly choose the dilution vectors
-  int dilution_seed = time(NULL);
-  vout.general("s64 sprs16 dilution: dilution seed = %d\n",dilution_seed);
-  RandomNumberManager::initialize("Mseries", time(NULL)); // seed = UNIX time
+  //int dilution_seed = time(NULL);
+  vout.general("s64 sprs16 dilution: dilution seed = %d\n",noise_sprs1end);
+  RandomNumberManager::initialize("Mseries", noise_sprs1end;
   RandomNumbers *rand = RandomNumberManager::getInstance();
   double rnum = floor( 4.0 * rand->get() );                                        
   int index_group = (int)rnum;
@@ -267,9 +270,9 @@ int main_core(Parameters *params_conf_all)
   /*
   // s64 dil sparse 8 (randomly choose a group index)
   // randomly choose the dilution vectors
-  int dilution_seed = time(NULL);
-  vout.general("s64 sprs8 dilution: dilution seed = %d\n",dilution_seed);
-  RandomNumberManager::initialize("Mseries", time(NULL)); // seed = UNIX time
+  //int dilution_seed = time(NULL);
+  vout.general("s64 sprs8 dilution: dilution seed = %d\n",noise_sprs1end);
+  RandomNumberManager::initialize("Mseries", noise_sprs1end);
   RandomNumbers *rand = RandomNumberManager::getInstance();
   double rnum = floor( 8.0 * rand->get() );                                        
   int index_group = (int)rnum;
@@ -279,9 +282,9 @@ int main_core(Parameters *params_conf_all)
   /*
   // s512 dil sparse 1 (randomly choose a group index)
   // randomly choose the dilution vectors
-  int dilution_seed = time(NULL);
-  vout.general("s512 sprs1 dilution: dilution seed = %d\n",dilution_seed);
-  RandomNumberManager::initialize("Mseries", time(NULL)); // seed = UNIX time
+  //int dilution_seed = time(NULL);
+  vout.general("s512 sprs1 dilution: dilution seed = %d\n",noise_sprs1end);
+  RandomNumberManager::initialize("Mseries", noise_sprs1end);
   RandomNumbers *rand = RandomNumberManager::getInstance();
   double rnum = floor( 512.0 * rand->get() );
   int index_group = (int)rnum;
@@ -292,12 +295,11 @@ int main_core(Parameters *params_conf_all)
   
   // s512 dil sparse 8 (randomly choose a group index)
   // randomly choose the dilution vectors
-  int dilution_seed = time(NULL);
-  vout.general("s512 sprs8 dilution: dilution seed = %d\n",dilution_seed);
-  RandomNumberManager::initialize("Mseries", time(NULL)); // seed = UNIX time
+  //int dilution_seed = time(NULL);
+  vout.general("s512 sprs8 dilution: dilution seed = %d\n",noise_sprs1end);
+  RandomNumberManager::initialize("Mseries", noise_sprs1end);
   RandomNumbers *rand = RandomNumberManager::getInstance();
   double rnum = floor( 64.0 * rand->get() );
-  //double rnum = floor( 64.0 * 0.5 ); // for bug check
   int index_group = (int)rnum;
   vout.general("index_group = %d\n",index_group);
   one_end::space512_dil_sprs8(dil_noise,tcddil_noise,index_group);
