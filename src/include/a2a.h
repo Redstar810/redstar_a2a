@@ -210,7 +210,7 @@ namespace a2a
   // output NBS wave function (source time ave.)
   int output_NBS_srctave(const dcomplex*, const int, const int*, const string);
   int output_NBS_CAA_srctave(const dcomplex*, const int, const int*, const int*, const int*, const string);
-
+  int output_NBS_srctave(const dcomplex*, const std::vector<int>&, const string);
 
   // ### new codes (using one-end trick, etc...) ### 
   // output 2pt correlator (src time averaged)
@@ -352,7 +352,72 @@ namespace one_end // functions and classes for calculation using the one-end tri
   int space512_dil_sprs1(std::vector<Field_F>& sdil_noise, const std::vector<Field_F>& noise_vec, const int index_group);
   int space512_dil_sprs8(std::vector<Field_F>& sdil_noise, const std::vector<Field_F>& noise_vec, const int index_group);
   int space4096_dil_sprs8(std::vector<Field_F>& sdil_noise, const std::vector<Field_F>& noise_vec, const int index_group);
-  
+
+
+  // NN 4pt calculation //
+  int calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
+		       const std::vector<Field_F> &xi1, // noise1
+		       const std::vector<Field_F> &xi1_mom, // noise1 w/ mom
+		       const std::vector<Field_F> &xi2, // noise2
+		       const std::vector<Field_F> &xi2_mom, // noise2 w/ -mom
+		       const int  Nsrctime);
+
+  int calc_NN4pt_type2(std::vector<dcomplex> &NN4pt,
+		       const std::vector<Field_F> &xi1, // noise1
+		       const std::vector<Field_F> &xi1_mom, // noise1 w/ mom
+		       const std::vector<Field_F> &xi2, // noise2
+		       const std::vector<Field_F> &xi2_mom, // noise2 w/ -mom
+		       const int  Nsrctime);
+
+  int calc_NN4pt_type3(std::vector<dcomplex> &NN4pt,
+		       const std::vector<Field_F> &xi1, // noise1
+		       const std::vector<Field_F> &xi1_mom, // noise1 w/ mom
+		       const std::vector<Field_F> &xi2, // noise2
+		       const std::vector<Field_F> &xi2_mom, // noise2 w/ -mom
+		       const int  Nsrctime);
+
+  int calc_NN4pt_type4(std::vector<dcomplex> &NN4pt,
+		       const std::vector<Field_F> &xi1, // noise1
+		       const std::vector<Field_F> &xi1_mom, // noise1 w/ mom
+		       const std::vector<Field_F> &xi2, // noise2
+		       const std::vector<Field_F> &xi2_mom, // noise2 w/ -mom
+		       const int  Nsrctime);
+
+  int calc_NN4pt_type5(std::vector<dcomplex> &NN4pt,
+		       const std::vector<Field_F> &xi1, // noise1
+		       const std::vector<Field_F> &xi1_mom, // noise1 w/ mom
+		       const std::vector<Field_F> &xi2, // noise2
+		       const std::vector<Field_F> &xi2_mom, // noise2 w/ -mom
+		       const int  Nsrctime);
+
+  int calc_NN4pt_type6(std::vector<dcomplex> &NN4pt,
+		       const std::vector<Field_F> &xi1, // noise1
+		       const std::vector<Field_F> &xi1_mom, // noise1 w/ mom
+		       const std::vector<Field_F> &xi2, // noise2
+		       const std::vector<Field_F> &xi2_mom, // noise2 w/ -mom
+		       const int  Nsrctime);
+
+  int calc_NN4pt_type7(std::vector<dcomplex> &NN4pt,
+		       const std::vector<Field_F> &xi1, // noise1
+		       const std::vector<Field_F> &xi1_mom, // noise1 w/ mom
+		       const std::vector<Field_F> &xi2, // noise2
+		       const std::vector<Field_F> &xi2_mom, // noise2 w/ -mom
+		       const int  Nsrctime);
+
+  int calc_NN4pt_type8(std::vector<dcomplex> &NN4pt,
+		       const std::vector<Field_F> &xi1, // noise1
+		       const std::vector<Field_F> &xi1_mom, // noise1 w/ mom
+		       const std::vector<Field_F> &xi2, // noise2
+		       const std::vector<Field_F> &xi2_mom, // noise2 w/ -mom
+		       const int  Nsrctime);
+
+  int calc_NN4pt_type9(std::vector<dcomplex> &NN4pt,
+		       const std::vector<Field_F> &xi1, // noise1
+		       const std::vector<Field_F> &xi1_mom, // noise1 w/ mom
+		       const std::vector<Field_F> &xi2, // noise2
+		       const std::vector<Field_F> &xi2_mom, // noise2 w/ -mom
+		       const int  Nsrctime);
+
 }
 
 

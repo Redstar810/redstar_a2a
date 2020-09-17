@@ -86,6 +86,7 @@ int main_core(Parameters *params_conf_all)
   Parameters params_caa = params_conf_all->lookup("CAA");
   Parameters params_smrdsink = params_conf_all->lookup("Smearing(sink)");
   Parameters params_smrdsrc = params_conf_all->lookup("Smearing(src)");
+  Parameters params_srcmom = params_conf_all->lookup("Momentum(src)");
   Parameters params_fileio = params_conf_all->lookup("File_io");
 
   //- standard parameters
@@ -110,7 +111,7 @@ int main_core(Parameters *params_conf_all)
   std::string dil_type("tcds"); 
   int Nnoise = 1;
   //for tcds dilution  
-  int Ndil_space = 8;
+  int Ndil_space = 1;
   //int Ndil = Lt*Nc*Nd*Ndil_space;
   int Ndil_tslice = Ndil_space*Nc*Nd;
 
@@ -122,12 +123,12 @@ int main_core(Parameters *params_conf_all)
   params_noise.fetch_unsigned_long("noise_seed",noise_seed);
   params_noise.fetch_int_vector("timeslice",timeslice_list);
   params_noise.fetch_unsigned_long("noise_sparse1end",noise_sprs1end);
-  int Nsrc_t = timeslice_list.size();
+  int Nsrctime = timeslice_list.size();
 
   vout.general("Noise vectors\n");
   vout.general("  Nnoise : %d\n",Nnoise);
   vout.general("  seed : %d\n",noise_seed);
-  vout.general("  Nsrct : %d\n",Nsrc_t);
+  vout.general("  Nsrct : %d\n",Nsrctime);
   vout.general("  Time slices: %s\n", Parameters::to_string(timeslice_list).c_str());
   vout.general("  seed (for sparse one-end trick) : %d\n",noise_sprs1end);
 
@@ -202,6 +203,13 @@ int main_core(Parameters *params_conf_all)
   vout.general("  b = %12.6e\n", b_src);
   vout.general("  thr_val = %12.6e\n", thr_val_src);
 
+  //- source momentum
+  std::vector<int> mom;
+  params_srcmom.fetch_int_vector("momentum",mom);
+
+  vout.general("Momentum projection\n");
+  vout.general("  source momentum : %s\n", Parameters::to_string(mom).c_str());
+
   //- output directory name 
   std::string outdir_name;
   params_fileio.fetch_string("outdir",outdir_name);
@@ -216,6 +224,7 @@ int main_core(Parameters *params_conf_all)
   Field_G *U = new Field_G(Nvol, Ndim);
   a2a::read_gconf(U,conf_format.c_str(),conf_name.c_str());
 
+  /*
   Fopr_Clover *fopr_l = new Fopr_Clover("Dirac");
   Fopr_Clover *fopr_s = new Fopr_Clover("Dirac");
 
@@ -223,7 +232,7 @@ int main_core(Parameters *params_conf_all)
   fopr_l -> set_config(U);
   fopr_s -> set_parameters(kappa_s, csw, bc);
   fopr_s -> set_config(U);
-  
+  */
   //////////////////////////////////////////////////////
   // ###  generate diluted noises  ###
   //diltimer -> start();
@@ -232,23 +241,36 @@ int main_core(Parameters *params_conf_all)
   //Field_F *noise = new Field_F[Nnoise];
   std::vector<Field_F> noise(Nnoise);
   //a2a::gen_noise_Z3(noise,noise_seed,Nnoise); 
-  one_end::gen_noise_Z3(noise,noise_seed);
+  //one_end::gen_noise_Z3(noise,noise_seed);
+
+  // for wall source calculation
+  for(int i=0;i<Nnoise;i++){
+    noise[i].reset(Nvol,1);
+    for(int v=0;v<Nvol;v++){
+      for(int d=0;d<Nd;d++){
+        for(int c=0;c<Nc;c++){
+          noise[i].set_r(c,d,v,0,1.0);
+          noise[i].set_i(c,d,v,0,0.0);
+        }
+      }
+    }
+  }
   
   // tcd(or other) dilution
 
-  std::vector<Field_F> tdil_noise(Nnoise*Nsrc_t);
+  std::vector<Field_F> tdil_noise(Nnoise*Nsrctime);
   one_end::time_dil(tdil_noise,noise,timeslice_list);
   std::vector<Field_F>().swap(noise);
 
-  std::vector<Field_F> tcdil_noise(Nnoise*Nsrc_t*Nc);
+  std::vector<Field_F> tcdil_noise(Nnoise*Nsrctime*Nc);
   one_end::color_dil(tcdil_noise,tdil_noise);
   std::vector<Field_F>().swap(tdil_noise);
 
-  std::vector<Field_F> tcddil_noise(Nnoise*Nsrc_t*Nc*Nd);
-  one_end::dirac_dil(tcddil_noise,tcdil_noise);
+  std::vector<Field_F> dil_noise(Nnoise*Nsrctime*Nc*Nd);
+  one_end::dirac_dil(dil_noise,tcdil_noise);
   std::vector<Field_F>().swap(tcdil_noise);
 
-  std::vector<Field_F> dil_noise(Nnoise*Nsrc_t*Nc*Nd*Ndil_space);
+  //std::vector<Field_F> dil_noise(Nnoise*Nsrctime*Nc*Nd*Ndil_space);
   //one_end::space32_dil(dil_noise,tcddil_noise);
   //one_end::space2_dil(dil_noise,tcddil_noise);
   //one_end::space4_dil(dil_noise,tcddil_noise);
@@ -305,7 +327,7 @@ int main_core(Parameters *params_conf_all)
   one_end::space512_dil_sprs8(dil_noise,tcddil_noise,index_group);
   std::vector<Field_F>().swap(tcddil_noise);
   */
-
+  /*
   // s4096 dil sparse 8 (randomly choose a group index)
   // randomly choose the dilution vectors
   //int dilution_seed = time(NULL);
@@ -317,7 +339,7 @@ int main_core(Parameters *params_conf_all)
   vout.general("index_group = %d\n",index_group);
   one_end::space4096_dil_sprs8(dil_noise,tcddil_noise,index_group);
   std::vector<Field_F>().swap(tcddil_noise);
-
+  */
   
   //////////////////////////////////////////////////////
   // ###  make one-end vectors  ###
@@ -327,29 +349,271 @@ int main_core(Parameters *params_conf_all)
   gm_5 = dirac->get_GM(dirac->GAMMA5);
   cc = dirac->get_GM(dirac->CHARGECONJG);
   cgm5 = cc.mult(gm_5);
-  for(int n=0;n<Nd;n++){
-    vout.general("index of Cgamma5 (row %d) = %d, value of Cgamma5 (row %d) = (%f,%f)\n", n, cgm5.index(n), n, real(cgm5.value(n)), imag(cgm5.value(n)) );
-  }
-
+  /*
   // smearing the noise sources
   std::vector<Field_F> dil_noise_smr(dil_noise.size());
   a2a::Exponential_smearing *smear_src = new a2a::Exponential_smearing;
   smear_src->set_parameters(a_src,b_src,thr_val_src);
   smear_src->smear(dil_noise_smr, dil_noise);
   std::vector<Field_F>().swap(dil_noise);
-
-  std::vector<Field_F> xi_l(dil_noise_smr.size());
-  a2a::inversion_alt_Clover_eo(xi_l, dil_noise_smr, U, kappa_l, csw, bc,
-                               inv_prec_full, Nmaxiter, Nmaxres);
-
+  
+  // split two different noise vector sets
+  std::vector<Field_F> dil_noise_smr1(dil_noise_smr.size()/2);
+  std::vector<Field_F> dil_noise_smr2(dil_noise_smr.size()/2);
+  for(int i=0;i<dil_noise_smr.size()/2;++i){
+    copy(dil_noise_smr1[i], dil_noise_smr[i]);
+    copy(dil_noise_smr2[i], dil_noise_smr[i+dil_noise_smr.size()/2]);
+  }
   std::vector<Field_F>().swap(dil_noise_smr);
+  */
+  std::vector<Field_F> xi1(dil_noise.size());
+  std::vector<Field_F> xi2(dil_noise.size());
+  
+  a2a::inversion_alt_Clover_eo(xi1, dil_noise, U, kappa_l, csw, bc,
+                               inv_prec_full, Nmaxiter, Nmaxres);
+  for(int n=0;n<dil_noise.size();++n){
+    xi2[n].reset(Nvol,1);
+    copy(xi2[n], xi1[n]);
+  }
+  
+  /*
+  a2a::inversion_alt_Clover_eo(xi2, dil_noise_smr2, U, kappa_l, csw, bc,
+                               inv_prec_full, Nmaxiter, Nmaxres);
+  */
+  
+  Communicator::sync_global();
+  
+  std::vector<Field_F> xi1_mom(dil_noise.size());
+  std::vector<Field_F> xi2_mom(dil_noise.size());
+  
+  if(mom[0] == 0 && mom[1] == 0 && mom[2] == 0){ // we don't need xin_mom. delete.
+    std::vector<Field_F>().swap(xi1_mom);
+    std::vector<Field_F>().swap(xi2_mom);
+  }
+  else{
+    // back-to-back mom
+    std::vector<int> mom_neg(3);
+    for(int n=0;n<3;++n){
+      mom_neg[n] = - mom[n];
+    }
 
-  delete fopr_l;
-  //delete fopr_l_eo;
+    // inversion with exp factor for mom. projection
+    a2a::inversion_mom_alt_Clover_eo(xi1_mom, dil_noise, U, kappa_l, csw, bc,
+				     mom, inv_prec_full, Nmaxiter, Nmaxres);
+    a2a::inversion_mom_alt_Clover_eo(xi2_mom, dil_noise, U, kappa_l, csw, bc,
+				     mom_neg, inv_prec_full, Nmaxiter, Nmaxres);
+  }
+
+
+  Communicator::sync_global();  
+
+  std::vector<Field_F>().swap(dil_noise);
   delete U;
+  //delete smear_src;
 
-  delete smear_src;
+  //////////////////////////////////////////////////////
+  // ###  output/input one-end vectors (optional)  ###
+  
+  // under construction...
 
+  ////////////////////////////////////////////////////////////
+  // ### calc. 2pt correlator (for NN, using baryon one-end trick)### //
+  EpsilonTensor eps_src;
+  EpsilonTensor eps_sink;
+  
+  // calc. local sum for each combination of spin indices
+  dcomplex *corr_local_N = new dcomplex[Nt*Nsrctime];
+  for(int alpha=0;alpha<2;alpha++){ // loop of the sink spin index
+  //for(int alpha=0;alpha<1;alpha++){ // loop of the sink spin index
+    int beta = alpha;
+    
+#pragma omp parallel for
+      for(int n=0;n<Nt*Nsrctime;n++){
+	corr_local_N[n] = cmplx(0.0,0.0);
+      }
+      
+      for(int t_src=0;t_src<Nsrctime;t_src++){
+	for(int t=0;t<Nt;t++){
+	  for(int i=0;i<Ndil_space;i++){
+	      
+	    for(int vs=0;vs<Nxyz;vs++){
+	      for(int spin_gamma=0;spin_gamma<Nd;spin_gamma++){
+		for(int spin_mu=0;spin_mu<Nd;spin_mu++){
+		  for(int color_sink=0;color_sink<6;color_sink++){
+		    for(int color_src=0;color_src<6;color_src++){
+		      corr_local_N[t+Nt*t_src] +=
+			
+			xi1[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
+			xi1[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
+			xi1[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
+			cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
+			cgm5.value(spin_gamma) * cgm5.value(spin_mu)
+			  
+			-xi1[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
+			xi1[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
+			xi1[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
+			cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
+			cgm5.value(spin_gamma) * cgm5.value(spin_mu);
+			
+		    }
+		  }
+		}
+	      }
+		    
+	    }
+	  }
+	}
+      }
+      
+      //output 2pt correlator test
+      string output_2pt_base("/2pt_N_%d%d_");
+      char output_2pt[100];
+      snprintf(output_2pt, sizeof(output_2pt), output_2pt_base.c_str(), alpha, beta);
+      string output_2pt_final(output_2pt);
+      a2a::output_2ptcorr(corr_local_N, timeslice_list, outdir_name+output_2pt_final+timeave);
+      
+  } // for alpha
+
+  
+  ////////////////////////////////////////////////////////////
+  // ### calc. 4pt correlator (for NN, using baryonic one-end trick)### //
+  // following the Ishii-san's notation, calculate 9 different types of diagrams.
+  // each types are implemented in "calc_NN4pt_type#" functions.
+  // each results are putted on std::vector<dcomplex> array. (Nvol * 2 * 2 * Nsrctime)
+  // ** IMPORTANT: assuming Nnoise = 2 in the following calculation. **
+ 
+  // ## type 1 ## //
+  std::vector<dcomplex> NN4pt_type1(Nvol*2*2*2*2*Nsrctime);
+  if(mom[0] == 0 && mom[1] == 0 && mom[2] == 0){
+    one_end::calc_NN4pt_type1(NN4pt_type1, xi1, xi1,  xi2, xi2, Nsrctime);
+  }
+  else{
+    one_end::calc_NN4pt_type1(NN4pt_type1, xi1, xi1_mom,  xi2, xi2_mom, Nsrctime);
+  }
+
+  // ## type 2 ## //
+  std::vector<dcomplex> NN4pt_type2(Nvol*2*2*2*2*Nsrctime);
+  if(mom[0] == 0 && mom[1] == 0 && mom[2] == 0){
+    one_end::calc_NN4pt_type2(NN4pt_type2, xi1, xi1,  xi2, xi2, Nsrctime);
+  }
+  else{
+    one_end::calc_NN4pt_type2(NN4pt_type2, xi1, xi1_mom,  xi2, xi2_mom, Nsrctime);
+  }
+  
+  // ## type 3 ## //
+  std::vector<dcomplex> NN4pt_type3(Nvol*2*2*2*2*Nsrctime);
+  if(mom[0] == 0 && mom[1] == 0 && mom[2] == 0){
+    one_end::calc_NN4pt_type3(NN4pt_type3, xi1, xi1,  xi2, xi2, Nsrctime);
+  }
+  else{
+    one_end::calc_NN4pt_type3(NN4pt_type3, xi1, xi1_mom,  xi2, xi2_mom, Nsrctime);
+  }
+
+  // ## type 4 ## //
+  std::vector<dcomplex> NN4pt_type4(Nvol*2*2*2*2*Nsrctime);
+  if(mom[0] == 0 && mom[1] == 0 && mom[2] == 0){
+    one_end::calc_NN4pt_type4(NN4pt_type4, xi1, xi1,  xi2, xi2, Nsrctime);
+  }
+  else{
+    one_end::calc_NN4pt_type4(NN4pt_type4, xi1, xi1_mom,  xi2, xi2_mom, Nsrctime);
+  }
+
+  // ## type 5 ## //
+  std::vector<dcomplex> NN4pt_type5(Nvol*2*2*2*2*Nsrctime);
+  if(mom[0] == 0 && mom[1] == 0 && mom[2] == 0){
+    one_end::calc_NN4pt_type5(NN4pt_type5, xi1, xi1,  xi2, xi2, Nsrctime);
+  }
+  else{
+    one_end::calc_NN4pt_type5(NN4pt_type5, xi1, xi1_mom,  xi2, xi2_mom, Nsrctime);
+  }
+
+  // ## type 6 ## //
+  std::vector<dcomplex> NN4pt_type6(Nvol*2*2*2*2*Nsrctime);
+  if(mom[0] == 0 && mom[1] == 0 && mom[2] == 0){
+    one_end::calc_NN4pt_type6(NN4pt_type6, xi1, xi1,  xi2, xi2, Nsrctime);
+  }
+  else{
+    one_end::calc_NN4pt_type6(NN4pt_type6, xi1, xi1_mom,  xi2, xi2_mom, Nsrctime);
+  }
+
+  // ## type 7 ## //
+  std::vector<dcomplex> NN4pt_type7(Nvol*2*2*2*2*Nsrctime);
+  if(mom[0] == 0 && mom[1] == 0 && mom[2] == 0){
+    one_end::calc_NN4pt_type7(NN4pt_type7, xi1, xi1,  xi2, xi2, Nsrctime);
+  }
+  else{
+    one_end::calc_NN4pt_type7(NN4pt_type7, xi1, xi1_mom,  xi2, xi2_mom, Nsrctime);
+  }
+
+  // ## type 8 ## //
+  std::vector<dcomplex> NN4pt_type8(Nvol*2*2*2*2*Nsrctime);
+  if(mom[0] == 0 && mom[1] == 0 && mom[2] == 0){
+    one_end::calc_NN4pt_type8(NN4pt_type8, xi1, xi1,  xi2, xi2, Nsrctime);
+  }
+  else{
+    one_end::calc_NN4pt_type8(NN4pt_type8, xi1, xi1_mom,  xi2, xi2_mom, Nsrctime);
+  }
+
+  // ## type 9 ## //
+  std::vector<dcomplex> NN4pt_type9(Nvol*2*2*2*2*Nsrctime);
+  if(mom[0] == 0 && mom[1] == 0 && mom[2] == 0){
+    one_end::calc_NN4pt_type9(NN4pt_type9, xi1, xi1,  xi2, xi2, Nsrctime);
+  }
+  else {
+    one_end::calc_NN4pt_type9(NN4pt_type9, xi1, xi1_mom,  xi2, xi2_mom, Nsrctime);
+  }
+
+  Communicator::sync_global();
+
+  std::vector<Field_F>().swap(xi1);
+  std::vector<Field_F>().swap(xi2);
+  
+  if(mom[0] != 0 || mom[1] != 0 || mom[2] != 0){
+    std::vector<Field_F>().swap(xi1_mom);
+    std::vector<Field_F>().swap(xi2_mom);
+  }
+  
+  // ## all summation and output ## //
+  for(int beta_src=0;beta_src<2;++beta_src){
+    for(int alpha_src=0;alpha_src<2;++alpha_src){
+      for(int beta_sink=0;beta_sink<2;++beta_sink){
+	for(int alpha_sink=0;alpha_sink<2;++alpha_sink){
+  /*
+  for(int beta_src=0;beta_src<1;++beta_src){
+    for(int alpha_src=0;alpha_src<1;++alpha_src){
+      for(int beta_sink=0;beta_sink<1;++beta_sink){
+	for(int alpha_sink=0;alpha_sink<1;++alpha_sink){	  
+  */
+	  // summation
+	  dcomplex NN4pt_all[Nvol*Nsrctime];
+	  for(int t=0;t<Nsrctime;++t){
+	    for(int v=0;v<Nvol;++v){
+	      NN4pt_all[v+Nvol*t] =
+		  NN4pt_type1[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))]
+		+ NN4pt_type2[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))]
+		+ NN4pt_type3[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))]
+		+ NN4pt_type4[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))]
+		+ NN4pt_type5[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))]
+		+ NN4pt_type6[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))]
+		+ NN4pt_type7[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))]
+		+ NN4pt_type8[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))]
+		+ NN4pt_type9[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))];
+	    }
+	  }
+
+	  
+	  // output
+	  string output_4pt_base("/NBS_NN_sink%d%dsrc%d%d_");
+	  char output_4pt[256];
+	  snprintf(output_4pt, sizeof(output_4pt), output_4pt_base.c_str(), alpha_sink, beta_sink, alpha_src, beta_src);   
+	  string output_4pt_final(output_4pt);
+	  a2a::output_NBS_srctave(&NN4pt_all[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	}
+      }
+    }
+  }
+  
+  /*
   ////////////////////////////////////////////////////////////
   // ### calc. 2pt correlator (for NN, using baryonic one-end trick)### //
 
@@ -357,18 +621,18 @@ int main_core(Parameters *params_conf_all)
   EpsilonTensor eps_sink;
   
   // calc. local sum for each combination of spin indices
-  dcomplex *corr_local_N = new dcomplex[Nt*Nsrc_t];
+  dcomplex *corr_local_N = new dcomplex[Nt*Nsrctime];
   for(int alpha=0;alpha<Nd;alpha++){ // loop of the sink spin index
     //for(int beta=0;beta<Nd;beta++){ // loop of the src spin index
     int beta = alpha;
     
 #pragma omp parallel for
-      for(int n=0;n<Nt*Nsrc_t;n++){
+      for(int n=0;n<Nt*Nsrctime;n++){
 	corr_local_N[n] = cmplx(0.0,0.0);
       }
       
       for(int r=0;r<Nnoise;r++){
-	for(int t_src=0;t_src<Nsrc_t;t_src++){
+	for(int t_src=0;t_src<Nsrctime;t_src++){
 	  for(int t=0;t<Nt;t++){
 	    for(int i=0;i<Ndil_space;i++){
 	      
@@ -378,15 +642,15 @@ int main_core(Parameters *params_conf_all)
 		    for(int color_sink=0;color_sink<6;color_sink++){
 		      for(int color_src=0;color_src<6;color_src++){
 			corr_local_N[t+Nt*t_src] +=
-			  xi_l[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
-			  xi_l[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
-			  xi_l[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
+			  xi_l[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src+Nsrctime*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
+			  xi_l[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src+Nsrctime*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
+			  xi_l[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src+Nsrctime*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
 			  cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
 			  cgm5.value(spin_gamma) * cgm5.value(spin_mu)
 			  
-			  -xi_l[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
-			  xi_l[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
-			  xi_l[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src+Nsrc_t*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
+			  -xi_l[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src+Nsrctime*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
+			  xi_l[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src+Nsrctime*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
+			  xi_l[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src+Nsrctime*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
 			  cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
 			  cgm5.value(spin_gamma) * cgm5.value(spin_mu);
 
@@ -402,7 +666,7 @@ int main_core(Parameters *params_conf_all)
       }
 
 #pragma omp parallel for
-      for(int n=0;n<Nt*Nsrc_t;n++){
+      for(int n=0;n<Nt*Nsrctime;n++){
 	corr_local_N[n] /= (double)Nnoise;
       }
       
@@ -420,7 +684,7 @@ int main_core(Parameters *params_conf_all)
   std::vector<Field_F>().swap(xi_l);
   delete[] corr_local_N;  
   delete dirac;
-  
+  */
   //////////////////////////////////////////////////////
   // ###  finalize  ###
 
