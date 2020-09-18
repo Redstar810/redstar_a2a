@@ -614,7 +614,7 @@ int one_end::calc_NN4pt_type3(std::vector<dcomplex> &NN4pt,
 		for(int j=0;j<Ndil_space;++j){
 		  for(int i=0;i<Ndil_space;++i){
 		    for(int alpha_4p=0;alpha_4p<Nd;++alpha_4p){
-		      for(int alpha_2p=0;alpha_4p<Nd;++alpha_4p){
+		      for(int alpha_2p=0;alpha_2p<Nd;++alpha_2p){
 			for(int c_5p=0;c_5p<Nc;++c_5p){
 			  for(int c_1p=0;c_1p<Nc;++c_1p){
 		      
@@ -1004,8 +1004,8 @@ int one_end::calc_NN4pt_type5(std::vector<dcomplex> &NN4pt,
 			  for(int alpha_1p=0;alpha_1p<Nd;++alpha_1p){ //
 			    dcomplex pb_tmp =
 			      cmplx((double)eps.epsilon_3_value(color_123),0.0) * cgm5.value(alpha_1) 
-			    * cmplx((double)eps.epsilon_3_value(color_456p),0.0) * cgm5.value(alpha_1p)
-			    * cgm5.value(alpha_4p)  
+			    * cmplx((double)eps.epsilon_3_value(color_456p),0.0) * cgm5.value(alpha_4p)
+			      * cgm5.value(alpha_1p) 
 			      * (
 				   xi1[i+Ndil_space*(alpha_1p+Nd*(c_1p+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,0),alpha_1,v,0)
 				 * xi2[j+Ndil_space*(cgm5.index(alpha_4p)+Nd*(eps.epsilon_3_index(color_456p,1)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha_sink,v,0)
@@ -1013,7 +1013,7 @@ int one_end::calc_NN4pt_type5(std::vector<dcomplex> &NN4pt,
 				   xi2[j+Ndil_space*(cgm5.index(alpha_4p)+Nd*(eps.epsilon_3_index(color_456p,1)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,0),alpha_1,v,0)
 				 * xi1[i+Ndil_space*(alpha_1p+Nd*(c_1p+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha_sink,v,0)
 				 )
-			      * xi2_mom[j+Ndil_space*(beta_src+Nd*(eps.epsilon_3_index(color_456p,2)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,1),cgm5.index(alpha_1),v,0);		  
+			      * xi2_mom[j+Ndil_space*(beta_src+Nd*(eps.epsilon_3_index(color_456p,2)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,1),cgm5.index(alpha_1),v,0);
 			    proton_block.add(0,v,c_1p+Nc*(eps.epsilon_3_index(color_456p,0)+Nc*(cgm5.index(alpha_1p)+Nd*(alpha_4p+Nd*(i+Ndil_space*(j+Ndil_space*(alpha_sink+2*beta_src)))))), real(pb_tmp) );
 			    proton_block.add(1,v,c_1p+Nc*(eps.epsilon_3_index(color_456p,0)+Nc*(cgm5.index(alpha_1p)+Nd*(alpha_4p+Nd*(i+Ndil_space*(j+Ndil_space*(alpha_sink+2*beta_src)))))), imag(pb_tmp) );
 			    
@@ -1103,7 +1103,7 @@ int one_end::calc_NN4pt_type5(std::vector<dcomplex> &NN4pt,
 		for(int j=0;j<Ndil_space;++j){
 		  for(int i=0;i<Ndil_space;++i){
 		    for(int alpha_4p=0;alpha_4p<Nd;++alpha_4p){
-		      for(int alpha_2p=0;alpha_4p<Nd;++alpha_4p){
+		      for(int alpha_2p=0;alpha_2p<Nd;++alpha_2p){
 			for(int c_4p=0;c_4p<Nc;++c_4p){
 			  for(int c_1p=0;c_1p<Nc;++c_1p){
 		      
@@ -1589,7 +1589,7 @@ int one_end::calc_NN4pt_type7(std::vector<dcomplex> &NN4pt,
 		for(int j=0;j<Ndil_space;++j){
 		  for(int i=0;i<Ndil_space;++i){
 		    for(int alpha_4p=0;alpha_4p<Nd;++alpha_4p){
-		      for(int alpha_2p=0;alpha_4p<Nd;++alpha_4p){
+		      for(int alpha_2p=0;alpha_2p<Nd;++alpha_2p){
 			for(int c_4p=0;c_4p<Nc;++c_4p){
 			  for(int c_2p=0;c_2p<Nc;++c_2p){
 		      
