@@ -109,7 +109,7 @@ int main_core(Parameters *params_conf_all)
 
   //- dilution and noise vectors (tcds-eo dil)
   std::string dil_type("tcds"); 
-  int Nnoise = 2;
+  int Nnoise = 1;
   //for tcds dilution  
   int Ndil_space = 8;
   //int Ndil = Lt*Nc*Nd*Ndil_space;
@@ -238,25 +238,46 @@ int main_core(Parameters *params_conf_all)
   //diltimer -> start();
   
   vout.general("dilution type = %s\n", dil_type.c_str());    
-  //Field_F *noise = new Field_F[Nnoise];
-  std::vector<Field_F> noise(Nnoise);
-  //a2a::gen_noise_Z3(noise,noise_seed,Nnoise); 
-  one_end::gen_noise_Z3(noise,noise_seed);
+
+  // noise 1
+  std::vector<Field_F> noise1(Nnoise);
+  one_end::gen_noise_Z3(noise1,noise_seed);
+  // noise 2
+  unsigned long noise_seed2 = noise_seed + 10000000;
+  std::vector<Field_F> noise2(Nnoise);
+  one_end::gen_noise_Z3(noise2,noise_seed2);
   
-  // tcd(or other) dilution
-  std::vector<Field_F> tdil_noise(Nnoise*Nsrctime);
-  one_end::time_dil(tdil_noise,noise,timeslice_list);
-  std::vector<Field_F>().swap(noise);
+  // tcd(or other) dilution for noise 1
+  std::vector<Field_F> tdil_noise1(Nnoise*Nsrctime);
+  one_end::time_dil(tdil_noise1,noise1,timeslice_list);
+  std::vector<Field_F>().swap(noise1);
 
-  std::vector<Field_F> tcdil_noise(Nnoise*Nsrctime*Nc);
-  one_end::color_dil(tcdil_noise,tdil_noise);
-  std::vector<Field_F>().swap(tdil_noise);
+  std::vector<Field_F> tcdil_noise1(Nnoise*Nsrctime*Nc);
+  one_end::color_dil(tcdil_noise1,tdil_noise1);
+  std::vector<Field_F>().swap(tdil_noise1);
 
-  std::vector<Field_F> tcddil_noise(Nnoise*Nsrctime*Nc*Nd);
-  one_end::dirac_dil(tcddil_noise,tcdil_noise);
-  std::vector<Field_F>().swap(tcdil_noise);
+  std::vector<Field_F> tcddil_noise1(Nnoise*Nsrctime*Nc*Nd);
+  one_end::dirac_dil(tcddil_noise1,tcdil_noise1);
+  std::vector<Field_F>().swap(tcdil_noise1);
 
-  std::vector<Field_F> dil_noise(Nnoise*Nsrctime*Nc*Nd*Ndil_space);
+  std::vector<Field_F> dil_noise1(Nnoise*Nsrctime*Nc*Nd*Ndil_space);
+
+  // tcd(or other) dilution for noise 2
+  std::vector<Field_F> tdil_noise2(Nnoise*Nsrctime);
+  one_end::time_dil(tdil_noise2,noise2,timeslice_list);
+  std::vector<Field_F>().swap(noise2);
+
+  std::vector<Field_F> tcdil_noise2(Nnoise*Nsrctime*Nc);
+  one_end::color_dil(tcdil_noise2,tdil_noise2);
+  std::vector<Field_F>().swap(tdil_noise2);
+
+  std::vector<Field_F> tcddil_noise2(Nnoise*Nsrctime*Nc*Nd);
+  one_end::dirac_dil(tcddil_noise2,tcdil_noise2);
+  std::vector<Field_F>().swap(tcdil_noise2);
+
+  std::vector<Field_F> dil_noise2(Nnoise*Nsrctime*Nc*Nd*Ndil_space);
+
+  
   //one_end::space32_dil(dil_noise,tcddil_noise);
   //one_end::space2_dil(dil_noise,tcddil_noise);
   //one_end::space4_dil(dil_noise,tcddil_noise);
@@ -282,10 +303,21 @@ int main_core(Parameters *params_conf_all)
   vout.general("s64 sprs8 dilution: dilution seed = %d\n",noise_sprs1end);
   RandomNumberManager::initialize("Mseries", noise_sprs1end);
   RandomNumbers *rand = RandomNumberManager::getInstance();
+
+  // for noise 1
   double rnum = floor( 8.0 * rand->get() );                                        
   int index_group = (int)rnum;
-  one_end::space64_dil_sprs8(dil_noise,tcddil_noise,index_group);
-  std::vector<Field_F>().swap(tcddil_noise);
+  vout.general("=== noise 1 ===\n");
+  vout.general(" index_group = %d\n",index_group);
+  one_end::space64_dil_sprs8(dil_noise1,tcddil_noise1,index_group);
+  std::vector<Field_F>().swap(tcddil_noise1);
+  // for noise 2
+  rnum = floor( 8.0 * rand->get() );                                        
+  index_group = (int)rnum;
+  vout.general("=== noise 2 ===\n");
+  vout.general(" index_group = %d\n",index_group);
+  one_end::space64_dil_sprs8(dil_noise2,tcddil_noise2,index_group);
+  std::vector<Field_F>().swap(tcddil_noise2);
   
   /*
   // s512 dil sparse 1 (randomly choose a group index)
@@ -337,20 +369,14 @@ int main_core(Parameters *params_conf_all)
   cgm5 = cc.mult(gm_5);
 
   // smearing the noise sources
-  std::vector<Field_F> dil_noise_smr(dil_noise.size());
+  std::vector<Field_F> dil_noise_smr1(dil_noise1.size());
+  std::vector<Field_F> dil_noise_smr2(dil_noise2.size());
   a2a::Exponential_smearing *smear_src = new a2a::Exponential_smearing;
   smear_src->set_parameters(a_src,b_src,thr_val_src);
-  smear_src->smear(dil_noise_smr, dil_noise);
-  std::vector<Field_F>().swap(dil_noise);
-
-  // split two different noise vector sets
-  std::vector<Field_F> dil_noise_smr1(dil_noise_smr.size()/2);
-  std::vector<Field_F> dil_noise_smr2(dil_noise_smr.size()/2);
-  for(int i=0;i<dil_noise_smr.size()/2;++i){
-    copy(dil_noise_smr1[i], dil_noise_smr[i]);
-    copy(dil_noise_smr2[i], dil_noise_smr[i+dil_noise_smr.size()/2]);
-  }
-  std::vector<Field_F>().swap(dil_noise_smr);
+  smear_src->smear(dil_noise_smr1, dil_noise1);
+  std::vector<Field_F>().swap(dil_noise1);
+  smear_src->smear(dil_noise_smr2, dil_noise2);
+  std::vector<Field_F>().swap(dil_noise2);
 
   std::vector<Field_F> xi1(dil_noise_smr1.size());
   std::vector<Field_F> xi2(dil_noise_smr2.size());
@@ -382,7 +408,6 @@ int main_core(Parameters *params_conf_all)
     a2a::inversion_mom_alt_Clover_eo(xi2_mom, dil_noise_smr2, U, kappa_l, csw, bc,
 				     mom_neg, inv_prec_full, Nmaxiter, Nmaxres);
   }
-
 
   Communicator::sync_global();
   std::vector<Field_F>().swap(dil_noise_smr1);
@@ -605,79 +630,7 @@ int main_core(Parameters *params_conf_all)
       }
     }
   }
-  
-  /*
-  ////////////////////////////////////////////////////////////
-  // ### calc. 2pt correlator (for NN, using baryonic one-end trick)### //
 
-  EpsilonTensor eps_src;
-  EpsilonTensor eps_sink;
-  
-  // calc. local sum for each combination of spin indices
-  dcomplex *corr_local_N = new dcomplex[Nt*Nsrctime];
-  for(int alpha=0;alpha<Nd;alpha++){ // loop of the sink spin index
-    //for(int beta=0;beta<Nd;beta++){ // loop of the src spin index
-    int beta = alpha;
-    
-#pragma omp parallel for
-      for(int n=0;n<Nt*Nsrctime;n++){
-	corr_local_N[n] = cmplx(0.0,0.0);
-      }
-      
-      for(int r=0;r<Nnoise;r++){
-	for(int t_src=0;t_src<Nsrctime;t_src++){
-	  for(int t=0;t<Nt;t++){
-	    for(int i=0;i<Ndil_space;i++){
-	      
-	      for(int vs=0;vs<Nxyz;vs++){
-		for(int spin_gamma=0;spin_gamma<Nd;spin_gamma++){
-		  for(int spin_mu=0;spin_mu<Nd;spin_mu++){
-		    for(int color_sink=0;color_sink<6;color_sink++){
-		      for(int color_src=0;color_src<6;color_src++){
-			corr_local_N[t+Nt*t_src] +=
-			  xi_l[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src+Nsrctime*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
-			  xi_l[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src+Nsrctime*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
-			  xi_l[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src+Nsrctime*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
-			  cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
-			  cgm5.value(spin_gamma) * cgm5.value(spin_mu)
-			  
-			  -xi_l[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src+Nsrctime*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
-			  xi_l[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src+Nsrctime*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
-			  xi_l[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src+Nsrctime*r)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
-			  cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
-			  cgm5.value(spin_gamma) * cgm5.value(spin_mu);
-
-		      }
-		    }
-		  }
-		}
-		    
-	      }
-	    }
-	  }
-	}
-      }
-
-#pragma omp parallel for
-      for(int n=0;n<Nt*Nsrctime;n++){
-	corr_local_N[n] /= (double)Nnoise;
-      }
-      
-      //output 2pt correlator test
-      string output_2pt_base("/2pt_N_%d%d_");
-      char output_2pt[100];
-      snprintf(output_2pt, sizeof(output_2pt), output_2pt_base.c_str(), alpha, beta);
-      string output_2pt_final(output_2pt);
-      a2a::output_2ptcorr(corr_local_N, timeslice_list, outdir_name+output_2pt_final+timeave);
-
-      
-      //} // for beta
-  } // for alpha
-
-  std::vector<Field_F>().swap(xi_l);
-  delete[] corr_local_N;  
-  delete dirac;
-  */
   //////////////////////////////////////////////////////
   // ###  finalize  ###
 
