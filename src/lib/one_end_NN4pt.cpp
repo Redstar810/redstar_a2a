@@ -22,6 +22,8 @@ int one_end::calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
   int Nd = CommonParameters::Nd();
   int Ndil_space = xi1.size() / (Nc*Nd*Nsrctime);
   Timer calctimer("NN 4pt type 1");
+  Timer ffttimer("FFT total");
+  
   calctimer.start();
 
   // gamma matrices
@@ -118,9 +120,10 @@ int one_end::calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
 
     } // pragma omp parallel
     btimer.stop();
+    ffttimer.start();
     fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
     fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-
+    ffttimer.stop();
     Communicator::sync_global();
     
     Fmspc.set(0.0);
@@ -159,9 +162,11 @@ int one_end::calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
       
     } // pragma omp parallel
     conttimer.stop();
+    ffttimer.start();
     fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-
-    #pragma omp parallel
+    ffttimer.stop();
+    
+#pragma omp parallel
     {
       int Nthread = ThreadManager_OpenMP::get_num_threads();
       int i_thread = ThreadManager_OpenMP::get_thread_id();
@@ -191,6 +196,8 @@ int one_end::calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
 
   btimer.report();
   conttimer.report();
+
+  ffttimer.report();
   
   return 0;
 }
@@ -211,6 +218,7 @@ int one_end::calc_NN4pt_type2(std::vector<dcomplex> &NN4pt,
   int Nd = CommonParameters::Nd();
   int Ndil_space = xi1.size() / (Nc*Nd*Nsrctime);
   Timer calctimer("NN 4pt type 2");
+  Timer ffttimer("FFT total");
   calctimer.start();
 
   // gamma matrices
@@ -346,10 +354,10 @@ int one_end::calc_NN4pt_type2(std::vector<dcomplex> &NN4pt,
       
     } // pragma omp parallel
     nbtimer.stop();
-    
+    ffttimer.start();
     fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
     fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-
+    ffttimer.stop();
     Communicator::sync_global();
     
     Fmspc.set(0.0);
@@ -399,10 +407,10 @@ int one_end::calc_NN4pt_type2(std::vector<dcomplex> &NN4pt,
       
     } // pragma omp parallel
     conttimer.stop();
-    
+    ffttimer.start();
     fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-
-    #pragma omp parallel
+    ffttimer.stop();
+#pragma omp parallel
     {
       int Nthread = ThreadManager_OpenMP::get_num_threads();
       int i_thread = ThreadManager_OpenMP::get_thread_id();
@@ -433,6 +441,7 @@ int one_end::calc_NN4pt_type2(std::vector<dcomplex> &NN4pt,
   pbtimer.report();
   nbtimer.report();
   conttimer.report();
+  ffttimer.report();
   
   return 0;
 }
@@ -452,6 +461,7 @@ int one_end::calc_NN4pt_type3(std::vector<dcomplex> &NN4pt,
   int Nd = CommonParameters::Nd();
   int Ndil_space = xi1.size() / (Nc*Nd*Nsrctime);
   Timer calctimer("NN 4pt type 3");
+  Timer ffttimer("FFT total");
   calctimer.start();
 
   // gamma matrices
@@ -591,10 +601,10 @@ int one_end::calc_NN4pt_type3(std::vector<dcomplex> &NN4pt,
           
     } // pragma omp parallel
     nbtimer.stop();
-    
+    ffttimer.start();
     fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
     fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-    
+    ffttimer.stop();
     Communicator::sync_global();
     
     Fmspc.set(0.0);
@@ -646,10 +656,10 @@ int one_end::calc_NN4pt_type3(std::vector<dcomplex> &NN4pt,
       
     } // pragma omp parallel
     conttimer.stop();
-    
+    ffttimer.start();
     fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-
-    #pragma omp parallel
+    ffttimer.stop();
+#pragma omp parallel
     {
       int Nthread = ThreadManager_OpenMP::get_num_threads();
       int i_thread = ThreadManager_OpenMP::get_thread_id();
@@ -681,6 +691,7 @@ int one_end::calc_NN4pt_type3(std::vector<dcomplex> &NN4pt,
   pbtimer.report();
   nbtimer.report();
   conttimer.report();
+  ffttimer.report();
   
   return 0;
 }
@@ -701,6 +712,7 @@ int one_end::calc_NN4pt_type4(std::vector<dcomplex> &NN4pt,
   int Nd = CommonParameters::Nd();
   int Ndil_space = xi1.size() / (Nc*Nd*Nsrctime);
   Timer calctimer("NN 4pt type 4");
+  Timer ffttimer("FFT total");
   calctimer.start();
 
   // gamma matrices
@@ -838,10 +850,10 @@ int one_end::calc_NN4pt_type4(std::vector<dcomplex> &NN4pt,
      
     } // pragma omp parallel
     nbtimer.stop();
-    
+    ffttimer.start();
     fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
     fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-
+    ffttimer.stop();
     Communicator::sync_global();
     
     Fmspc.set(0.0);
@@ -891,10 +903,10 @@ int one_end::calc_NN4pt_type4(std::vector<dcomplex> &NN4pt,
       
     } // pragma omp parallel
     conttimer.stop();
-    
+    ffttimer.start();
     fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-
-    #pragma omp parallel
+    ffttimer.stop();
+#pragma omp parallel
     {
       int Nthread = ThreadManager_OpenMP::get_num_threads();
       int i_thread = ThreadManager_OpenMP::get_thread_id();
@@ -925,6 +937,7 @@ int one_end::calc_NN4pt_type4(std::vector<dcomplex> &NN4pt,
   pbtimer.report();
   nbtimer.report();
   conttimer.report();
+  ffttimer.report();
   
   return 0;
 }
@@ -945,6 +958,7 @@ int one_end::calc_NN4pt_type5(std::vector<dcomplex> &NN4pt,
   int Nd = CommonParameters::Nd();
   int Ndil_space = xi1.size() / (Nc*Nd*Nsrctime);
   Timer calctimer("NN 4pt type 5");
+  Timer ffttimer("FFT total");
   calctimer.start();
 
   // gamma matrices
@@ -1080,10 +1094,10 @@ int one_end::calc_NN4pt_type5(std::vector<dcomplex> &NN4pt,
       }
     } // pragma omp parallel
     nbtimer.stop();
-    
+    ffttimer.start();
     fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
     fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-    
+    ffttimer.stop();
     Communicator::sync_global();
     
     Fmspc.set(0.0);
@@ -1135,10 +1149,10 @@ int one_end::calc_NN4pt_type5(std::vector<dcomplex> &NN4pt,
       
     } // pragma omp parallel
     conttimer.stop();
-    
+    ffttimer.start();
     fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-
-    #pragma omp parallel
+    ffttimer.stop();
+#pragma omp parallel
     {
       int Nthread = ThreadManager_OpenMP::get_num_threads();
       int i_thread = ThreadManager_OpenMP::get_thread_id();
@@ -1170,6 +1184,7 @@ int one_end::calc_NN4pt_type5(std::vector<dcomplex> &NN4pt,
   pbtimer.report();
   nbtimer.report();
   conttimer.report();
+  ffttimer.report();
   
   return 0;
 }
@@ -1189,6 +1204,7 @@ int one_end::calc_NN4pt_type6(std::vector<dcomplex> &NN4pt,
   int Nd = CommonParameters::Nd();
   int Ndil_space = xi1.size() / (Nc*Nd*Nsrctime);
   Timer calctimer("NN 4pt type 6");
+  Timer ffttimer("FFT total");
   calctimer.start();
 
   // gamma matrices
@@ -1325,10 +1341,10 @@ int one_end::calc_NN4pt_type6(std::vector<dcomplex> &NN4pt,
      
     } // pragma omp parallel
     nbtimer.stop();
-    
+    ffttimer.start();
     fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
     fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-
+    ffttimer.stop();
     Communicator::sync_global();
     
     Fmspc.set(0.0);
@@ -1378,10 +1394,10 @@ int one_end::calc_NN4pt_type6(std::vector<dcomplex> &NN4pt,
       
     } // pragma omp parallel
     conttimer.stop();
-    
+    ffttimer.start();
     fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-
-    #pragma omp parallel
+    ffttimer.stop();
+#pragma omp parallel
     {
       int Nthread = ThreadManager_OpenMP::get_num_threads();
       int i_thread = ThreadManager_OpenMP::get_thread_id();
@@ -1412,6 +1428,7 @@ int one_end::calc_NN4pt_type6(std::vector<dcomplex> &NN4pt,
   pbtimer.report();
   nbtimer.report();
   conttimer.report();
+  ffttimer.report();
   
   return 0;
 }
@@ -1431,6 +1448,7 @@ int one_end::calc_NN4pt_type7(std::vector<dcomplex> &NN4pt,
   int Nd = CommonParameters::Nd();
   int Ndil_space = xi1.size() / (Nc*Nd*Nsrctime);
   Timer calctimer("NN 4pt type 7");
+  Timer ffttimer("FFT total");
   calctimer.start();
 
   // gamma matrices
@@ -1566,10 +1584,10 @@ int one_end::calc_NN4pt_type7(std::vector<dcomplex> &NN4pt,
       }
     } // pragma omp parallel
     nbtimer.stop();
-    
+    ffttimer.start();  
     fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
     fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-    
+    ffttimer.stop();
     Communicator::sync_global();
     
     Fmspc.set(0.0);
@@ -1621,10 +1639,10 @@ int one_end::calc_NN4pt_type7(std::vector<dcomplex> &NN4pt,
       
     } // pragma omp parallel
     conttimer.stop();
-    
+    ffttimer.start();
     fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-
-    #pragma omp parallel
+    ffttimer.stop();
+#pragma omp parallel
     {
       int Nthread = ThreadManager_OpenMP::get_num_threads();
       int i_thread = ThreadManager_OpenMP::get_thread_id();
@@ -1656,6 +1674,7 @@ int one_end::calc_NN4pt_type7(std::vector<dcomplex> &NN4pt,
   pbtimer.report();
   nbtimer.report();
   conttimer.report();
+  ffttimer.report();
   
   return 0;
 }
@@ -1676,6 +1695,7 @@ int one_end::calc_NN4pt_type8(std::vector<dcomplex> &NN4pt,
   int Nd = CommonParameters::Nd();
   int Ndil_space = xi1.size() / (Nc*Nd*Nsrctime);
   Timer calctimer("NN 4pt type 8");
+  Timer ffttimer("FFT total");
   calctimer.start();
 
   // gamma matrices
@@ -1810,10 +1830,10 @@ int one_end::calc_NN4pt_type8(std::vector<dcomplex> &NN4pt,
       
     } // pragma omp parallel
     nbtimer.stop();
-    
+    ffttimer.start();  
     fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
     fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-
+    ffttimer.stop();
     Communicator::sync_global();
     
     Fmspc.set(0.0);
@@ -1863,10 +1883,10 @@ int one_end::calc_NN4pt_type8(std::vector<dcomplex> &NN4pt,
       
     } // pragma omp parallel
     conttimer.stop();
-    
+    ffttimer.start();
     fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-
-    #pragma omp parallel
+    ffttimer.stop();
+#pragma omp parallel
     {
       int Nthread = ThreadManager_OpenMP::get_num_threads();
       int i_thread = ThreadManager_OpenMP::get_thread_id();
@@ -1897,6 +1917,7 @@ int one_end::calc_NN4pt_type8(std::vector<dcomplex> &NN4pt,
   pbtimer.report();
   nbtimer.report();
   conttimer.report();
+  ffttimer.report();
   
   return 0;
 }
@@ -1916,6 +1937,7 @@ int one_end::calc_NN4pt_type9(std::vector<dcomplex> &NN4pt,
   int Nd = CommonParameters::Nd();
   int Ndil_space = xi1.size() / (Nc*Nd*Nsrctime);
   Timer calctimer("NN 4pt type 9");
+  Timer ffttimer("FFT total");
   calctimer.start();
 
   // gamma matrices
@@ -2048,10 +2070,10 @@ int one_end::calc_NN4pt_type9(std::vector<dcomplex> &NN4pt,
 	}
     } // pragma omp parallel
     nbtimer.stop();
-    
+    ffttimer.start();
     fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
     fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-    
+    ffttimer.stop();
     Communicator::sync_global();
     
     Fmspc.set(0.0);
@@ -2099,10 +2121,10 @@ int one_end::calc_NN4pt_type9(std::vector<dcomplex> &NN4pt,
       
     } // pragma omp parallel
     conttimer.stop();
-        
+    ffttimer.start();
     fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-
-    #pragma omp parallel
+    ffttimer.stop();
+#pragma omp parallel
     {
       int Nthread = ThreadManager_OpenMP::get_num_threads();
       int i_thread = ThreadManager_OpenMP::get_thread_id();
@@ -2133,6 +2155,7 @@ int one_end::calc_NN4pt_type9(std::vector<dcomplex> &NN4pt,
   pbtimer.report();
   nbtimer.report();
   conttimer.report();
+  ffttimer.report();
   
   return 0;
 }
