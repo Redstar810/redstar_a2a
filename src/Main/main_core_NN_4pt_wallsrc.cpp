@@ -578,12 +578,7 @@ int main_core(Parameters *params_conf_all)
     for(int alpha_src=0;alpha_src<2;++alpha_src){
       for(int beta_sink=0;beta_sink<2;++beta_sink){
 	for(int alpha_sink=0;alpha_sink<2;++alpha_sink){
-  /*
-  for(int beta_src=0;beta_src<1;++beta_src){
-    for(int alpha_src=0;alpha_src<1;++alpha_src){
-      for(int beta_sink=0;beta_sink<1;++beta_sink){
-	for(int alpha_sink=0;alpha_sink<1;++alpha_sink){	  
-  */
+	  /*
 	  // summation
 	  dcomplex NN4pt_all[Nvol*Nsrctime];
 	  for(int t=0;t<Nsrctime;++t){
@@ -599,22 +594,49 @@ int main_core(Parameters *params_conf_all)
 		+ NN4pt_type7[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))]
 		+ NN4pt_type8[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))]
 		+ NN4pt_type9[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))];
-	      /*
-	      NN4pt_all[v+Nvol*t] =
-		//NN4pt_type3[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))] + NN4pt_type7[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))];;
-		NN4pt_type5[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))];
-	      */
 	    }
 	  }
-
+	  */
 	  
 	  // output
-	  string output_4pt_base("/NBS_NN_sink%d%dsrc%d%d_");
-	  //string output_4pt_base("/NBS_NN_type5_sink%d%dsrc%d%d_");
-	  char output_4pt[256];
-	  snprintf(output_4pt, sizeof(output_4pt), output_4pt_base.c_str(), alpha_sink, beta_sink, alpha_src, beta_src);   
-	  string output_4pt_final(output_4pt);
-	  a2a::output_NBS_srctave(&NN4pt_all[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	  for(int type=0;type<9;++type){
+	    string output_4pt_base("/NBS_NN_type%d_sink%d%dsrc%d%d_");
+	    //string output_4pt_base("/NBS_NN_type5_sink%d%dsrc%d%d_");
+	    char output_4pt[256];
+	    snprintf(output_4pt, sizeof(output_4pt), output_4pt_base.c_str(),type+1, alpha_sink, beta_sink, alpha_src, beta_src);   
+	    string output_4pt_final(output_4pt);
+	    if(type==0){
+	      a2a::output_NBS_srctave(&NN4pt_type1[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	    }
+	    else if(type==1){
+	      a2a::output_NBS_srctave(&NN4pt_type2[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	    }
+	    else if(type==2){
+	      a2a::output_NBS_srctave(&NN4pt_type3[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	    }
+	    else if(type==3){
+	      a2a::output_NBS_srctave(&NN4pt_type4[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	    }
+	    else if(type==4){
+	      a2a::output_NBS_srctave(&NN4pt_type5[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	    }
+	    else if(type==5){
+	      a2a::output_NBS_srctave(&NN4pt_type6[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	    }
+	    else if(type==6){
+	      a2a::output_NBS_srctave(&NN4pt_type7[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	    }
+	    else if(type==7){
+	      a2a::output_NBS_srctave(&NN4pt_type8[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	    }
+	    else if(type==8){
+	      a2a::output_NBS_srctave(&NN4pt_type9[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	    }
+
+	    
+	  } // for type
+
+	  
 	}
       }
     }
