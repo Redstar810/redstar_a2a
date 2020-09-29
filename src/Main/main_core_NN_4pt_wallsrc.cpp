@@ -366,14 +366,27 @@ int main_core(Parameters *params_conf_all)
   }
   std::vector<Field_F>().swap(dil_noise_smr);
   */
+
+  // for check
+  for(int n=0;n<dil_noise.size();++n){
+    vout.general("norm of dil_noise[%d] = %12.12e\n", n, dil_noise[n].norm());
+  }
+  
   std::vector<Field_F> xi1(dil_noise.size());
   std::vector<Field_F> xi2(dil_noise.size());
   
   a2a::inversion_alt_Clover_eo(xi1, dil_noise, U, kappa_l, csw, bc,
                                inv_prec_full, Nmaxiter, Nmaxres);
+
   for(int n=0;n<dil_noise.size();++n){
     xi2[n].reset(Nvol,1);
     copy(xi2[n], xi1[n]);
+  }
+
+  // for check
+  for(int n=0;n<dil_noise.size();++n){
+    vout.general("norm of xi1[%d] = %12.12e\n", n, xi1[n].norm());
+    vout.general("norm of xi2[%d] = %12.12e\n", n, xi2[n].norm());
   }
   
   /*
@@ -596,9 +609,18 @@ int main_core(Parameters *params_conf_all)
 		+ NN4pt_type9[v+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src+2*t))))];
 	    }
 	  }
+	  
+	  
+	  // output (all summation)
+	  string output_4pt_base("/NBS_NN_all_sink%d%dsrc%d%d_");
+	  //string output_4pt_base("/NBS_NN_type5_sink%d%dsrc%d%d_");
+	  char output_4pt[256];
+	  snprintf(output_4pt, sizeof(output_4pt), output_4pt_base.c_str(), alpha_sink, beta_sink, alpha_src, beta_src);   
+	  string output_4pt_final(output_4pt);
+	  a2a::output_NBS_srctave(&NN4pt_all[0], timeslice_list, outdir_name+output_4pt_final+timeave);
 	  */
 	  
-	  // output
+	  // output (type by type, only valid for single source timeslice)
 	  for(int type=0;type<9;++type){
 	    string output_4pt_base("/NBS_NN_type%d_sink%d%dsrc%d%d_");
 	    //string output_4pt_base("/NBS_NN_type5_sink%d%dsrc%d%d_");
@@ -606,36 +628,36 @@ int main_core(Parameters *params_conf_all)
 	    snprintf(output_4pt, sizeof(output_4pt), output_4pt_base.c_str(),type+1, alpha_sink, beta_sink, alpha_src, beta_src);   
 	    string output_4pt_final(output_4pt);
 	    if(type==0){
-	      a2a::output_NBS_srctave(&NN4pt_type1[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	      a2a::output_NBS_srctave(&NN4pt_type1[0+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src))))], timeslice_list, outdir_name+output_4pt_final+timeave);
 	    }
 	    else if(type==1){
-	      a2a::output_NBS_srctave(&NN4pt_type2[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	      a2a::output_NBS_srctave(&NN4pt_type2[0+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src))))], timeslice_list, outdir_name+output_4pt_final+timeave);
 	    }
 	    else if(type==2){
-	      a2a::output_NBS_srctave(&NN4pt_type3[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	      a2a::output_NBS_srctave(&NN4pt_type3[0+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src))))], timeslice_list, outdir_name+output_4pt_final+timeave);
 	    }
 	    else if(type==3){
-	      a2a::output_NBS_srctave(&NN4pt_type4[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	      a2a::output_NBS_srctave(&NN4pt_type4[0+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src))))], timeslice_list, outdir_name+output_4pt_final+timeave);
 	    }
 	    else if(type==4){
-	      a2a::output_NBS_srctave(&NN4pt_type5[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	      a2a::output_NBS_srctave(&NN4pt_type5[0+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src))))], timeslice_list, outdir_name+output_4pt_final+timeave);
 	    }
 	    else if(type==5){
-	      a2a::output_NBS_srctave(&NN4pt_type6[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	      a2a::output_NBS_srctave(&NN4pt_type6[0+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src))))], timeslice_list, outdir_name+output_4pt_final+timeave);
 	    }
 	    else if(type==6){
-	      a2a::output_NBS_srctave(&NN4pt_type7[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	      a2a::output_NBS_srctave(&NN4pt_type7[0+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src))))], timeslice_list, outdir_name+output_4pt_final+timeave);
 	    }
 	    else if(type==7){
-	      a2a::output_NBS_srctave(&NN4pt_type8[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	      a2a::output_NBS_srctave(&NN4pt_type8[0+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src))))], timeslice_list, outdir_name+output_4pt_final+timeave);
 	    }
 	    else if(type==8){
-	      a2a::output_NBS_srctave(&NN4pt_type9[0], timeslice_list, outdir_name+output_4pt_final+timeave);
+	      a2a::output_NBS_srctave(&NN4pt_type9[0+Nvol*(alpha_sink+2*(beta_sink+2*(alpha_src+2*(beta_src))))], timeslice_list, outdir_name+output_4pt_final+timeave);
 	    }
 
 	    
 	  } // for type
-
+	  
 	  
 	}
       }

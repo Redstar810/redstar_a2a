@@ -64,4 +64,4 @@ File_io:
   #outdir        : ./consistency_check_boostneqt_set2_1unitmom
   #outdir        : ./consistency_check_boosteqt_2unitmom
   #outdir        : ./consistency_check_i2pp
-  outdir         : ./test_NN4pt_oneend
+  outdir         : ./test_NN4pt_wall
