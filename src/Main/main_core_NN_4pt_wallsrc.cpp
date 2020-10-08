@@ -369,6 +369,7 @@ int main_core(Parameters *params_conf_all)
 
   // for check
   for(int n=0;n<dil_noise.size();++n){
+    vout.general("== n = %d ==\n",n);
     vout.general("norm of dil_noise[%d] = %12.12e\n", n, dil_noise[n].norm());
   }
   
@@ -385,6 +386,7 @@ int main_core(Parameters *params_conf_all)
 
   // for check
   for(int n=0;n<dil_noise.size();++n){
+    vout.general("== n = %d ==\n",n);
     vout.general("norm of xi1[%d] = %12.12e\n", n, xi1[n].norm());
     vout.general("norm of xi2[%d] = %12.12e\n", n, xi2[n].norm());
   }
@@ -619,6 +621,7 @@ int main_core(Parameters *params_conf_all)
 	  string output_4pt_final(output_4pt);
 	  a2a::output_NBS_srctave(&NN4pt_all[0], timeslice_list, outdir_name+output_4pt_final+timeave);
 	  */
+	  
 	  
 	  // output (type by type, only valid for single source timeslice)
 	  for(int type=0;type<9;++type){

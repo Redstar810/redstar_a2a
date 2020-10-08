@@ -334,11 +334,10 @@ int main_core(Parameters *params_conf_all)
   gm_5 = dirac->get_GM(dirac->GAMMA5);
   
   Field_F *xi = new Field_F[Nnoise*Ndil_red];
-    
   a2a::inversion_alt_Clover_eo(xi, dil_noise, U, kappa_l, csw, bc,
 			       Nnoise*Ndil_red, inv_prec_full,
 			       Nmaxiter, Nmaxres);
-  /*
+  
   Field_F *dil_noise_GM5 = new Field_F[Nnoise*Ndil_red];
   for(int n=0;n<Ndil_red*Nnoise;n++){
     Field_F tmp;
@@ -348,10 +347,15 @@ int main_core(Parameters *params_conf_all)
     copy(dil_noise_GM5[n],tmp);
   }
   Communicator::sync_global();
-  */
+  
   delete[] dil_noise;
 
   Field_F *chi = new Field_F[Nnoise*Ndil_red];
+  a2a::inversion_alt_Clover_eo(xi, dil_noise_GM5, U, kappa_l, csw, bc,
+			       Nnoise*Ndil_red, inv_prec_full,
+			       Nmaxiter, Nmaxres);
+  
+  /*
   Field_F tmpgm5;
   tmpgm5.reset(Nvol,1);
   
@@ -415,14 +419,12 @@ int main_core(Parameters *params_conf_all)
     copy(chi[3+4*(3+Nd*n)],tmpgm5);
     Communicator::sync_global();
   }
-  
+  */
   
   //a2a::inversion_eo(chi,fopr_eo,fopr,dil_noise,Nnoise*Ndil_red);
   //delete[] dil_noise;
 
   // smearing
-  
-  
   a2a::Exponential_smearing *smear = new a2a::Exponential_smearing;
   smear->set_parameters(a_sink,b_sink,thr_val_sink);
 
@@ -435,7 +437,6 @@ int main_core(Parameters *params_conf_all)
   smear->smear(xi_smrdsink, xi, Nnoise*Ndil_red);
   Communicator::sync_global();
   delete[] xi;
-  
   
 
   //////////////////////////////////////////////////////////////////////////////

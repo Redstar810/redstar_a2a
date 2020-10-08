@@ -21,6 +21,7 @@ int one_end::calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
   int Nc = CommonParameters::Nc();
   int Nd = CommonParameters::Nd();
   int Ndil_space = xi1.size() / (Nc*Nd*Nsrctime);
+  int Lxyz = CommonParameters::Lx() * CommonParameters::Ly() * CommonParameters::Lz();
   Timer calctimer("NN 4pt type 1");
   Timer ffttimer("FFT total");
   
@@ -41,6 +42,16 @@ int one_end::calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
 
   Timer btimer("baryon block");
   Timer conttimer("contraction");
+
+  // for check
+  for(int n=0;n<xi1.size();++n){
+    vout.general("== n = %d ==\n",n);
+    vout.general("norm of xi1[%d] = %12.12e\n", n, xi1[n].norm());
+    vout.general("norm of xi2[%d] = %12.12e\n", n, xi2[n].norm());
+    vout.general("norm of xi1_mom[%d] = %12.12e\n", n, xi1_mom[n].norm());
+    vout.general("norm of xi2_mom[%d] = %12.12e\n", n, xi2_mom[n].norm());
+
+  }
 
 
   for(int tsrc=0;tsrc<Nsrctime;++tsrc){
@@ -119,11 +130,47 @@ int one_end::calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
       } // for 
 
     } // pragma omp parallel
+
+    // for check
+    vout.general("norm of pblock = %12.12e\n",  proton_block.norm());
+    vout.general("norm of nblock = %12.12e\n",  neutron_block.norm());
+    
     btimer.stop();
     ffttimer.start();
     fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
     fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
     ffttimer.stop();
+
+    // for check
+    vout.general("norm of pblock(p) = %12.12e\n",  proton_block_mspc.norm());
+    vout.general("norm of nblock(-p) = %12.12e\n",  neutron_block_mspc.norm()*(double)Lxyz );
+
+    // output baryon blocks (debug)
+    {
+      vout.general("== output baryon blocks ==\n");
+      char fname_pblk[256];
+      char fname_nblk[256];
+      int  igrids[4];
+      Communicator::grid_coord(igrids, Communicator::nodeid());
+      
+      snprintf(fname_pblk, sizeof(fname_pblk),"./pblk_type1.%02d.%02d.%02d.%02d",igrids[0],igrids[1],igrids[2],igrids[3]);
+      std::ofstream ofs_pblk(fname_pblk, std::ios::binary);
+      vout.general("writing vector data...\n");
+      ofs_pblk.write((char*)proton_block.ptr(0), sizeof(double) * proton_block.size());
+      vout.general("OK!\n");
+      Communicator::sync_global();
+      ofs_pblk.close();
+
+
+      snprintf(fname_nblk, sizeof(fname_nblk),"./nblk_type1.%02d.%02d.%02d.%02d",igrids[0],igrids[1],igrids[2],igrids[3]);
+      std::ofstream ofs_nblk(fname_nblk, std::ios::binary);
+      vout.general("writing vector data...\n");
+      ofs_nblk.write((char*)neutron_block.ptr(0), sizeof(double) * neutron_block.size());
+      vout.general("OK!\n");
+      Communicator::sync_global();
+      ofs_nblk.close();
+    }
+    
     Communicator::sync_global();
     
     Fmspc.set(0.0);
@@ -161,10 +208,17 @@ int one_end::calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
       }
       
     } // pragma omp parallel
+
+    // for check
+    vout.general("norm of F(p) = %12.12e\n", Fmspc.norm()*(double)Lxyz);
+
     conttimer.stop();
     ffttimer.start();
     fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
     ffttimer.stop();
+
+    // for check
+    vout.general("norm of F = %12.12e\n", F.norm()*(double)Lxyz*(double)Lxyz);
     
 #pragma omp parallel
     {
