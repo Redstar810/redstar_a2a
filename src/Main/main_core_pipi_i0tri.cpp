@@ -112,11 +112,21 @@ int main_core(Parameters *params_conf_all)
   int Ndil = Lt*Nc*Nd*4;    
   // random number seed   
   unsigned long noise_seed;
+  unsigned long noise_sprs1end;
+  std::vector<int> timeslice_list;
+  std::string timeave;
+  params_noise.fetch_string("timeave",timeave);
   params_noise.fetch_unsigned_long("noise_seed",noise_seed);
+  params_noise.fetch_int_vector("timeslice",timeslice_list);
+  params_noise.fetch_unsigned_long("noise_sparse1end",noise_sprs1end);
+  int Nsrc_t = timeslice_list.size();
 
   vout.general("Noise vectors\n");
   vout.general("  Nnoise : %d\n",Nnoise);
   vout.general("  seed : %d\n",noise_seed);
+  vout.general("  Nsrct : %d\n",Nsrc_t);
+  vout.general("  Time slices: %s\n", Parameters::to_string(timeslice_list).c_str());
+  vout.general("  seed (for sparse one-end trick) : %d\n",noise_sprs1end);
 
   //- eigensolver parameters                                                          
   // fundamentals 
@@ -197,6 +207,16 @@ int main_core(Parameters *params_conf_all)
 
   vout.general("\n=== Calculation environment summary END ===\n");
 
+  //- performance analysis
+  Timer eigtimer("eigensolver              ");
+  Timer invtimer("inversion (one-end trick)");
+  Timer invtimer_caaexa("inversion (caa exact)    ");
+  Timer invtimer_caarel("inversion (caa relax)    ");
+  Timer diltimer("dilution                 ");
+  Timer cont_sink_eigen("contraction (eigen)      ");
+  Timer cont_sink_exa("contraction (exact)      ");
+  Timer cont_sink_rel("contraction (relax)      ");
+  
   //////////////////////////////////////////////////////
   // ### read gauge configuration and initialize Dirac operators ###
   
@@ -209,7 +229,7 @@ int main_core(Parameters *params_conf_all)
   
   //////////////////////////////////////////////////////
   // ###  eigen solver (IR-Lanczos)  ###
-  
+  eigtimer.start();
   Field_F *evec_in = new Field_F[Neigen];
   double *eval_in = new double[Neigen];
   
@@ -234,7 +254,7 @@ int main_core(Parameters *params_conf_all)
   delete fopr_cb;
   delete fopr;
   delete[] eval_pol;
-    
+  eigtimer.stop();
   //////////////////////////////////////////////////////
   // ###  generate diluted noises  ###
   
@@ -244,6 +264,7 @@ int main_core(Parameters *params_conf_all)
   a2a::gen_noise_Z4(noise,noise_seed,Nnoise); 
   //a2a::gen_noise_Z4(noise_hyb,seed_hyb,Nnoise_hyb); 
   //a2a::gen_noise_Z2(noise,1234567UL,Nnoise);
+  diltimer.start();
   /*
   // for wall source calculation
   for(int i=0;i<Nnoise;i++){
@@ -284,6 +305,7 @@ int main_core(Parameters *params_conf_all)
   //delete[] tcdil_noise;
   delete[] tcddil_noise;
 
+  /*
   // source time slice determination
   vout.general("===== source time setup =====\n");
   int Nsrc_t = Lt/2; // #. of source time you use 
@@ -305,7 +327,10 @@ int main_core(Parameters *params_conf_all)
   }
 
   vout.general("==========\n");
-
+  */
+  int Ndil_red = Ndil / Lt * Nsrc_t; // reduced d.o.f. of noise vectors
+  int Ndil_tslice = Ndil / Lt; // dilution d.o.f. on a single time slice
+  
   // smearing the noise sources
   a2a::Exponential_smearing *smear_src = new a2a::Exponential_smearing;
   smear_src->set_parameters(a_src,b_src,thr_val_src);
@@ -319,12 +344,12 @@ int main_core(Parameters *params_conf_all)
     for(int t=0;t<Nsrc_t;t++){
       for(int n=0;n<Ndil_tslice;n++){
 #pragma omp parallel
-	copy(dil_noise[n+Ndil_tslice*(t+Nsrc_t*i)],dil_noise_allt_smr[n+Ndil_tslice*(srct_list[t]+Lt*i)]);
+	copy(dil_noise[n+Ndil_tslice*(t+Nsrc_t*i)],dil_noise_allt_smr[n+Ndil_tslice*(timeslice_list[t]+Lt*i)]);
       }
     }
   }
   delete[] dil_noise_allt_smr;
-
+  diltimer.stop();
     
   //////////////////////////////////////////////////////
   // ### make one-end vectors  ###
@@ -334,10 +359,11 @@ int main_core(Parameters *params_conf_all)
   gm_5 = dirac->get_GM(dirac->GAMMA5);
   
   Field_F *xi = new Field_F[Nnoise*Ndil_red];
+  invtimer.start();
   a2a::inversion_alt_Clover_eo(xi, dil_noise, U, kappa_l, csw, bc,
 			       Nnoise*Ndil_red, inv_prec_full,
 			       Nmaxiter, Nmaxres);
-  
+  invtimer.stop();
   Field_F *dil_noise_GM5 = new Field_F[Nnoise*Ndil_red];
   for(int n=0;n<Ndil_red*Nnoise;n++){
     Field_F tmp;
@@ -349,11 +375,13 @@ int main_core(Parameters *params_conf_all)
   Communicator::sync_global();
   
   delete[] dil_noise;
-
+  invtimer.start();
   Field_F *chi = new Field_F[Nnoise*Ndil_red];
-  a2a::inversion_alt_Clover_eo(xi, dil_noise_GM5, U, kappa_l, csw, bc,
+  a2a::inversion_alt_Clover_eo(chi, dil_noise_GM5, U, kappa_l, csw, bc,
 			       Nnoise*Ndil_red, inv_prec_full,
 			       Nmaxiter, Nmaxres);
+  invtimer.stop();
+  delete[] dil_noise_GM5;
   
   /*
   Field_F tmpgm5;
@@ -441,12 +469,16 @@ int main_core(Parameters *params_conf_all)
 
   //////////////////////////////////////////////////////////////////////////////
   // ### calc. 2pt correlator (test) ### //
+
+  // ** sigma 2pt is under construction **
   
   // calc. local sum
-  dcomplex *corr_local = new dcomplex[Nt*Nsrc_t];
+  dcomplex *corr_local_pi = new dcomplex[Nt*Nsrc_t];
+  //dcomplex *corr_local_sigma = new dcomplex[Nt*Nsrc_t];
 #pragma omp parallel for
   for(int n=0;n<Nt*Nsrc_t;n++){
-    corr_local[n] = cmplx(0.0,0.0);
+    corr_local_pi[n] = cmplx(0.0,0.0);
+    //corr_local_sigma[n] = cmplx(0.0,0.0);
   }
 
 #pragma omp parallel
@@ -466,8 +498,13 @@ int main_core(Parameters *params_conf_all)
 	    for(int d=0;d<Nd;d++){
 	      for(int c=0;c<Nc;c++){
 		//corr_local[t+Nt*t_src] += xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0));
+		corr_local_pi[t+Nt*t_src] += cmplx( xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) + xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0),
+						 xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) - xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) );
+
+		/*
 		corr_local[t+Nt*t_src] += cmplx( xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) + xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0),
 						 xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) - xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) );
+		*/
 	      }
 	    }
 	  }
@@ -480,18 +517,20 @@ int main_core(Parameters *params_conf_all)
 
 #pragma omp parallel for
   for(int n=0;n<Nt*Nsrc_t;n++){
-    corr_local[n] /= (double)Nnoise;
+    corr_local_pi[n] /= (double)Nnoise;
   }
 
   //output 2pt correlator test
   string output_2pt_pi("/2pt_pi_");
-  a2a::output_2ptcorr(corr_local, Nsrc_t, srct_list, outdir_name+output_2pt_pi+timeave);
+  a2a::output_2ptcorr(corr_local_pi, Nsrc_t, &timeslice_list[0], outdir_name+output_2pt_pi+timeave);
 
-  delete[] corr_local;
+  delete[] corr_local_pi;
   
   ///////////////////////////////////////////////////////////////////////
   /////////////// triangle diagram 1 (eigen part) ////////////////////////
   Communicator::sync_global();
+
+  cont_sink_eigen.start();
   dcomplex *Fbox1_eig = new dcomplex[Nvol*Nsrc_t];
   // smearing
   Field_F *evec_smrdsink = new Field_F[Neigen];
@@ -515,14 +554,17 @@ int main_core(Parameters *params_conf_all)
   // output NBS (eig part)
   string fname_baseeig("/NBS_lowmode_");
   string fname_eig = outdir_name + fname_baseeig + timeave;
-  //a2a::output_NBS(Fbox1_eig, Nsrc_t, &srct_list[0], fname_eig);
-  a2a::output_NBS_srctave(Fbox1_eig, Nsrc_t, &srct_list[0], fname_eig);
+  //a2a::output_NBS(Fbox1_eig, Nsrc_t, &timeslice_list[0], fname_eig);
+  a2a::output_NBS_srctave(Fbox1_eig, Nsrc_t, &timeslice_list[0], fname_eig);
   // output NBS end
 
   delete[] evec_smrdsink;
   delete[] Fbox1_eig;
+  cont_sink_eigen.stop();
 
   /////////////////// triangle diagram 1 (CAA algorithm, exact part) /////////////////////////
+  
+  cont_sink_exa.start();
   int *srcpt_exa = new int[3]; // an array of the source points (x,y,z) (global) 
   dcomplex *Fbox1_p2a = new dcomplex[Nvol*Nsrc_t];
   Field_F *point_src_exa = new Field_F[Nc*Nd*Lt]; // source vector for inversion
@@ -629,11 +671,11 @@ int main_core(Parameters *params_conf_all)
 				     Nc*Nd*Lt, inv_prec_full, inv_prec_inner,
 				     Nmaxiter, Nmaxres);
   */
-  
+  invtimer_caaexa.start();
   a2a::inversion_alt_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
 			       Nc*Nd*Lt, inv_prec_full,
 			       Nmaxiter, Nmaxres);
-  
+  invtimer_caaexa.stop();
   delete[] smrd_src_exagm5;
 
   //smearing
@@ -659,11 +701,11 @@ int main_core(Parameters *params_conf_all)
   // output NBS (exact point)
   string fname_baseexa("/NBS_exact");
   string fname_exa = outdir_name + fname_baseexa + timeave;
-  a2a::output_NBS_CAA_srctave(Fbox1_p2a, Nsrc_t, &srct_list[0], srcpt_exa, srcpt_exa, fname_exa);
+  a2a::output_NBS_CAA_srctave(Fbox1_p2a, Nsrc_t, &timeslice_list[0], srcpt_exa, srcpt_exa, fname_exa);
   // output NBS end
 
   delete[] Fbox1_p2a;
-
+  cont_sink_exa.stop();
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /////////////////// triangle diagram 1 (CAA algorithm, relaxed CG part) /////////////////////////
@@ -695,7 +737,7 @@ int main_core(Parameters *params_conf_all)
   }
 
   for(int n=0;n<Nsrcpt;n++){
-
+    cont_sink_rel.start();
     for(int m=0;m<Nc*Nd*Lt;m++){
       point_src_rel[m].reset(Nvol,1);
 #pragma omp parallel
@@ -788,11 +830,11 @@ int main_core(Parameters *params_conf_all)
 				       Nc*Nd*Lt, inv_prec_caa, inv_prec_inner_caa,
 				       Nmaxiter, Nmaxres);
     */
-    
+    invtimer_caarel.start();
     a2a::inversion_alt_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
 				 Nc*Nd*Lt, inv_prec_caa,
 				 Nmaxiter, Nmaxres);
-    
+    invtimer_caarel.stop();
     delete[] smrd_src_relgm5;
 
     // smearing
@@ -818,13 +860,14 @@ int main_core(Parameters *params_conf_all)
 
     string fname_baserel("/NBS_rel");
     string fname_rel = outdir_name + fname_baserel + timeave;
-    a2a::output_NBS_CAA_srctave(Fbox1_p2arelo, Nsrc_t, &srct_list[0], srcpt, srcpt_exa, fname_rel);
+    a2a::output_NBS_CAA_srctave(Fbox1_p2arelo, Nsrc_t, &timeslice_list[0], srcpt, srcpt_exa, fname_rel);
     // output NBS end
 
     delete[] Fp2arel1;
     delete[] Fp2arel2;
     delete[] Fbox1_p2arelo;
 
+    cont_sink_rel.stop();
   }// for n srcpt
 
   // new implementation end
@@ -844,6 +887,17 @@ int main_core(Parameters *params_conf_all)
   
   //////////////////////////////////////////////////////
   // ###  finalize  ###
+
+  vout.general("\n===== Calculation time summary =====\n");
+  eigtimer.report();
+  diltimer.report();
+  invtimer.report();
+  cont_sink_eigen.report();
+  cont_sink_exa.report();
+  invtimer_caaexa.report();
+  cont_sink_rel.report();
+  invtimer_caarel.report();
+  
   vout.general(vl, "\n@@@@@@ Main part  END  @@@@@@\n\n");  
   Communicator::sync_global();
   return EXIT_SUCCESS;

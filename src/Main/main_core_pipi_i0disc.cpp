@@ -129,6 +129,7 @@ int main_core(Parameters *params_conf_all)
   vout.general("  Nsrct : %d\n",Nsrc_t);
   vout.general("  Time slices: %s\n", Parameters::to_string(timeslice_list).c_str());
   vout.general("  seed (for sparse one-end trick) : %d\n",noise_sprs1end);
+
   //- eigensolver parameters
   // fundamentals
   int Neigen, Nworkv, Nmargin;
@@ -207,6 +208,16 @@ int main_core(Parameters *params_conf_all)
   vout.general("  output directory name : %s\n",outdir_name.c_str());
 
   vout.general("\n=== Calculation environment summary END ===\n");
+
+  //- performance analysis
+  Timer invtimer("inversion (one-end trick)");
+  Timer invtimer_caaexa("inversion (caa exact)    ");
+  Timer invtimer_caarel("inversion (caa relax)    ");
+  Timer diltimer("dilution                 ");
+  Timer cont_src_3pt("contraction (source, 3pt)");
+  Timer cont_src_4pt("contraction (source, 4pt)");
+  Timer cont_sink_exa("contraction (sink, exact)");
+  Timer cont_sink_rel("contraction (sink, relax)");
   
   //////////////////////////////////////////////////////
   // ###  read gauge configuration and initialize Dirac operators ###
@@ -224,6 +235,7 @@ int main_core(Parameters *params_conf_all)
   vout.general("dilution type = %s\n", dil_type.c_str());    
   Field_F *noise = new Field_F[Nnoise];
   a2a::gen_noise_Z4(noise,noise_seed,Nnoise);
+  diltimer.start();
   /*
   {
   // for point source calculation (0,0,0) (bug check)
@@ -291,7 +303,7 @@ int main_core(Parameters *params_conf_all)
   smear_src->set_parameters(a_src,b_src,thr_val_src);
   Field_F *dil_noise_allt_smr = new Field_F[Nnoise*Ndil];
   smear_src->smear(dil_noise_allt_smr, dil_noise_allt, Nnoise*Ndil);
-  delete smear_src;
+  //delete smear_src;
   delete[] dil_noise_allt;
 
   Field_F *dil_noise = new Field_F[Nnoise*Ndil_red];
@@ -303,6 +315,8 @@ int main_core(Parameters *params_conf_all)
     }
   }
   delete[] dil_noise_allt_smr;  
+
+  diltimer.stop();
   
   //////////////////////////////////////////////////////
   // ###  make one-end vectors  ###
@@ -311,13 +325,16 @@ int main_core(Parameters *params_conf_all)
   GammaMatrix gm_5;
   gm_5 = dirac->get_GM(dirac->GAMMA5);
 
+  invtimer.start();
   Field_F *xi = new Field_F[Nnoise*Ndil_red];
   a2a::inversion_alt_Clover_eo(xi, dil_noise, U, kappa_l, csw, bc,
                                Nnoise*Ndil_red, inv_prec_full,
                                Nmaxiter, Nmaxres);
-
+  invtimer.stop();
   ////////////////////////////////////////////////////// 
   // ### disconnected diagram (source part) ### //
+
+  cont_src_3pt.start();
   // for 3pi disc
   {
     unique_ptr<dcomplex[]> source_op(new dcomplex[Nsrc_t]);
@@ -349,14 +366,16 @@ int main_core(Parameters *params_conf_all)
   
   } // scope of 3pt source calc.
   Communicator::sync_global();
+  cont_src_3pt.stop();
 
-  
+  cont_src_4pt.start();
   // for 4pt disc
   {
 
     int grid_coords[4];
     Communicator::grid_coord(grid_coords, Communicator::nodeid());
-    unique_ptr<Field_F[]> xi_timeslice(new Field_F[Nnoise*Ndil_red]);
+    //unique_ptr<Field_F[]> xi_timeslice(new Field_F[Nnoise*Ndil_red]);
+    Field_F *xi_timeslice = new Field_F[Nnoise*Ndil_red];
     for(int n=0;n<Nnoise*Ndil_red;++n){
       xi_timeslice[n].reset(Nvol,1);
       xi_timeslice[n].set(0.0);
@@ -389,6 +408,11 @@ int main_core(Parameters *params_conf_all)
       }
       
     }
+    
+    //unique_ptr<Field_F[]> xi_timeslice_smr(new Field_F[Nnoise*Ndil_red]);
+    Field_F *xi_timeslice_smr = new Field_F[Nnoise*Ndil_red];
+    smear_src->smear(xi_timeslice_smr, xi_timeslice, Nnoise*Ndil_red);
+    delete[] xi_timeslice;
     /*
     for(int n=0;n<Nnoise*Ndil_red;++n){
       vout.general("norm2 of xi[%d]:          %12.12e\n",n,xi[n].norm2());
@@ -401,15 +425,18 @@ int main_core(Parameters *params_conf_all)
       source_op[t_src] = cmplx(0.0,0.0);
       for(int inoise=0;inoise<Nnoise;++inoise){
 	for(int i=0;i<Ndil_tslice;++i){
-	  source_op[t_src] += dotc(xi_timeslice[i+Ndil_tslice*(t_src+Nsrc_t*inoise)],
-				   xi[i+Ndil_tslice*(t_src+Nsrc_t*inoise)]) / (double)Nnoise;
+	  //source_op[t_src] += dotc(xi_timeslice[i+Ndil_tslice*(t_src+Nsrc_t*inoise)],
+	  //			   xi[i+Ndil_tslice*(t_src+Nsrc_t*inoise)]) / (double)Nnoise;
+	  source_op[t_src] += dotc(xi_timeslice_smr[i+Ndil_tslice*(t_src+Nsrc_t*inoise)],
+	  			   xi_timeslice_smr[i+Ndil_tslice*(t_src+Nsrc_t*inoise)]) / (double)Nnoise;
+
 	}
       }
     }
 
     vout.general("=== source_op value === \n");
     for(int t_src=0;t_src<Nsrc_t;++t_src){
-      printf("t = %d | real = %12.6e, imag = %12.6e \n", timeslice_list[t_src], real(source_op[t_src]), imag(source_op[t_src]) );
+      vout.general("t = %d | real = %12.6e, imag = %12.6e \n", timeslice_list[t_src], real(source_op[t_src]), imag(source_op[t_src]) );
     }
 
     // output
@@ -424,10 +451,12 @@ int main_core(Parameters *params_conf_all)
       ofs_srcop.close();
     }
 
-
+    delete[] xi_timeslice_smr;
   } // scope of 4pt source calc.
   Communicator::sync_global();
-
+  delete smear_src;
+  cont_src_4pt.stop();
+  
   /*
 {
   // calc. local sum
@@ -469,6 +498,7 @@ int main_core(Parameters *params_conf_all)
   ////////////////////////////////////////////////////// 
   // ### disconnected diagram (sink part, exact point) ### //
 
+  cont_sink_exa.start();
   // for sink smearing
   a2a::Exponential_smearing *smear = new a2a::Exponential_smearing;
   smear->set_parameters(a_sink,b_sink,thr_val_sink);
@@ -535,12 +565,14 @@ int main_core(Parameters *params_conf_all)
   smear->smear(smrd_src_exa, point_src_exa, Nc*Nd*Lt);
   delete[] point_src_exa;
 
-  // solve inversion 
+  // solve inversion
+  invtimer_caaexa.start();
   Field_F *Dinv = new Field_F[Nc*Nd*Lt]; // D^-1 for each src point
   a2a::inversion_alt_Clover_eo(Dinv, smrd_src_exa, U, kappa_l, csw, bc,
                                Nc*Nd*Lt, inv_prec_full,
                                Nmaxiter, Nmaxres);
   delete[] smrd_src_exa;
+  invtimer_caaexa.stop();
   
   //smearing
   Field_F *Dinv_smrdsink = new Field_F[Nc*Nd*Lt];
@@ -616,7 +648,7 @@ int main_core(Parameters *params_conf_all)
   }
   */
   delete[] Fdisc_sink_p2a;
-  
+  cont_sink_exa.stop();
 
   ////////////////////////////////////////////////////// 
   // ### disconnected diagram (sink part, relaxed) ### //
@@ -646,6 +678,7 @@ int main_core(Parameters *params_conf_all)
   }
 
   for(int n=0;n<Nsrcpt;++n){
+    cont_sink_rel.start();
 
     // making source vector
     for(int m=0;m<Nc*Nd*Lt;m++){
@@ -691,12 +724,14 @@ int main_core(Parameters *params_conf_all)
     Field_F *smrd_src_rel = new Field_F[Nc*Nd*Lt];
     smear->smear(smrd_src_rel, point_src_rel, Nc*Nd*Lt);
 
-    // solve inversion 
+    // solve inversion
+    invtimer_caarel.start();
     Field_F *Dinv_rel = new Field_F[Nc*Nd*Lt]; // D^-1 for each src point
     a2a::inversion_alt_Clover_eo(Dinv_rel, smrd_src_rel, U, kappa_l, csw, bc,
 				 Nc*Nd*Lt, inv_prec_caa,
 				 Nmaxiter, Nmaxres);
     delete[] smrd_src_rel;
+    invtimer_caarel.stop();
   
     //smearing
     Field_F *Dinv_smrdsink_rel = new Field_F[Nc*Nd*Lt];
@@ -777,7 +812,7 @@ int main_core(Parameters *params_conf_all)
     Communicator::sync_global();
 
     delete[] Fdisc_sink_p2arel;
-
+    cont_sink_rel.stop();
   } // for Nsrcpt
 
   delete U;
@@ -786,20 +821,15 @@ int main_core(Parameters *params_conf_all)
   
   //////////////////////////////////////////////////////
   // ###  finalize  ###
-  /*
-  delete corrtimer;
-  delete sinkoptimer;
-  delete srcoptimer;
-  delete tmptimer;
-  delete srcconntimer;
-  delete eigsolvertimer;
-  delete invsolvertimer;
-  delete diltimer;
-  delete contseptimer;
-  delete contconntimer;
-  delete calctimer;
-  delete smeartimer;
-  */
+  vout.general("\n===== Calculation time summary =====\n");
+  diltimer.report();
+  invtimer.report();
+  cont_src_3pt.report();
+  cont_src_4pt.report();
+  cont_sink_exa.report();
+  invtimer_caaexa.report();
+  cont_sink_rel.report();
+  invtimer_caarel.report();
   
   vout.general(vl, "\n@@@@@@ Main part  END  @@@@@@\n\n");  
   Communicator::sync_global();

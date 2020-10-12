@@ -48,7 +48,7 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/main_core_pik_tri_alt_wall.cpp
 
 # for sigma resonance study
-#src_main_core = $(a2a_main_path)/main_core_pipi_i0disc.cpp
+src_main_core = $(a2a_main_path)/main_core_pipi_i0disc.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0tri.cpp
 
 # for the test of baryonic one-end trick
@@ -60,7 +60,7 @@ a2a_include_path = $(a2a_src_path)/include
 
 # for NN 4pt function calculation
 #src_main_core = $(a2a_main_path)/main_core_NN_4pt_oneend.cpp
-src_main_core = $(a2a_main_path)/main_core_NN_4pt_wallsrc.cpp
+#src_main_core = $(a2a_main_path)/main_core_NN_4pt_wallsrc.cpp
 
 # for consistency check (debug)
 #src_main_core = $(a2a_main_path)/a2a_nexttesti1pisep_smrdsink.cpp
