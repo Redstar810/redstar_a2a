@@ -3,8 +3,13 @@
 ### definitions of variables ###
 # bridge++ library path
 #bridge_lib_path = ../bridge-1.5.3/build
+# local 
 bridge_lib_path = ../alternative3/build_mpi_high
 bridge_lib_alt_path = ../alternative3/build_mpi_high
+# OFP
+#bridge_lib_path = ../../work_boost/alternative3/build_mpi_high
+#bridge_lib_alt_path = ../../work_boost/alternative3/build_mpi_high
+
 a2a_base_path = .
 a2a_src_path = $(a2a_base_path)/src
 a2a_lib_path = $(a2a_src_path)/lib
@@ -48,8 +53,11 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/main_core_pik_tri_alt_wall.cpp
 
 # for sigma resonance study
-src_main_core = $(a2a_main_path)/main_core_pipi_i0disc.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_i0disc.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0tri.cpp
+src_main_core = $(a2a_main_path)/main_core_pipi_i0sepconn.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_i0box.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_i0tribox.cpp	
 
 # for the test of baryonic one-end trick
 #src_main_core = $(a2a_main_path)/main_core_NN_2pt_oneend.cpp

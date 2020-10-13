@@ -37,7 +37,7 @@ Inversion:
   Nmaxres      : 100
 
 CAA:
-  caa_grid     : [2,2,2] # 3 dim caa grid (translation)
+  caa_grid     : [1,1,1] # 3 dim caa grid (translation)
   Solver_type  : Double_eo # {Double_eo, Mixed, Mixed_eo}
   Precision    : 9.0e-6
   Precision_in : 3.0e-3
@@ -49,8 +49,8 @@ Smearing(sink): # assume using exp. smearing a * exp{-b * r} (r < threshold)
   threshold    : 3.5
 
 Smearing(src): # assume using exp. smearing a * exp{-b * r} (r < (L-1)/2 )
-  a            : 0.0
-  b            : 1.0
+  a            : 1.0
+  b            : 2.0
 
 Momentum(src): # momentum projection
   momentum     : [0,0,0] # 3 dim momentum [px, py, pz]
@@ -66,4 +66,5 @@ File_io:
   #outdir        : ./consistency_check_i2pp
   #outdir         : ./test_NN4pt_wall
   #outdir         : ./test_i0pp_disc
+  outdir         : ./test_i0pp_tri
   
