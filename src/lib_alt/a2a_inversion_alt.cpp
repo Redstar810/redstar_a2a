@@ -306,7 +306,11 @@ int a2a::inversion_alt_Clover_eo(Field_F *xi, const Field_F *src, Field_G *U,
       xi[r].set(0.0);
     }
 
-  Timer timer_solver("Inversion");
+  Timer timer_solver("Inversion all");
+  Timer timer_convert("convert Field -> AField");
+  Timer timer_solver_core("Inversion core");
+  Timer timer_revert("revert AField -> Field");
+
   int Nvol2 = Nvol / 2;
   AFIELD_d src_alt(Nin, Nvol, Nex), dst_alt(Nin, Nvol, Nex);
   
@@ -326,8 +330,11 @@ int a2a::inversion_alt_Clover_eo(Field_F *xi, const Field_F *src, Field_G *U,
     double diff2;
 
     // convert Field_F -> AField
+    timer_convert.start();
     convert_strict(index_alt, src_alt, src[r]);
+    timer_convert.stop();
 
+    timer_solver_core.start();
 #pragma omp parallel
     {
       index_eo.split(be, bo, src_alt);
@@ -363,23 +370,30 @@ int a2a::inversion_alt_Clover_eo(Field_F *xi, const Field_F *src, Field_G *U,
 
       index_eo.merge(dst_alt, xe, xo);
 #pragma omp barrier
-      
+            
       // for check
       afopr_check->mult(y, dst_alt);
       axpy(y, -1.0, src_alt);
-
+      
     }
     diff2 = y.norm2() / src_alt.norm2();
     vout.general("%6d|%6d|%12.4e|%12.4e\n", r, 2*Nconv, diff, diff2);
-
+    //vout.general("%6d|%6d|%12.4e\n", r, 2*Nconv, diff);
+    timer_solver_core.stop();
+    
     // convert AField -> Field_F
+    timer_revert.start();
     revert_strict(index_alt, xi[r], dst_alt);
+    timer_revert.stop();
 
   }
   timer_solver.stop();
   vout.general("======\n");
   timer_solver.report();
-  
+  timer_convert.report();
+  timer_solver_core.report();
+  timer_revert.report();
+
   return 0;
   
 }
@@ -434,7 +448,11 @@ int a2a::inversion_alt_Clover_eo(std::vector<Field_F> &xi, const std::vector<Fie
       xi[r].set(0.0);
     }
 
-  Timer timer_solver("Inversion");
+  Timer timer_solver("Inversion all");
+  Timer timer_convert("convert Field -> AField");
+  Timer timer_solver_core("Inversion core");
+  Timer timer_revert("revert AField -> Field");
+  
   int Nvol2 = Nvol / 2;
   AFIELD_d src_alt(Nin, Nvol, Nex), dst_alt(Nin, Nvol, Nex);
   
@@ -454,8 +472,11 @@ int a2a::inversion_alt_Clover_eo(std::vector<Field_F> &xi, const std::vector<Fie
     double diff2;
 
     // convert Field_F -> AField
+    timer_convert.start();
     convert_strict(index_alt, src_alt, src[r]);
+    timer_convert.stop();
 
+    timer_solver_core.start();
 #pragma omp parallel
     {
       index_eo.split(be, bo, src_alt);
@@ -499,14 +520,20 @@ int a2a::inversion_alt_Clover_eo(std::vector<Field_F> &xi, const std::vector<Fie
     }
     diff2 = y.norm2() / src_alt.norm2();
     vout.general("%6d|%6d|%12.4e|%12.4e\n", r, 2*Nconv, diff, diff2);
-
+    timer_solver_core.stop();
+    
     // convert AField -> Field_F
+    timer_revert.start();
     revert_strict(index_alt, xi[r], dst_alt);
-
+    timer_revert.stop();
+    
   }
   timer_solver.stop();
   vout.general("======\n");
   timer_solver.report();
+  timer_convert.report();
+  timer_solver_core.report();
+  timer_revert.report();
   
   return 0;
   

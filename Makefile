@@ -55,7 +55,7 @@ a2a_include_path = $(a2a_src_path)/include
 # for sigma resonance study
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0disc.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0tri.cpp
-src_main_core = $(a2a_main_path)/main_core_pipi_i0sepconn.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_i0sepconn.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0box.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0tribox.cpp	
 
@@ -84,6 +84,7 @@ src_main_core = $(a2a_main_path)/main_core_pipi_i0sepconn.cpp
 
 # for solver test
 #src_main_core = $(a2a_main_path)/main_core_solver_alt.cpp
+src_main_core = $(a2a_main_path)/main_core_solver_hpcibench.cpp
 
 # for dilution test
 #src_main_core = $(a2a_main_path)/main_core_noise_test.cpp
