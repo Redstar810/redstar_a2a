@@ -104,17 +104,27 @@ int main_core(Parameters *params_conf_all)
 
   //- dilution and noise vectors (tcds-eo dil)
   std::string dil_type("tcds-eo"); 
-  int Nnoise = 2;
+  int Nnoise = 1;
   //for tcds dilution  
   int Ndil = Lt*Nc*Nd*2;
   int Ndil_tslice = Ndil / Lt;
 
   unsigned long noise_seed;
+  unsigned long noise_sprs1end;
+  std::vector<int> timeslice_list;
+  std::string timeave;
+  params_noise.fetch_string("timeave",timeave);
   params_noise.fetch_unsigned_long("noise_seed",noise_seed);
+  params_noise.fetch_int_vector("timeslice",timeslice_list);
+  params_noise.fetch_unsigned_long("noise_sparse1end",noise_sprs1end);
+  int Nsrc_t = timeslice_list.size();
 
   vout.general("Noise vectors\n");
   vout.general("  Nnoise : %d\n",Nnoise);
   vout.general("  seed : %d\n",noise_seed);
+  vout.general("  Nsrct : %d\n",Nsrc_t);
+  vout.general("  Time slices: %s\n", Parameters::to_string(timeslice_list).c_str());
+  vout.general("  seed (for sparse one-end trick) : %d\n",noise_sprs1end);
 
   //- eigensolver parameters
   // fundamentals
@@ -198,7 +208,7 @@ int main_core(Parameters *params_conf_all)
   //////////////////////////////////////////////////////
   // ###  generate diluted noises  ###
   //diltimer -> start();
-  
+  /*  
   vout.general("dilution type = %s\n", dil_type.c_str());    
   Field_F *noise = new Field_F[Nnoise];
 
@@ -249,8 +259,13 @@ int main_core(Parameters *params_conf_all)
   }
 
   vout.general("==========\n");
+  */
 
+  int Ndil_red = Ndil / Lt * Nsrc_t; // reduced d.o.f. of noise vectors
   Field_F *dil_noise = new Field_F[Nnoise*Ndil_red];
+  a2a::gen_noise_Z4(dil_noise,noise_seed,Nnoise*Ndil_red); 
+
+  /*
   for(int i=0;i<Nnoise;i++){
     for(int t=0;t<Nsrc_t;t++){
       for(int n=0;n<Ndil_tslice;n++){
@@ -259,7 +274,7 @@ int main_core(Parameters *params_conf_all)
     }
   }
   delete[] dil_noise_allt;
-
+  */
   
   //////////////////////////////////////////////////////
   // ###  inversion speed test  ###
@@ -293,32 +308,46 @@ int main_core(Parameters *params_conf_all)
   Timer invtimer_alt("inversion [alternative, mixed prec.]");
   Timer invtimer_alt2("inversion [alternative, mixed prec. + e/o precond.]");
   Timer invtimer_alt3("inversion [alternative, double prec. + e/o precond.]");
+  Timer invtimer_alt4("inversion [alternative, double prec.]");  
 
   Field_F *xi_l = new Field_F[Nnoise*Ndil_red];
+
   // bridge core lib.
   invtimer_org.start();
   a2a::inversion_eo(xi_l,fopr_l_eo,fopr_l,dil_noise,Nnoise*Ndil_red,inv_prec_full);
   invtimer_org.stop();
 
+  // alternative code (double prec.)
+  //Field_F *xi_l_alt4 = new Field_F[Nnoise*Ndil_red];
+  invtimer_alt4.start();
+  //a2a::inversion_alt_Clover(xi_l_alt4, dil_noise, U, kappa_l, csw, bc,
+  a2a::inversion_alt_Clover(xi_l, dil_noise, U, kappa_l, csw, bc,
+			    Nnoise*Ndil_red, inv_prec_full,
+			    Nmaxiter, Nmaxres);
+  invtimer_alt4.stop();
+
   // alternative code (double prec. + e/o precond.)
-  Field_F *xi_l_alt3 = new Field_F[Nnoise*Ndil_red];
+  //Field_F *xi_l_alt3 = new Field_F[Nnoise*Ndil_red];
   invtimer_alt3.start();
-  a2a::inversion_alt_Clover_eo(xi_l_alt3, dil_noise, U, kappa_l, csw, bc,
+  //a2a::inversion_alt_Clover_eo(xi_l_alt3, dil_noise, U, kappa_l, csw, bc,
+  a2a::inversion_alt_Clover_eo(xi_l, dil_noise, U, kappa_l, csw, bc,
 			       Nnoise*Ndil_red, inv_prec_full,
 			       Nmaxiter, Nmaxres);
   invtimer_alt3.stop();
   
   // alternative code (mixed prec.)
-  Field_F *xi_l_alt = new Field_F[Nnoise*Ndil_red];
+  //Field_F *xi_l_alt = new Field_F[Nnoise*Ndil_red];
   invtimer_alt.start();
-  a2a::inversion_alt_mixed_Clover(xi_l_alt, dil_noise, U, kappa_l, csw, bc,
+  //a2a::inversion_alt_mixed_Clover(xi_l_alt, dil_noise, U, kappa_l, csw, bc,
+  a2a::inversion_alt_mixed_Clover(xi_l, dil_noise, U, kappa_l, csw, bc,
                                   Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
                                   Nmaxiter, Nmaxres);
   invtimer_alt.stop();
   // alternative code (mixed prec. + e/o precond.)
-  Field_F *xi_l_alt2 = new Field_F[Nnoise*Ndil_red];
+  //Field_F *xi_l_alt2 = new Field_F[Nnoise*Ndil_red];
   invtimer_alt2.start();
-  a2a::inversion_alt_mixed_Clover_eo(xi_l_alt2, dil_noise, U, kappa_l, csw, bc,
+  //a2a::inversion_alt_mixed_Clover_eo(xi_l_alt2, dil_noise, U, kappa_l, csw, bc,
+  a2a::inversion_alt_mixed_Clover_eo(xi_l, dil_noise, U, kappa_l, csw, bc,
 				     Nnoise*Ndil_red, inv_prec_full, inv_prec_inner,
 				     Nmaxiter, Nmaxres);
   invtimer_alt2.stop();
@@ -327,7 +356,8 @@ int main_core(Parameters *params_conf_all)
   Field_F *xi_l_smrdsink = new Field_F[Nnoise*Ndil_red];
   smear->smear(xi_l_smrdsink, xi_l, Nnoise*Ndil_red);
   delete[] xi_l_smrdsink;
-  
+
+  /*
   // consistency check between solutions obtained from all solvers
   // xi_l vs xi_l_alt
   for(int n=0;n<Nnoise*Ndil_red;n++){
@@ -354,15 +384,18 @@ int main_core(Parameters *params_conf_all)
     double rel_diff = diff.norm2() / xi_l[n].norm2();
     vout.general("rel diff (squared, org vs alt(double prec.+ e/o precond.)) no.%d : %12.6e\n",n,rel_diff);
   }
-
+  */
 
   delete[] xi_l;
-  delete[] xi_l_alt;
-  delete[] xi_l_alt2;
-  delete[] xi_l_alt3;
+  //delete[] xi_l_alt;
+  //delete[] xi_l_alt2;
+  //delete[] xi_l_alt3;
+  //delete[] xi_l_alt4;
+
 
   vout.general("\n===== elapsed time report ===== \n");
   invtimer_org.report();
+  invtimer_alt4.report();
   invtimer_alt3.report();
   invtimer_alt.report();
   invtimer_alt2.report();

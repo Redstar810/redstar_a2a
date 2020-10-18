@@ -1052,3 +1052,97 @@ int a2a::inversion_mom_alt_Clover_eo(std::vector<Field_F> &xi, const std::vector
   return 0;
   
 }
+
+int a2a::inversion_alt_Clover(Field_F *xi, const Field_F *src, Field_G *U,
+				 const double kappa,
+				 const double csw,
+				 const std::vector<int> bc,
+				 const int Nsrc,
+				 const double prec,
+				 const int Nmaxiter,
+				 const int Nmaxres)
+{
+  int Nin = src[0].nin();
+  int Nvol = src[0].nvol();
+  int Nex = src[0].nex();
+  int Niter2 = Nmaxiter * Nmaxres;
+
+  Index_lex_alt<double> index_alt;
+  Index_eo_alt<double> index_eo;
+
+  vout.general("===== solve inversions (alternative) =====\n");
+  
+  // fopr                                                  
+  unique_ptr< AFopr_Clover<AFIELD_d> > afopr_fineD(new AFopr_Clover<AFIELD_d >);
+  afopr_fineD->set_parameters(kappa, csw, bc);
+  afopr_fineD->set_config(U);
+  vout.general("fermion operator is ready\n");
+  
+  // outer solver 
+  unique_ptr< ASolver_BiCGStab_Cmplx<AFIELD_d> >
+    solver(new ASolver_BiCGStab_Cmplx<AFIELD_d >(afopr_fineD.get() ) );
+  solver->set_parameters(Niter2, prec);
+  afopr_fineD->set_mode("D");
+  vout.general("setup finished.\n");
+
+  // initialize solution vectors  
+  //#pragma omp parallel for
+    for(int r=0;r<Nsrc;r++){
+      xi[r].reset(Nvol,1);
+      xi[r].set(0.0);
+    }
+
+  Timer timer_solver("Inversion all");
+  Timer timer_convert("convert Field -> AField");
+  Timer timer_solver_core("Inversion core");
+  Timer timer_revert("revert AField -> Field");
+
+  AFIELD_d src_alt(Nin, Nvol, Nex), dst_alt(Nin, Nvol, Nex);
+  AFIELD_d y(Nin, Nvol, Nex);
+
+  vout.general("=======================================\n");
+  vout.general(" Nsrc| Nconv|  Final diff|  Check diff\n");
+  
+  timer_solver.start();
+  for(int r=0;r<Nsrc;r++){
+    int Nconv=-1;
+    double diff=-1.0;
+    double diff2;
+
+    // convert Field_F -> AField
+    timer_convert.start();
+    convert_strict(index_alt, src_alt, src[r]);
+    timer_convert.stop();
+
+    timer_solver_core.start();
+#pragma omp parallel
+    {
+      solver->solve(dst_alt, src_alt, Nconv, diff);
+
+      // for check
+      afopr_fineD->mult(y, dst_alt);
+      axpy(y, -1.0, src_alt);
+
+    }
+    diff2 = y.norm2() / src_alt.norm2();
+    vout.general("%6d|%6d|%12.4e|%12.4e\n", r, Nconv, diff, diff2);
+    timer_solver_core.stop();
+ 
+    // convert AField -> Field_F
+    timer_revert.start();
+    revert_strict(index_alt, xi[r], dst_alt);
+    timer_revert.stop();
+
+  }
+
+
+  timer_solver.stop();
+  vout.general("======\n");
+  timer_solver.report();
+  timer_convert.report();
+  timer_solver_core.report();
+  timer_revert.report();
+
+  return 0;
+  
+}

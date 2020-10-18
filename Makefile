@@ -83,8 +83,8 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/a2a_nexttesti2.cpp
 
 # for solver test
-#src_main_core = $(a2a_main_path)/main_core_solver_alt.cpp
-src_main_core = $(a2a_main_path)/main_core_solver_hpcibench.cpp
+src_main_core = $(a2a_main_path)/main_core_solver_alt.cpp
+#src_main_core = $(a2a_main_path)/main_core_solver_hpcibench.cpp
 
 # for dilution test
 #src_main_core = $(a2a_main_path)/main_core_noise_test.cpp
