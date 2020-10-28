@@ -501,33 +501,56 @@ int a2a::eigenmode_projection(Field_F* dst_src, const int Nex, const Field_F *ie
   
   tmp.reset(Nvol,1);
   // P1 projection
+  
 #pragma omp parallel
   {
     for(int iex=0;iex<Nex;iex++){
-      t_copy.start();
+      //t_copy.start();
       copy(tmp,dst_src[iex]);
-      t_copy.stop();
+      //t_copy.stop();
+#pragma omp barrier
       for(int i=0;i<Neigen;i++){
-	t_dot.start();
+	//t_dot.start();
 	dcomplex dot = -dotc(ievec[i],dst_src[iex]);
-	t_dot.stop();
-	t_axpy.start();
+	//t_dot.stop();
+	//t_axpy.start();
 	axpy(tmp,dot,ievec[i]);
-	t_axpy.stop();
+	//t_axpy.stop();
+#pragma omp barrier
       }
-      t_copy.start();
+      //t_copy.start();
       copy(dst_src[iex],tmp);
-      t_copy.stop();
-      //#pragma omp barrier
-    }
+      //t_copy.stop();
+#pragma omp barrier
+    } // for iex
   }
-
+  
+  /*
+  for(int iex=0;iex<Nex;iex++){
+    t_copy.start();
+    copy(tmp,dst_src[iex]);
+    t_copy.stop();
+    for(int i=0;i<Neigen;i++){
+      t_dot.start();
+      dcomplex dot = -dotc(ievec[i],dst_src[iex]);
+      t_dot.stop();
+      
+      t_axpy.start();
+      axpy(tmp,dot,ievec[i]);
+      t_axpy.stop();
+    }
+    t_copy.start();
+    copy(dst_src[iex],tmp);
+    t_copy.stop();
+    //#pragma omp barrier
+  }
+  */
   eigenproj.stop();
   vout.general("===== eigen projection elapsed time ===== \n");
   eigenproj.report();
-  t_copy.report();
-  t_dot.report();
-  t_axpy.report();
+  //t_copy.report();
+  //t_dot.report();
+  //t_axpy.report();
   vout.general("========== \n");
 
   return 0;

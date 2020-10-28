@@ -89,14 +89,14 @@ int a2a::contraction_separated(Field* of, const Field_F* isrcv11, const Field_F*
         }
       }
     }
-  }
-  
+  }  
 
   Field *tmp1_mom = new Field;
   Field *tmp2_mom = new Field;
   tmp1_mom->reset(2,Nvol,Nsrc_time);
   tmp2_mom->reset(2,Nvol,Nsrc_time);
-  FFT_3d_parallel3d *fft3;
+  FFT_3d_parallel3d *fft3 = new FFT_3d_parallel3d;
+  /*
 #pragma omp parallel
   {
 #pragma omp master
@@ -104,6 +104,7 @@ int a2a::contraction_separated(Field* of, const Field_F* isrcv11, const Field_F*
       fft3 = new FFT_3d_parallel3d;
     }
   }
+  */
   fft3->fft(*tmp1_mom,*tmp1,FFT_3d_parallel3d::FORWARD);
   fft3->fft(*tmp2_mom,*tmp2,FFT_3d_parallel3d::BACKWARD);
   Communicator::sync_global();
@@ -131,7 +132,7 @@ int a2a::contraction_separated(Field* of, const Field_F* isrcv11, const Field_F*
 	Fsep_mom->set(1,vs+Nxyz*t,t_src,tmp1_mom->cmp(0,vs+Nxyz*t,t_src)*tmp2_mom->cmp(1,vs+Nxyz*t,t_src) + tmp1_mom->cmp(1,vs+Nxyz*t,t_src)*tmp2_mom->cmp(0,vs+Nxyz*t,t_src));
       }
     }
-  } // for t_src                                                                                                                      
+  } // for t_src
   delete tmp1_mom;
   delete tmp2_mom; 
 
@@ -225,7 +226,7 @@ int a2a::contraction_separated(Field* of1, Field* of2, const Field_F* isrcv11, c
         Fsep_mom->set(1,vs+Nxyz*t,t_src,imag(Fsep_value));
       }
     }
-  } // for t_src                                                                                                                      
+  } // for t_src
   delete tmp1_mom;
   delete tmp2_mom; 
 
@@ -318,7 +319,7 @@ int a2a::contraction_separated_1dir(Field* of, const Field_F* isrcv11, const Fie
         Fsep_mom->set(1,vs+Nxyz*t,t_src,imag(Fsep_value));
       }
     }
-  } // for t_src                                                                                                                      
+  } // for t_src                               
   delete tmp1_mom;
   delete tmp2_mom; 
   if(flag_direction == 0){

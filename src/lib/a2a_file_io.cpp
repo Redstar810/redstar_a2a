@@ -11,6 +11,7 @@
 #include "Measurements/Fermion/noiseVector_Z2.h"
 
 #include "IO/bridgeIO.h"
+#include "Tools/timer.h"
 
 #include <iomanip>
 #include <limits>
@@ -165,11 +166,114 @@ int a2a::hyb_io(Field_F *w, Field_F *u, const int Nnoise, const int Nhl, const i
   return 0;
 }    
 
+// most general implementation
+int a2a::field_io(Field *vec, const int Nex, const char *filename, const int io_type)
+{
+  // how to use : io_type = 1...input io_type = 0...output
+  // NOTE: before using this function, you need to initialize vec!!
+  Timer fieldiotimer("Field I/O");
+  char fname_vec[2048];
+  int  igrids[4];
+  Communicator::grid_coord(igrids, Communicator::nodeid());
+  vout.general("===== Field I/O =====\n");
+
+  if(Nex == 1){
+    fieldiotimer.start();
+    vout.general("Nex = 1. single field.\n");
+    snprintf(fname_vec, sizeof(fname_vec),"%s_%02d.%02d.%02d.%02d",filename,igrids[0],igrids[1],igrids[2],igrids[3]);
+    
+    int Nvol = vec->nvol();
+    int Nin = vec->nin();
+    int Nex = vec->nex();
+
+    if(io_type == 0){
+    
+      std::ofstream ofs_vec(fname_vec, std::ios::binary);
+        
+      vout.general("writing vector data...\n");
+      ofs_vec.write((char*)vec->ptr(0), sizeof(double) * vec->size());
+      vout.general("OK!\n");
+      Communicator::sync_global();
+      ofs_vec.close();
+    }
+    else if(io_type == 1){
+      vec->reset(Nin, Nvol, Nex);
+    
+      std::ifstream ifs_vec(fname_vec, std::ios::binary);
+    
+      vout.general("reading vector data...\n");
+      ifs_vec.read((char*)vec->ptr(0), sizeof(double) * vec->size());
+      vout.general("OK!\n");
+    
+      Communicator::sync_global();
+      ifs_vec.close();
+    }
+    else{
+      vout.general("error.\n");
+    }
+    vout.general("==========\n");
+    fieldiotimer.stop();
+    fieldiotimer.report();
+    return 0;
+  }
+  
+  else{
+    fieldiotimer.start();
+    vout.general("Nex = %d. array of Field class.\n",Nex);
+    snprintf(fname_vec, sizeof(fname_vec),"%s_%04d.%02d.%02d.%02d.%02d",filename,Nex,igrids[0],igrids[1],igrids[2],igrids[3]);
+    
+    int Nvol = vec[0].nvol();
+    int Nin = vec[0].nin();
+    int Nex = vec[0].nex();
+    
+    if(io_type == 0){
+    
+      std::ofstream ofs_vec(fname_vec, std::ios::binary);
+        
+      vout.general("writing vector data...\n");
+      for(int r=0; r<Nex; r++){
+	ofs_vec.write((char*)vec[r].ptr(0), sizeof(double) * vec[r].size());
+      }
+      vout.general("OK!\n");
+      Communicator::sync_global();
+      ofs_vec.close();
+    }
+    else if(io_type == 1){
+      for(int i=0;i<Nex;i++){
+	vec[i].reset(Nin, Nvol, Nex);
+      }
+    
+      std::ifstream ifs_vec(fname_vec, std::ios::binary);
+    
+      vout.general("reading vector data...\n");
+      for(int r=0; r<Nex; r++){
+	ifs_vec.read((char*)vec[r].ptr(0), sizeof(double) * vec[r].size());
+      } 
+      vout.general("OK!\n");
+    
+      Communicator::sync_global();
+      ifs_vec.close();
+    }
+    else{
+      vout.general("error.\n");
+    }
+    vout.general("==========\n");
+    fieldiotimer.stop();
+    fieldiotimer.report();
+
+    return 0;
+  }
+  
+  
+}    
+
+
+// for Field_F
 int a2a::vector_io(Field_F *vec, const int Nex, const char *filename, const int io_type)
 {
   // how to use : io_type = 1...input io_type = 0...output 
   int Nvol = CommonParameters::Nvol();
-  char fname_vec[256];
+  char fname_vec[2048];
   int  igrids[4];
   Communicator::grid_coord(igrids, Communicator::nodeid());
   vout.general("===== vector I/O =====\n");  

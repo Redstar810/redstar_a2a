@@ -97,7 +97,8 @@ int a2a::contraction_connected(Field* of, const Field_F* isrcv11, const Field_F*
   } // for t_src
 
 
-  FFT_3d_parallel3d *fft3;
+  FFT_3d_parallel3d *fft3 = new FFT_3d_parallel3d;
+  /*
 #pragma omp parallel
   {
 #pragma omp master
@@ -105,7 +106,7 @@ int a2a::contraction_connected(Field* of, const Field_F* isrcv11, const Field_F*
       fft3 = new FFT_3d_parallel3d;
     }
   }
-  
+  */
   Field *tmpmtx1_mom = new Field;
   tmpmtx1_mom->reset(2,Nvol,Nex_tslice*Nex_tslice*Nsrc_time);
   fft3->fft(*tmpmtx1_mom,*tmpmtx1,FFT_3d_parallel3d::FORWARD);

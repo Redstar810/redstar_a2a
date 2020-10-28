@@ -20,6 +20,7 @@
 #include "Tools/randomNumberManager.h"
 #include "Measurements/Fermion/noiseVector_Z2.h"
 #include "Parameters/commonParameters.h"
+#include "ResourceManager/threadManager_OpenMP.h"
 
 #include "Field/field_F.h"
 #include "Field/field_G.h"
@@ -426,6 +427,34 @@ int main_core(Parameters *params_conf_all)
   delete U;
 
   delete smear;
+
+  //////////////////////////////////////////////////////
+  // ###  OpenMP test  ###
+
+  // not parallel region
+  vout.general("non-parallel region\n");
+  vout.general("  Thread num = %d \n",ThreadManager_OpenMP::get_num_threads());
+  vout.general("  Thread num = %d \n",ThreadManager_OpenMP::get_num_threads_available());
+  vout.general("  Thread id = %d \n",ThreadManager_OpenMP::get_thread_id());
+
+  // parallel region
+  vout.general("parallel region:\n");
+#pragma omp parallel
+  {
+
+    vout.general("  Thread num = %d \n",ThreadManager_OpenMP::get_num_threads());
+    printf("  Thread id = %d \n",ThreadManager_OpenMP::get_thread_id());
+
+  }
+
+  int num = 2;
+  if(num){
+    vout.general("hoge.\n");
+  }
+  else{
+    vout.general("fuga.\n");
+  }
+  
 
   //////////////////////////////////////////////////////
   // ###  finalize  ###

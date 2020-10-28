@@ -538,8 +538,7 @@ int main_core(Parameters *params_conf_all)
   Field_F *evec_smrdsink = new Field_F[Neigen];
   smear->smear(evec_smrdsink, evec_in, Neigen);
 
-  
-  // box diagram
+  // box diagram (output with gather)
   Field *Feig1 = new Field[Nsrc_t];
   Field *Feig2 = new Field[Nsrc_t];
   a2a::contraction_lowmode_s2s(Feig1, Feig2, evec_smrdsink, eval_in, Neigen, phi_smrdsink, xi_smrdsink, Ndil_tslice, Nsrc_t);
@@ -591,10 +590,12 @@ int main_core(Parameters *params_conf_all)
   delete[] evec_smrdsink;
   delete[] Fbox_eig;
   delete[] Ftri_eig;
+ 
   cont_sink_eigen.stop();
 
   /////////////////// triangle diagram 1 (CAA algorithm, exact part) /////////////////////////
   
+  // high exa output with gather
   cont_sink_exa.start();
   int *srcpt_exa = new int[3]; // an array of the source points (x,y,z) (global) 
   dcomplex *Fbox_p2a = new dcomplex[Nvol*Nsrc_t];
@@ -617,34 +618,7 @@ int main_core(Parameters *params_conf_all)
   vout.general("exact src coordinates : (%d, %d, %d)\n",srcpt_exa[0],srcpt_exa[1],srcpt_exa[2]);
 
   delete rand_refpt;
-  /*
-  for(int lt=0;lt<Lt;lt++){
-    int grids[4];
-    grids[0] = srcpt_exa[0] / Nx;
-    grids[1] = srcpt_exa[1] / Ny;
-    grids[2] = srcpt_exa[2] / Nz;
-    grids[3] = lt / Nt;
-    int rank;
-    Communicator::grid_rank(&rank,grids);
-    for(int d=0;d<Nd;d++){
-      for(int c=0;c<Nc;c++){
-	Field_F src; // temporal array for src vectors
-	src.reset(Nvol,1);
-	src.set(0.0);
-	if(Communicator::nodeid()==rank){
-	  // local coordinates for src points
-	  int nx = srcpt_exa[0] % Nx;
-	  int ny = srcpt_exa[1] % Ny;
-	  int nz = srcpt_exa[2] % Nz;
-	  int nt = lt % Nt;
-	  src.set_r(c,d,nx+Nx*(ny+Ny*(nz+Nz*nt)),0,1.0);
-	}
-	Communicator::sync_global();
-	copy(point_src_exa[c+Nc*(d+Nd*(lt))],src);
-      }
-    }
-  }
-  */
+
   for(int n=0;n<Nc*Nd*Lt;n++){
     point_src_exa[n].reset(Nvol,1);
 #pragma omp parallel
@@ -695,14 +669,6 @@ int main_core(Parameters *params_conf_all)
   }
   delete[] smrd_src_exa; 
   
-  //fopr->set_mode("D");
-  //a2a::inversion_eo(Hinv,fopr_eo,fopr,smrd_src_exagm5,Nc*Nd*Lt);
-  //a2a::inversion_alt_mixed_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
-  /*
-  a2a::inversion_alt_mixed_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
-				     Nc*Nd*Lt, inv_prec_full, inv_prec_inner,
-				     Nmaxiter, Nmaxres);
-  */
   invtimer_caaexa.start();
   a2a::inversion_alt_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
 			       Nc*Nd*Lt, inv_prec_full,
@@ -764,6 +730,7 @@ int main_core(Parameters *params_conf_all)
   delete[] Fbox_p2a;
   delete[] Ftri_p2a;
   cont_sink_exa.stop();
+  
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /////////////////// triangle diagram 1 (CAA algorithm, relaxed CG part) /////////////////////////
@@ -782,7 +749,6 @@ int main_core(Parameters *params_conf_all)
   vout.general("Nsrcpt = %d\n",Nsrcpt);
   //idx_noise = 0;
 
-  // construct projected source vectors
   // set src point coordinates (global)
   for(int n=0;n<Nsrcpt;n++){
     int relpt_x = (n % Nrelpt_x) * interval_x + srcpt_exa[0];
@@ -794,6 +760,8 @@ int main_core(Parameters *params_conf_all)
     vout.general("relaxed CG src coordinates %d : (%d, %d, %d)\n",n,srcpt_rel[0+3*n],srcpt_rel[1+3*n],srcpt_rel[2+3*n]);
   }
 
+  
+  // main part
   for(int n=0;n<Nsrcpt;n++){
     cont_sink_rel.start();
     for(int m=0;m<Nc*Nd*Lt;m++){
@@ -808,35 +776,6 @@ int main_core(Parameters *params_conf_all)
     srcpt[0] = srcpt_rel[0+3*n];
     srcpt[1] = srcpt_rel[1+3*n];
     srcpt[2] = srcpt_rel[2+3*n];
-    /*
-    // making src vector
-    for(int lt=0;lt<Lt;lt++){
-      int grids[4];
-      grids[0] = srcpt_rel[0+3*n] / Nx;
-      grids[1] = srcpt_rel[1+3*n] / Ny;
-      grids[2] = srcpt_rel[2+3*n] / Nz;
-      grids[3] = lt / Nt;
-      int rank;
-      Communicator::grid_rank(&rank,grids);
-      for(int d=0;d<Nd;d++){
-	for(int c=0;c<Nc;c++){
-	  Field_F src; // temporal array for src vectors
-	  src.reset(Nvol,1);
-	  src.set(0.0);
-	  if(Communicator::nodeid()==rank){
-	    // local coordinates for src points
-	    int nx = srcpt_rel[0+3*n] % Nx;
-	    int ny = srcpt_rel[1+3*n] % Ny;
-	    int nz = srcpt_rel[2+3*n] % Nz;
-	    int nt = lt % Nt;
-	    src.set_r(c,d,nx+Nx*(ny+Ny*(nz+Nz*nt)),0,1.0);
-	  }
-	  Communicator::sync_global();
-	  copy(point_src_rel[c+Nc*(d+Nd*(lt))],src);
-	}
-      }
-    }
-    */
     // new impl. start
     for(int lt=0;lt<Lt;lt++){
       int grids[4];
@@ -880,14 +819,6 @@ int main_core(Parameters *params_conf_all)
     }
     delete[] smrd_src_rel;
 
-    //fopr->set_mode("D");
-    //a2a::inversion_eo(Hinv_rel,fopr_eo,fopr,smrd_src_relgm5,Nc*Nd*Lt, inv_prec_caa);
-    //a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
-    /*  
-    a2a::inversion_alt_mixed_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
-				       Nc*Nd*Lt, inv_prec_caa, inv_prec_inner_caa,
-				       Nmaxiter, Nmaxres);
-    */
     invtimer_caarel.start();
     a2a::inversion_alt_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
 				 Nc*Nd*Lt, inv_prec_caa,
@@ -952,6 +883,7 @@ int main_core(Parameters *params_conf_all)
 
     cont_sink_rel.stop();
   }// for n srcpt
+  
 
   // new implementation end
 

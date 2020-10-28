@@ -13,10 +13,10 @@ Noise:
   noise_seed   : 1234567
   #timeslice    : [0,1,2,3,4,5,6,7]
   #timeave      : fulltave
-  #timeslice    : [0]
-  #timeave      : 0
-  timeslice    : [0,4]
-  timeave      : 0mod4
+  timeslice    : [0]
+  timeave      : t0
+  #timeslice    : [0,4]
+  #timeave      : 0mod4
   
   noise_sparse1end : 1234567
 
@@ -66,5 +66,6 @@ File_io:
   #outdir        : ./consistency_check_i2pp
   #outdir         : ./test_NN4pt_wall
   #outdir         : ./test_i0pp_disc
-  outdir         : ./test_i0pp_tri
+  #outdir         : ./test_i0pp_tri
+  #outdir         : ./test_i0pp_tribox_output
   

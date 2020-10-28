@@ -25,6 +25,7 @@ namespace a2a
   // writing vectors //
   int vector_io(Field_F*, const int, const char*, const int);
   int vector_io(std::vector<Field_F> &vec, const char *filename, const int io_type);
+  int field_io(Field *vec, const int Nex, const char *filename, const int io_type);
 
   // eigensolver //
   int eigensolver(Field_F*, double*, Fopr*, const int, const int, const int);

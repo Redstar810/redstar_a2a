@@ -442,7 +442,9 @@ int main_core(Parameters *params_conf_all)
   }
   delete Fsep_tmp;
   */
-  // output NBS data
+
+  
+  // output NBS data (gather global data and output from rank 0)
   dcomplex *Fsep_o = new dcomplex[Nvol*Nsrc_t];
 #pragma omp parallel for
   for(int t_src=0;t_src<Nsrc_t;t_src++){
@@ -453,8 +455,18 @@ int main_core(Parameters *params_conf_all)
 
   string output_4pt_sep("/NBS_sep_");
   a2a::output_NBS_srctave(Fsep_o, Nsrc_t, &timeslice_list[0], outdir_name+output_4pt_sep+timeave);
-  Communicator::sync_global();
+
   delete[] Fsep_o;
+  
+  /*
+  // output NBS data (directly output from each MPI rank, src time average is not taken)
+  string output_4pt_sep_base("/NBS_sep_");
+  string output_4pt_sep = outdir_name+output_4pt_sep_base+timeave;
+  a2a::field_io(Fsep, 1, output_4pt_sep.c_str(), 0);
+  cont_sep.stop();
+  */
+  
+  Communicator::sync_global();
   delete Fsep;
   cont_sep.stop();
   
@@ -503,8 +515,8 @@ int main_core(Parameters *params_conf_all)
   // smeared sink
   delete[] xi_l_smrdsink;
   //delete[] xi_s_smrdsink;
-    
-  // output NBS data
+
+  // output NBS data (gather global data and output from rank 0)
   dcomplex *Fconn_o = new dcomplex[Nvol*Nsrc_t];
 #pragma omp parallel for
   for(int t_src=0;t_src<Nsrc_t;t_src++){
@@ -515,10 +527,18 @@ int main_core(Parameters *params_conf_all)
 
   string output_4pt_conn("/NBS_conn_");  
   a2a::output_NBS_srctave(Fconn_o, Nsrc_t, &timeslice_list[0], outdir_name+output_4pt_conn+timeave);
+  delete[] Fconn_o;
+  
+  /*
+  // output NBS data (directly output from each MPI rank, src time average is not taken)
+  string output_4pt_conn_base("/NBS_conn_");
+  string output_4pt_conn = outdir_name+output_4pt_conn_base+timeave;
+  a2a::field_io(Fconn, 1, output_4pt_conn.c_str(), 0);
+  */
   
   Communicator::sync_global();
   delete Fconn;
-  delete[] Fconn_o;
+  
   cont_conn.stop();
 
   //////////////////////////////////////////////////////
