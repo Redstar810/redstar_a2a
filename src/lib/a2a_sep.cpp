@@ -26,6 +26,9 @@ static Bridge::VerboseLevel vl = vout.set_verbose_level("General");
 int a2a::contraction_separated(Field* of, const Field_F* isrcv11, const Field_F* isrcv12, const Field_F* isrcv21, const Field_F* isrcv22,const int* idx_noise, const int Nex_tslice, const int Nsrc_time)
 {
 
+  // sep diagram
+  // Fsep(p) = (conj(isrcv11) * isrcv12)(p) * (conj(isrcv21) * isrcv22)(-p) 
+  
   int Nc   = CommonParameters::Nc();
   int Nd   = CommonParameters::Nd();
   int Nx   = CommonParameters::Nx();
@@ -336,6 +339,195 @@ int a2a::contraction_separated_1dir(Field* of, const Field_F* isrcv11, const Fie
     
   delete Fsep_mom;
   delete fft3;
+
+  cont_sep.stop();
+  vout.general("===== contraction (separated diagram) elapsed time ===== \n");
+  cont_sep.report();
+  vout.general("========== \n");
+  return 0;
+
+}
+
+
+// calculate separated diagram using one-end trick x 2
+// with non-zero total momentum
+int a2a::contraction_separated_boost(Field* of, const Field_F* isrcv11, const Field_F* isrcv12, const Field_F* isrcv21, const Field_F* isrcv22,const int* idx_noise, const int Nex_tslice, const int Nsrc_time, const int* total_mom, const int dt)
+{
+
+  // sep diagram
+  // Fsep(p) = (conj(isrcv11) * isrcv12)(p) * (conj(isrcv21) * isrcv22)(-p) 
+  
+  int Nc   = CommonParameters::Nc();
+  int Nd   = CommonParameters::Nd();
+  int Nx   = CommonParameters::Nx();
+  int Ny   = CommonParameters::Ny();
+  int Nz   = CommonParameters::Nz();
+  int Nt   = CommonParameters::Nt();
+  int Nxyz = Nx * Ny * Nz;
+  int Nvol = CommonParameters::Nvol();
+  int Lx   = CommonParameters::Lx();
+  int Ly   = CommonParameters::Ly();
+  int Lz   = CommonParameters::Lz();
+  int Lxyz = Lx * Ly * Lz;
+
+  Timer cont_sep("contraction (separated diagram)");
+
+  if(dt / 2 != 0){
+    vout.general("error: odd dt is not supported in boosted frame calculation.\n");
+    EXIT_FAILURE;
+  }
+
+  vout.general("dt = %d\n", dt);
+  vout.general("total_mom = [%d, %d, %d]\n",total_mom[0],total_mom[1],total_mom[2]);
+  
+  int tshift;
+  if(dt < 0){
+    tshift = - dt / 2;
+  }
+  else{
+    tshift = dt / 2;
+  }
+  vout.general("tshift = %d\n", tshift);
+
+  cont_sep.start();
+
+  Field *tmp1 = new Field;
+  Field *tmp2 = new Field;
+  tmp1->reset(2,Nvol,Nsrc_time);
+  tmp2->reset(2,Nvol,Nsrc_time);
+#pragma omp parallel
+  {
+    tmp1->set(0.0);
+    tmp2->set(0.0);
+  }
+
+  // new impl.
+#pragma omp parallel for
+  for(int t_src=0;t_src<Nsrc_time;t_src++){
+    for(int t=0;t<Nt;t++){
+      for(int i=0;i<Nex_tslice;i++){
+        for(int vs=0;vs<Nxyz;vs++){
+          for(int d=0;d<Nd;d++){
+            for(int c=0;c<Nc;c++){
+              tmp1->add(0,vs+Nxyz*t,t_src,isrcv12[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_r(c,d,vs+Nxyz*t,0) * isrcv11[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_r(c,d,vs+Nxyz*t,0) + isrcv12[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_i(c,d,vs+Nxyz*t,0) * isrcv11[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_i(c,d,vs+Nxyz*t,0) );
+              tmp2->add(0,vs+Nxyz*t,t_src,isrcv22[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_r(c,d,vs+Nxyz*t,0) * isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_r(c,d,vs+Nxyz*t,0) + isrcv22[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_i(c,d,vs+Nxyz*t,0) * isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_i(c,d,vs+Nxyz*t,0) );
+              tmp1->add(1,vs+Nxyz*t,t_src,isrcv12[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_i(c,d,vs+Nxyz*t,0) * isrcv11[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_r(c,d,vs+Nxyz*t,0) - isrcv12[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_r(c,d,vs+Nxyz*t,0) * isrcv11[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_i(c,d,vs+Nxyz*t,0) );
+              tmp2->add(1,vs+Nxyz*t,t_src,isrcv22[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_i(c,d,vs+Nxyz*t,0) * isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_r(c,d,vs+Nxyz*t,0) - isrcv22[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_r(c,d,vs+Nxyz*t,0) * isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_i(c,d,vs+Nxyz*t,0) );
+	      
+            }
+          }
+        }
+      }
+    }
+  }  
+
+  Field *tmp1_mom = new Field;
+  Field *tmp2_mom = new Field;
+  tmp1_mom->reset(2,Nvol,Nsrc_time);
+  tmp2_mom->reset(2,Nvol,Nsrc_time);
+  FFT_3d_parallel3d *fft3 = new FFT_3d_parallel3d;
+
+  fft3->fft(*tmp1_mom,*tmp1,FFT_3d_parallel3d::FORWARD);
+  fft3->fft(*tmp2_mom,*tmp2,FFT_3d_parallel3d::BACKWARD);
+  Communicator::sync_global();
+  delete tmp1;
+  delete tmp2;
+
+  // shift field to project non-zero total momentum
+  ShiftField_lex *shift = new ShiftField_lex;
+  Field *tmp2_mom_shifted = new Field;
+  tmp2_mom_shifted->reset(2,Nvol,Nsrc_time);
+  copy(*tmp2_mom_shifted,*tmp2_mom);
+  delete tmp2_mom;
+  
+  if(total_mom[0] != 0){
+    for(int num_shift=0;num_shift<total_mom[0];++num_shift){
+      Field shift_tmp;
+      shift_tmp.reset(2,Nvol,Nsrc_time);
+      shift->forward(shift_tmp, *tmp2_mom_shifted, 0);
+      copy(*tmp2_mom_shifted, shift_tmp);
+    }
+  }
+  if(total_mom[1] != 0){
+    for(int num_shift=0;num_shift<total_mom[1];++num_shift){
+      Field shift_tmp;
+      shift_tmp.reset(2,Nvol,Nsrc_time);
+      shift->forward(shift_tmp, *tmp2_mom_shifted, 1);
+      copy(*tmp2_mom_shifted, shift_tmp);
+    }
+  }
+  if(total_mom[2] != 0){
+    for(int num_shift=0;num_shift<total_mom[2];++num_shift){
+      Field shift_tmp;
+      shift_tmp.reset(2,Nvol,Nsrc_time);
+      shift->forward(shift_tmp, *tmp2_mom_shifted, 2);
+      copy(*tmp2_mom_shifted, shift_tmp);
+    }
+  }
+
+  // diff time shift (dt)
+  if(dt != 0 && dt > 0){
+    // tmp1
+    for(int r_t=0;r_t<tshift;r_t++){
+      Field tshift_tmp;
+      tshift_tmp.reset(2,Nvol,Nsrc_time);
+      shift->backward(tshift_tmp, *tmp1_mom, 3);
+      copy(*tmp1_mom,tshift_tmp);
+    }
+    // tmp2
+    for(int r_t=0;r_t<tshift;r_t++){
+      Field tshift_tmp;
+      tshift_tmp.reset(2,Nvol,Nsrc_time);
+      shift->forward(tshift_tmp, *tmp2_mom_shifted, 3);
+      copy(*tmp2_mom_shifted,tshift_tmp);
+    }
+  }
+  
+  if(dt != 0 && dt < 0){
+    // tmp1
+    for(int r_t=0;r_t<tshift;r_t++){
+      Field tshift_tmp;
+      tshift_tmp.reset(2,Nvol,Nsrc_time);
+      shift->forward(tshift_tmp, *tmp1_mom, 3);
+      copy(*tmp1_mom,tshift_tmp);
+    }
+    // tmp2
+    for(int r_t=0;r_t<tshift;r_t++){
+      Field tshift_tmp;
+      tshift_tmp.reset(2,Nvol,Nsrc_time);
+      shift->backward(tshift_tmp, *tmp2_mom_shifted, 3);
+      copy(*tmp2_mom_shifted,tshift_tmp);
+    }
+  }
+
+
+  Field *Fsep_mom = new Field;
+
+  Fsep_mom->reset(2,Nvol,Nsrc_time);
+  of->reset(2,Nvol,Nsrc_time);
+#pragma omp parallel
+  {
+    Fsep_mom->set(0.0);
+    of->set(0.0);
+  }
+
+#pragma omp parallel for
+  for(int t_src=0;t_src<Nsrc_time;t_src++){
+    for(int t=0;t<Nt;t++){
+      for(int vs=0;vs<Nxyz;vs++){
+  	Fsep_mom->set(0,vs+Nxyz*t,t_src,tmp1_mom->cmp(0,vs+Nxyz*t,t_src)*tmp2_mom_shifted->cmp(0,vs+Nxyz*t,t_src) - tmp1_mom->cmp(1,vs+Nxyz*t,t_src)*tmp2_mom_shifted->cmp(1,vs+Nxyz*t,t_src));
+	Fsep_mom->set(1,vs+Nxyz*t,t_src,tmp1_mom->cmp(0,vs+Nxyz*t,t_src)*tmp2_mom_shifted->cmp(1,vs+Nxyz*t,t_src) + tmp1_mom->cmp(1,vs+Nxyz*t,t_src)*tmp2_mom_shifted->cmp(0,vs+Nxyz*t,t_src));
+      }
+    }
+  } // for t_src
+  delete tmp1_mom;
+  delete tmp2_mom_shifted; 
+
+  fft3->fft(*of,*Fsep_mom,FFT_3d_parallel3d::BACKWARD);
+
+  delete Fsep_mom;
+  delete fft3;
+  delete shift;
 
   cont_sep.stop();
   vout.general("===== contraction (separated diagram) elapsed time ===== \n");

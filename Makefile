@@ -43,6 +43,10 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedeqt_pp.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedneqt_pp.cpp
 
+# for I=2 pipi with non-zero total momentum
+src_main_core = $(a2a_main_path)/main_core_pipi_i2boost_1p1p.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_i2boost_2p0p.cpp
+
 # for kappa resonance study
 #src_main_core = $(a2a_main_path)/main_core_pik_sepconn.cpp
 #src_main_core = $(a2a_main_path)/main_core_pik_sepconn_alt.cpp
@@ -53,7 +57,7 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/main_core_pik_tri_alt_wall.cpp
 
 # for sigma resonance study
-src_main_core = $(a2a_main_path)/main_core_pipi_i0disc.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_i0disc.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0tri.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0sepconn.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0box.cpp

@@ -222,10 +222,11 @@ namespace a2a
   int contraction_separated_1dir(Field*, const Field_F*, const Field_F*, const Field_F*, const Field_F*,const int*, const int, const int, const int);
   int contraction_separated(Field*, Field*, const Field_F*, const Field_F*, const Field_F*, const Field_F*,const int*, const int, const int);
 
-  
+  int contraction_separated_boost(Field* of, const Field_F* isrcv11, const Field_F* isrcv12, const Field_F* isrcv21, const Field_F* isrcv22,const int* idx_noise, const int Nex_tslice, const int Nsrc_time, const int* total_mom, const int dt);
   
   // contraction (connected diagram)
   int contraction_connected(Field*, const Field_F*, const Field_F*, const Field_F*, const Field_F*,const int*, const int, const int);
+  int contraction_connected_boost(Field* of, const Field_F* isrcv11, const Field_F* isrcv12, const Field_F* isrcv21, const Field_F* isrcv22,const int* idx_noise, const int Nex_tslice, const int Nsrc_time, const int* total_mom, const int dt);
 
 
   // ### class for exponential smearing (w/ FFT) ###
