@@ -42,7 +42,7 @@ int one_end::calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
 
   Timer btimer("baryon block");
   Timer conttimer("contraction");
-
+  /*
   // for check
   for(int n=0;n<xi1.size();++n){
     vout.general("== n = %d ==\n",n);
@@ -52,7 +52,7 @@ int one_end::calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
     vout.general("norm of xi2_mom[%d] = %12.12e\n", n, xi2_mom[n].norm());
 
   }
-
+  */
 
   for(int tsrc=0;tsrc<Nsrctime;++tsrc){
      
@@ -130,21 +130,22 @@ int one_end::calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
       } // for 
 
     } // pragma omp parallel
-
+    /*
     // for check
     vout.general("norm of pblock = %12.12e\n",  proton_block.norm());
     vout.general("norm of nblock = %12.12e\n",  neutron_block.norm());
-    
+    */
     btimer.stop();
     ffttimer.start();
     fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
     fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
     ffttimer.stop();
-
+    /*
     // for check
     vout.general("norm of pblock(p) = %12.12e\n",  proton_block_mspc.norm());
     vout.general("norm of nblock(-p) = %12.12e\n",  neutron_block_mspc.norm()*(double)Lxyz );
-
+    */
+    /*
     // output baryon blocks (debug)
     {
       vout.general("== output baryon blocks ==\n");
@@ -170,7 +171,7 @@ int one_end::calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
       Communicator::sync_global();
       ofs_nblk.close();
     }
-    
+    */
     Communicator::sync_global();
     
     Fmspc.set(0.0);
@@ -208,18 +209,18 @@ int one_end::calc_NN4pt_type1(std::vector<dcomplex> &NN4pt,
       }
       
     } // pragma omp parallel
-
+    /*
     // for check
     vout.general("norm of F(p) = %12.12e\n", Fmspc.norm()*(double)Lxyz);
-
+    */
     conttimer.stop();
     ffttimer.start();
     fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
     ffttimer.stop();
-
+    /*
     // for check
     vout.general("norm of F = %12.12e\n", F.norm()*(double)Lxyz*(double)Lxyz);
-    
+    */
 #pragma omp parallel
     {
       int Nthread = ThreadManager_OpenMP::get_num_threads();
@@ -338,7 +339,7 @@ int one_end::calc_NN4pt_type2(std::vector<dcomplex> &NN4pt,
 			     * xi2[j+Ndil_space*(cgm5.index(alpha_4p)+Nd*(c_5p+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha_sink,v,0)
 			       - 
 			       xi2[j+Ndil_space*(cgm5.index(alpha_4p)+Nd*(c_5p+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,0),alpha_1,v,0)
-			       * xi1[i+Ndil_space*(alpha_1p+Nd*(eps.epsilon_3_index(color_123p,0)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha_sink,v,0)
+			     * xi1[i+Ndil_space*(alpha_1p+Nd*(eps.epsilon_3_index(color_123p,0)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha_sink,v,0)
 			       )
 			    * xi1[i+Ndil_space*(cgm5.index(alpha_1p)+Nd*(eps.epsilon_3_index(color_123p,1)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,1),cgm5.index(alpha_1),v,0);		  
 			  proton_block.add(0,v,eps.epsilon_3_index(color_123p,2)+Nc*(c_5p+Nc*(alpha_4p+Nd*(i+Ndil_space*(j+Ndil_space*(alpha_sink))))), real(pb_tmp) );
@@ -1376,7 +1377,7 @@ int one_end::calc_NN4pt_type6(std::vector<dcomplex> &NN4pt,
 			         xi1[i+Ndil_space*(cgm5.index(alpha_1p)+Nd*(eps.epsilon_3_index(color_123p,1)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,0),alpha_4,v,0)
 			       * xi2[j+Ndil_space*(alpha_4p+Nd*(c_4p+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,2),beta_sink,v,0)
 			       )
-			    * xi1[j+Ndil_space*(alpha_1p+Nd*(eps.epsilon_3_index(color_123p,0)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,1),cgm5.index(alpha_4),v,0);		  
+			    * xi1[i+Ndil_space*(alpha_1p+Nd*(eps.epsilon_3_index(color_123p,0)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,1),cgm5.index(alpha_4),v,0);		  
 
 			  neutron_block.add(0,v,eps.epsilon_3_index(color_123p,2)+Nc*(c_4p+Nc*(alpha_4p+Nd*(i+Ndil_space*(j+Ndil_space*(beta_sink))))), real(nb_tmp) );
 			  neutron_block.add(1,v,eps.epsilon_3_index(color_123p,2)+Nc*(c_4p+Nc*(alpha_4p+Nd*(i+Ndil_space*(j+Ndil_space*(beta_sink))))), imag(nb_tmp) );

@@ -44,7 +44,7 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boostedneqt_pp.cpp
 
 # for I=2 pipi with non-zero total momentum
-src_main_core = $(a2a_main_path)/main_core_pipi_i2boost_1p1p.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_i2boost_1p1p.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boost_2p0p.cpp
 
 # for kappa resonance study
@@ -72,6 +72,7 @@ src_main_core = $(a2a_main_path)/main_core_pipi_i2boost_1p1p.cpp
 
 # for NN 4pt function calculation
 #src_main_core = $(a2a_main_path)/main_core_NN_4pt_oneend.cpp
+src_main_core = $(a2a_main_path)/main_core_NN_4pt_oneend_eachtypes.cpp
 #src_main_core = $(a2a_main_path)/main_core_NN_4pt_wallsrc.cpp
 
 # for consistency check (debug)
