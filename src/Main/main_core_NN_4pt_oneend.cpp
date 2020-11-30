@@ -296,7 +296,7 @@ int main_core(Parameters *params_conf_all)
   one_end::space64_dil_sprs16(dil_noise,tcddil_noise,index_group);
   std::vector<Field_F>().swap(tcddil_noise);
   */
-  /*  
+    
   // s64 dil sparse 8 (randomly choose a group index)
   // randomly choose the dilution vectors
   //int dilution_seed = time(NULL);
@@ -318,7 +318,7 @@ int main_core(Parameters *params_conf_all)
   vout.general(" index_group = %d\n",index_group);
   one_end::space64_dil_sprs8(dil_noise2,tcddil_noise2,index_group);
   std::vector<Field_F>().swap(tcddil_noise2);
-  */
+  
   /*
   // s512 dil sparse 1 (randomly choose a group index)
   // randomly choose the dilution vectors
@@ -345,7 +345,7 @@ int main_core(Parameters *params_conf_all)
   one_end::space512_dil_sprs8(dil_noise,tcddil_noise,index_group);
   std::vector<Field_F>().swap(tcddil_noise);
   */
-  
+  /*  
   // s4096 dil sparse 8 (randomly choose a group index)
   // randomly choose the dilution vectors
   //int dilution_seed = time(NULL);
@@ -372,7 +372,7 @@ int main_core(Parameters *params_conf_all)
   vout.general(" index_group = %d\n",index_group);
   one_end::space4096_dil_sprs8(dil_noise2,tcddil_noise2,index_group);
   std::vector<Field_F>().swap(tcddil_noise2);
-  
+  */
   
   //////////////////////////////////////////////////////
   // ###  make one-end vectors  ###
@@ -388,10 +388,20 @@ int main_core(Parameters *params_conf_all)
   std::vector<Field_F> dil_noise_smr2(dil_noise2.size());
   a2a::Exponential_smearing *smear_src = new a2a::Exponential_smearing;
   smear_src->set_parameters(a_src,b_src,thr_val_src);
+
+  
   smear_src->smear(dil_noise_smr1, dil_noise1);
   std::vector<Field_F>().swap(dil_noise1);
   smear_src->smear(dil_noise_smr2, dil_noise2);
   std::vector<Field_F>().swap(dil_noise2);
+  
+  /*
+  // swap
+  smear_src->smear(dil_noise_smr2, dil_noise1);
+  std::vector<Field_F>().swap(dil_noise1);
+  smear_src->smear(dil_noise_smr1, dil_noise2);
+  std::vector<Field_F>().swap(dil_noise2);
+  */
 
   std::vector<Field_F> xi1(dil_noise_smr1.size());
   std::vector<Field_F> xi2(dil_noise_smr2.size());
@@ -416,6 +426,8 @@ int main_core(Parameters *params_conf_all)
     for(int n=0;n<3;++n){
       mom_neg[n] = - mom[n];
     }
+    vout.general("source relative mom 1 : %s\n", Parameters::to_string(mom).c_str());
+    vout.general("source relative mom 2 : %s\n", Parameters::to_string(mom_neg).c_str());
 
     // inversion with exp factor for mom. projection
     a2a::inversion_mom_alt_Clover_eo(xi1_mom, dil_noise_smr1, U, kappa_l, csw, bc,
@@ -636,7 +648,7 @@ int main_core(Parameters *params_conf_all)
           }
 
 	  // output
-          string output_4pt_base("/NBS_NN_sink%d%dsrc%d%d_");
+          string output_4pt_base("/NBS_NN_swap_sink%d%dsrc%d%d_");
           char output_4pt[256];
           snprintf(output_4pt, sizeof(output_4pt), output_4pt_base.c_str(), alpha_sink, beta_sink, alpha_src, beta_src);
           string output_4pt_final(output_4pt);

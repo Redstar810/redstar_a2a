@@ -68,4 +68,4 @@ File_io:
   #outdir         : ./test_i0pp_disc
   #outdir         : ./test_i0pp_tri
   #outdir         : ./test_i0pp_tribox_output
-  outdir         : ./test_NN4pt_oneend_eachtypes
+  #outdir         : ./test_NN4pt_oneend_wmom

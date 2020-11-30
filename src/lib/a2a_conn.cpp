@@ -25,7 +25,7 @@ static Bridge::VerboseLevel vl = vout.set_verbose_level("General");
 // calculate connected diagram using one-end trick x 2
 int a2a::contraction_connected(Field* of, const Field_F* isrcv11, const Field_F* isrcv12, const Field_F* isrcv21, const Field_F* isrcv22,const int* idx_noise, const int Nex_tslice, const int Nsrc_time)
 {
-  // Fconn(p) = (conj(isrcv11)*isrcv12)(p) * (conj(isrcv21)*isrcv22)(-p)
+  // Fconn(p) = (conj(isrcv11)*isrcv12)(p)(i,j) * (conj(isrcv21)*isrcv22)(-p)(j,i)
   int Nc   = CommonParameters::Nc();
   int Nd   = CommonParameters::Nd();
   int Nx   = CommonParameters::Nx();
@@ -85,6 +85,7 @@ int a2a::contraction_connected(Field* of, const Field_F* isrcv11, const Field_F*
               for(int c=0;c<Nc;c++){
                 tmpmtx1->add(0,vs+Nxyz*t,i+Nex_tslice*(j+Nex_tslice*t_src),isrcv12[j+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_r(c,d,vs+Nxyz*t,0) * isrcv11[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_r(c,d,vs+Nxyz*t,0) + isrcv12[j+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_i(c,d,vs+Nxyz*t,0) * isrcv11[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_i(c,d,vs+Nxyz*t,0) );
 		tmpmtx1->add(1,vs+Nxyz*t,i+Nex_tslice*(j+Nex_tslice*t_src),isrcv12[j+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_i(c,d,vs+Nxyz*t,0) * isrcv11[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_r(c,d,vs+Nxyz*t,0) - isrcv12[j+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_r(c,d,vs+Nxyz*t,0) * isrcv11[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_i(c,d,vs+Nxyz*t,0) );
+		
                 tmpmtx2->add(0,vs+Nxyz*t,i+Nex_tslice*(j+Nex_tslice*t_src),isrcv22[j+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_r(c,d,vs+Nxyz*t,0) * isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_r(c,d,vs+Nxyz*t,0) + isrcv22[j+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_i(c,d,vs+Nxyz*t,0) * isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_i(c,d,vs+Nxyz*t,0) );
 		tmpmtx2->add(1,vs+Nxyz*t,i+Nex_tslice*(j+Nex_tslice*t_src),isrcv22[j+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_i(c,d,vs+Nxyz*t,0) * isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_r(c,d,vs+Nxyz*t,0) - isrcv22[j+Nex_tslice*(t_src+Nsrc_time*idx_noise[0])].cmp_r(c,d,vs+Nxyz*t,0) * isrcv21[i+Nex_tslice*(t_src+Nsrc_time*idx_noise[1])].cmp_i(c,d,vs+Nxyz*t,0) );
                  

@@ -198,6 +198,13 @@ int main_core(Parameters *params_conf_all)
   vout.general("  b = %12.6e\n", b_src);
   vout.general("  thr_val = %12.6e\n", thr_val_src);
 
+  //- source momentum
+  std::vector<int> mom;
+  params_srcmom.fetch_int_vector("momentum",mom);
+
+  vout.general("Momentum projection\n");
+  vout.general("  source momentum : %s\n", Parameters::to_string(mom).c_str());
+
   //- output directory name 
   std::string outdir_name;
   params_fileio.fetch_string("outdir",outdir_name);
@@ -320,10 +327,11 @@ int main_core(Parameters *params_conf_all)
                                Nmaxiter, Nmaxres);
   invtimer.stop();
   // for nonzero total momentum (boosted frame)
-  int total_mom[3] = {0,0,2};
-  //int mom_solver[3] = {-total_mom[0]/2,-total_mom[1]/2,-total_mom[2]/2}; // for inversion with source momentum
-  int mom_solver[3] = {-total_mom[0],-total_mom[1],-total_mom[2]}; // for inversion with source momentum
+  int total_mom[3] = {0,0,0};
+
+  // for inversion with source momentum
   Field_F *xi_l_mom = new Field_F[Nnoise*Ndil_red];
+  int mom_solver[3] = {-mom[0],-mom[1],-mom[2]};
   a2a::inversion_mom_alt_Clover_eo(xi_l_mom, dil_noise, U, kappa_l, csw, bc, mom_solver,
                                    Nnoise*Ndil_red, inv_prec_full,
                                    Nmaxiter, Nmaxres);
@@ -349,13 +357,13 @@ int main_core(Parameters *params_conf_all)
   // ### calc. 2pt correlator ### //
 
   // calc. local sum
-  //dcomplex *corr_local_pi_0mom = new dcomplex[Nt*Nsrc_t];
-  dcomplex *corr_local_pi_2mom = new dcomplex[Nt*Nsrc_t];
+  dcomplex *corr_local_pi_0mom = new dcomplex[Nt*Nsrc_t];
+  dcomplex *corr_local_pi_1mom = new dcomplex[Nt*Nsrc_t];
 
 #pragma omp parallel for
   for(int n=0;n<Nt*Nsrc_t;n++){
-    //corr_local_pi_0mom[n] = cmplx(0.0,0.0);
-    corr_local_pi_2mom[n] = cmplx(0.0,0.0);
+    corr_local_pi_0mom[n] = cmplx(0.0,0.0);
+    corr_local_pi_1mom[n] = cmplx(0.0,0.0);
   }
   int grid_coords[4];
   Communicator::grid_coord(grid_coords,Communicator::nodeid());
@@ -379,16 +387,14 @@ int main_core(Parameters *params_conf_all)
 	    int true_x = Nx * grid_coords[0] + x;
 	    int true_y = Ny * grid_coords[1] + y;
 	    int true_z = Nz * grid_coords[2] + z;
-	    double pdotx = 2 * M_PI / Lx * (total_mom[0] * true_x) + 2 * M_PI / Ly * (total_mom[1] * true_y) + 2 * M_PI / Lz * (total_mom[2] * true_z);
+	    double pdotx = 2 * M_PI / Lx * (total_mom[0]/2 * true_x) + 2 * M_PI / Ly * (total_mom[1]/2 * true_y) + 2 * M_PI / Lz * (total_mom[2]/2 * true_z);
 	    for(int d=0;d<Nd;d++){
 	      for(int c=0;c<Nc;c++){
-		/*
 		corr_local_pi_0mom[t+Nt*t_src] += cmplx(
 							xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) + xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0),
 						    xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) - xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0)
 							);
-		*/
-		corr_local_pi_2mom[t+Nt*t_src] += cmplx(std::cos(pdotx),std::sin(pdotx)) *
+		corr_local_pi_1mom[t+Nt*t_src] += cmplx(std::cos(pdotx),std::sin(pdotx)) *
 		  cmplx(
 			xi_l_mom[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) + xi_l_mom[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0),
 			xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_l_mom[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) - xi_l[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_l_mom[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0)
@@ -406,20 +412,20 @@ int main_core(Parameters *params_conf_all)
 
 #pragma omp parallel for
   for(int n=0;n<Nt*Nsrc_t;n++){
-    corr_local_pi_2mom[n] /= (double)Nnoise;
-    //corr_local_pi_1mom[n] /= (double)Nnoise;
+    corr_local_pi_0mom[n] /= (double)Nnoise;
+    corr_local_pi_1mom[n] /= (double)Nnoise;
   }
 
   //output 2pt correlator test
-  string output_2pt_pi("/2pt_pi_2mom_");
-  a2a::output_2ptcorr(corr_local_pi_2mom, Nsrc_t, &timeslice_list[0], outdir_name+output_2pt_pi+timeave);
+  string output_2pt_pi("/2pt_pi_0mom_");
+  a2a::output_2ptcorr(corr_local_pi_0mom, Nsrc_t, &timeslice_list[0], outdir_name+output_2pt_pi+timeave);
 
-  //output_2pt_pi = "/2pt_pi_1mom_";
-  //a2a::output_2ptcorr(corr_local_pi_1mom, Nsrc_t, &timeslice_list[0], outdir_name+output_2pt_pi+timeave);
+  output_2pt_pi = "/2pt_pi_1mom_";
+  a2a::output_2ptcorr(corr_local_pi_1mom, Nsrc_t, &timeslice_list[0], outdir_name+output_2pt_pi+timeave);
 
 
-  delete[] corr_local_pi_2mom;  
-  //delete[] corr_local_pi_1mom;  
+  delete[] corr_local_pi_0mom;  
+  delete[] corr_local_pi_1mom;  
   delete dirac;
 
   int idx_noise[2];
@@ -431,7 +437,7 @@ int main_core(Parameters *params_conf_all)
   Field *Fsep = new Field;
   Fsep->reset(2,Nvol,Nsrc_t);
 
-  // ## equal-time ## //
+  // equal-time //
   {
 #pragma omp parallel
     {
@@ -440,35 +446,38 @@ int main_core(Parameters *params_conf_all)
     Field *Fsep_tmp = new Field;
     Fsep_tmp->reset(2,Nvol,Nsrc_t);
 
+    // noise puttern 1
 #pragma omp parallel
     {
       Fsep_tmp->set(0.0);
     }
-
+   
     // set noise vector indices
     idx_noise[0] = 0;
     idx_noise[1] = 1;
     // smeared sink
-    a2a::contraction_separated_boost(Fsep_tmp, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
+    a2a::contraction_separated_boost(Fsep_tmp, xi_l, xi_l_mom, xi_l_mom, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
 				     total_mom, 0);
 
-#pragma omp parallel 
+#pragma omp parallel
     {
       axpy(*Fsep,1.0/2.0,*Fsep_tmp);
     }
 
+    // noise puttern 2
 #pragma omp parallel
     {
       Fsep_tmp->set(0.0);
     }
+   
     // set noise vector indices
     idx_noise[0] = 1;
     idx_noise[1] = 0;
     // smeared sink
-    a2a::contraction_separated_boost(Fsep_tmp, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
+    a2a::contraction_separated_boost(Fsep_tmp, xi_l, xi_l_mom, xi_l_mom, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
 				     total_mom, 0);
 
-#pragma omp parallel 
+#pragma omp parallel
     {
       axpy(*Fsep,1.0/2.0,*Fsep_tmp);
     }
@@ -488,124 +497,6 @@ int main_core(Parameters *params_conf_all)
 
     delete[] Fsep_o;
   }
-
-  // ## diff-time (dt=2) ## //
-  {
-#pragma omp parallel
-    {
-      Fsep->set(0.0);
-    }
-    Field *Fsep_tmp = new Field;
-    Fsep_tmp->reset(2,Nvol,Nsrc_t);
-
-#pragma omp parallel
-    {
-      Fsep_tmp->set(0.0);
-    }
-
-    // set noise vector indices
-    idx_noise[0] = 0;
-    idx_noise[1] = 1;
-    // smeared sink
-    a2a::contraction_separated_boost(Fsep_tmp, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
-				     total_mom, 2);
-
-#pragma omp parallel 
-    {
-      axpy(*Fsep,1.0/2.0,*Fsep_tmp);
-    }
-
-#pragma omp parallel
-    {
-      Fsep_tmp->set(0.0);
-    }
-    // set noise vector indices
-    idx_noise[0] = 1;
-    idx_noise[1] = 0;
-    // smeared sink
-    a2a::contraction_separated_boost(Fsep_tmp, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
-				     total_mom, 2);
-
-#pragma omp parallel 
-    {
-      axpy(*Fsep,1.0/2.0,*Fsep_tmp);
-    }
-    delete Fsep_tmp;
-    
-    // output NBS data (gather global data and output from rank 0)
-    dcomplex *Fsep_o = new dcomplex[Nvol*Nsrc_t];
-#pragma omp parallel for
-    for(int t_src=0;t_src<Nsrc_t;t_src++){
-      for(int v=0;v<Nvol;v++){
-	Fsep_o[v+Nvol*t_src] = cmplx(Fsep->cmp(0,v,t_src),Fsep->cmp(1,v,t_src));
-      }
-    }
-
-    string output_4pt_sep("/NBS_sep_dt2_");
-    a2a::output_NBS_srctave(Fsep_o, Nsrc_t, &timeslice_list[0], outdir_name+output_4pt_sep+timeave);
-
-    delete[] Fsep_o;
-  }
-
-  // ## diff-time (dt=-2) ## //
-  {
-#pragma omp parallel
-    {
-      Fsep->set(0.0);
-    }
-    Field *Fsep_tmp = new Field;
-    Fsep_tmp->reset(2,Nvol,Nsrc_t);
-
-#pragma omp parallel
-    {
-      Fsep_tmp->set(0.0);
-    }
-
-    // set noise vector indices
-    idx_noise[0] = 0;
-    idx_noise[1] = 1;
-    // smeared sink
-    a2a::contraction_separated_boost(Fsep_tmp, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
-				     total_mom, -2);
-
-#pragma omp parallel 
-    {
-      axpy(*Fsep,1.0/2.0,*Fsep_tmp);
-    }
-
-#pragma omp parallel
-    {
-      Fsep_tmp->set(0.0);
-    }
-    // set noise vector indices
-    idx_noise[0] = 1;
-    idx_noise[1] = 0;
-    // smeared sink
-    a2a::contraction_separated_boost(Fsep_tmp, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
-				     total_mom, -2);
-
-#pragma omp parallel 
-    {
-      axpy(*Fsep,1.0/2.0,*Fsep_tmp);
-    }
-    delete Fsep_tmp;
-    
-    // output NBS data (gather global data and output from rank 0)
-    dcomplex *Fsep_o = new dcomplex[Nvol*Nsrc_t];
-#pragma omp parallel for
-    for(int t_src=0;t_src<Nsrc_t;t_src++){
-      for(int v=0;v<Nvol;v++){
-	Fsep_o[v+Nvol*t_src] = cmplx(Fsep->cmp(0,v,t_src),Fsep->cmp(1,v,t_src));
-      }
-    }
-
-    string output_4pt_sep("/NBS_sep_dtm2_");
-    a2a::output_NBS_srctave(Fsep_o, Nsrc_t, &timeslice_list[0], outdir_name+output_4pt_sep+timeave);
-
-    delete[] Fsep_o;
-  }
-
-
   /*
   // diff-time (dt=2) //
   {
@@ -618,7 +509,7 @@ int main_core(Parameters *params_conf_all)
     idx_noise[0] = 0;
     idx_noise[1] = 1;
     // smeared sink
-    a2a::contraction_separated_boost(Fsep, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
+    a2a::contraction_separated_boost(Fsep, xi_l, xi_l_mom, xi_l, xi_l_mom, idx_noise, Ndil_tslice, Nsrc_t,
 				     total_mom, 2);
 
     // output NBS data (gather global data and output from rank 0)
@@ -648,7 +539,7 @@ int main_core(Parameters *params_conf_all)
     idx_noise[0] = 0;
     idx_noise[1] = 1;
     // smeared sink
-    a2a::contraction_separated_boost(Fsep, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
+    a2a::contraction_separated_boost(Fsep, xi_l, xi_l_mom, xi_l, xi_l_mom, idx_noise, Ndil_tslice, Nsrc_t,
 				     total_mom,-2);
 
     // output NBS data (gather global data and output from rank 0)
@@ -676,16 +567,16 @@ int main_core(Parameters *params_conf_all)
   Field *Fconn = new Field;
   Fconn->reset(2,Nvol,Nsrc_t);
 
-  // ## equal-time ## //
+  // equal-time //
   {
 #pragma omp parallel
     {
       Fconn->set(0.0);
     }
-    
     Field *Fconn_tmp = new Field;
     Fconn_tmp->reset(2,Nvol,Nsrc_t);
 
+    // noise pattern 1
 #pragma omp parallel
     {
       Fconn_tmp->set(0.0);
@@ -694,31 +585,33 @@ int main_core(Parameters *params_conf_all)
     idx_noise[0] = 0;
     idx_noise[1] = 1;
     // smeared sink
-    a2a::contraction_connected_boost(Fconn_tmp, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
+    a2a::contraction_connected_boost(Fconn_tmp, xi_l_mom, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
 				     total_mom, 0);
 
-#pragma omp parallel 
+    #pragma omp parallel
     {
       axpy(*Fconn,1.0/2.0,*Fconn_tmp);
     }
 
+
+    // noise pattern 2
 #pragma omp parallel
     {
       Fconn_tmp->set(0.0);
     }
-    
+
     idx_noise[0] = 1;
     idx_noise[1] = 0;
     // smeared sink
-    a2a::contraction_connected_boost(Fconn_tmp, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
+    a2a::contraction_connected_boost(Fconn_tmp, xi_l_mom, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
 				     total_mom, 0);
 
-#pragma omp parallel 
+    #pragma omp parallel
     {
       axpy(*Fconn,1.0/2.0,*Fconn_tmp);
     }
-    delete Fconn_tmp;
 
+    
     // output NBS data (gather global data and output from rank 0)
     dcomplex *Fconn_o = new dcomplex[Nvol*Nsrc_t];
 #pragma omp parallel for
@@ -733,124 +626,6 @@ int main_core(Parameters *params_conf_all)
 
     delete[] Fconn_o;  
   }
-
-  // ## diff-time (dt=2) ## //
-  {
-#pragma omp parallel
-    {
-      Fconn->set(0.0);
-    }
-    
-    Field *Fconn_tmp = new Field;
-    Fconn_tmp->reset(2,Nvol,Nsrc_t);
-
-#pragma omp parallel
-    {
-      Fconn_tmp->set(0.0);
-    }
-
-    idx_noise[0] = 0;
-    idx_noise[1] = 1;
-    // smeared sink
-    a2a::contraction_connected_boost(Fconn_tmp, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
-				     total_mom, 2);
-
-#pragma omp parallel 
-    {
-      axpy(*Fconn,1.0/2.0,*Fconn_tmp);
-    }
-
-#pragma omp parallel
-    {
-      Fconn_tmp->set(0.0);
-    }
-    
-    idx_noise[0] = 1;
-    idx_noise[1] = 0;
-    // smeared sink
-    a2a::contraction_connected_boost(Fconn_tmp, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
-				     total_mom, 2);
-
-#pragma omp parallel 
-    {
-      axpy(*Fconn,1.0/2.0,*Fconn_tmp);
-    }
-    delete Fconn_tmp;
-    
-    // output NBS data (gather global data and output from rank 0)
-    dcomplex *Fconn_o = new dcomplex[Nvol*Nsrc_t];
-#pragma omp parallel for
-    for(int t_src=0;t_src<Nsrc_t;t_src++){
-      for(int v=0;v<Nvol;v++){
-	Fconn_o[v+Nvol*t_src] = - cmplx(Fconn->cmp(0,v,t_src),Fconn->cmp(1,v,t_src));
-      }
-    }
-
-    string output_4pt_conn("/NBS_conn_dt2_");  
-    a2a::output_NBS_srctave(Fconn_o, Nsrc_t, &timeslice_list[0], outdir_name+output_4pt_conn+timeave);
-
-    delete[] Fconn_o;  
-  }
-
-  // ## diff-time (dt=-2) ## //
-  {
-#pragma omp parallel
-    {
-      Fconn->set(0.0);
-    }
-    
-    Field *Fconn_tmp = new Field;
-    Fconn_tmp->reset(2,Nvol,Nsrc_t);
-
-#pragma omp parallel
-    {
-      Fconn_tmp->set(0.0);
-    }
-
-    idx_noise[0] = 0;
-    idx_noise[1] = 1;
-    // smeared sink
-    a2a::contraction_connected_boost(Fconn_tmp, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
-				     total_mom, -2);
-
-#pragma omp parallel 
-    {
-      axpy(*Fconn,1.0/2.0,*Fconn_tmp);
-    }
-
-#pragma omp parallel
-    {
-      Fconn_tmp->set(0.0);
-    }
-    
-    idx_noise[0] = 1;
-    idx_noise[1] = 0;
-    // smeared sink
-    a2a::contraction_connected_boost(Fconn_tmp, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
-				     total_mom, -2);
-
-#pragma omp parallel 
-    {
-      axpy(*Fconn,1.0/2.0,*Fconn_tmp);
-    }
-    delete Fconn_tmp;
-
-    // output NBS data (gather global data and output from rank 0)
-    dcomplex *Fconn_o = new dcomplex[Nvol*Nsrc_t];
-#pragma omp parallel for
-    for(int t_src=0;t_src<Nsrc_t;t_src++){
-      for(int v=0;v<Nvol;v++){
-	Fconn_o[v+Nvol*t_src] = - cmplx(Fconn->cmp(0,v,t_src),Fconn->cmp(1,v,t_src));
-      }
-    }
-
-    string output_4pt_conn("/NBS_conn_dtm2_");  
-    a2a::output_NBS_srctave(Fconn_o, Nsrc_t, &timeslice_list[0], outdir_name+output_4pt_conn+timeave);
-
-    delete[] Fconn_o;  
-  }
-
-
   /*
   // diff-time (dt=2) //
   {
@@ -862,7 +637,7 @@ int main_core(Parameters *params_conf_all)
     idx_noise[0] = 0;
     idx_noise[1] = 1;
     // smeared sink
-    a2a::contraction_connected_boost(Fconn, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
+    a2a::contraction_connected_boost(Fconn, xi_l, xi_l_mom, xi_l, xi_l_mom, idx_noise, Ndil_tslice, Nsrc_t,
 				     total_mom, 2);
   
     // output NBS data (gather global data and output from rank 0)
@@ -891,7 +666,7 @@ int main_core(Parameters *params_conf_all)
     idx_noise[0] = 0;
     idx_noise[1] = 1;
     // smeared sink
-    a2a::contraction_connected_boost(Fconn, xi_l, xi_l_mom, xi_l, xi_l, idx_noise, Ndil_tslice, Nsrc_t,
+    a2a::contraction_connected_boost(Fconn, xi_l, xi_l_mom, xi_l, xi_l_mom, idx_noise, Ndil_tslice, Nsrc_t,
 				     total_mom, -2);
   
     // output NBS data (gather global data and output from rank 0)
