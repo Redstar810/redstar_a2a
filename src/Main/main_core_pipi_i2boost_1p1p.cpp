@@ -575,7 +575,7 @@ int main_core(Parameters *params_conf_all)
       }
     }
 
-    string output_4pt_conn("/NBS_conn_dt2");  
+    string output_4pt_conn("/NBS_conn_dt2_");  
     a2a::output_NBS_srctave(Fconn_o, Nsrc_t, &timeslice_list[0], outdir_name+output_4pt_conn+timeave);
 
     delete[] Fconn_o;  
@@ -603,7 +603,7 @@ int main_core(Parameters *params_conf_all)
       }
     }
 
-    string output_4pt_conn("/NBS_conn_dtm2");  
+    string output_4pt_conn("/NBS_conn_dtm2_");  
     a2a::output_NBS_srctave(Fconn_o, Nsrc_t, &timeslice_list[0], outdir_name+output_4pt_conn+timeave);
 
     delete[] Fconn_o;  
