@@ -6,7 +6,7 @@ Conf:
   confformat   : Text_4x4x4x8 # {Text, ILDG}
   csw          : 1.1
   kappa_ud     : 0.12
-  kappa_s      : 0.12
+  kappa_s      : 0.11
   boundary     : [1,1,1,1] # boundary condition (1: periodic, 0: dirichlet)
 
 Noise:
@@ -69,3 +69,5 @@ File_io:
   #outdir         : ./test_i0pp_tri
   #outdir         : ./test_i0pp_tribox_output
   #outdir         : ./test_NN4pt_oneend_wmom
+  #outdir         : ./test_XiXi4pt_wall
+  #outdir         : ./test_XiXi4pt_oneend 

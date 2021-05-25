@@ -429,6 +429,76 @@ namespace one_end // functions and classes for calculation using the one-end tri
 		       const std::vector<Field_F> &xi2_mom, // noise2 w/ -mom
 		       const int  Nsrctime);
 
+  
+  // XiXi 4pt calculation //
+  int calc_Xi2pt(std::vector<dcomplex> &XiXi4pt,
+		 const std::vector<Field_F> &xis_1, // noise1 (strange)          
+		 const std::vector<Field_F> &xil_1_mom, // noise1 (light) w/ or w/o mom                                                                                 
+		 const std::vector<int> &spin_list, // list of spin indices      
+		 // spin_list[0] = alpha, spin_list[1] = alpha'                  
+		 const int Nsrctime // #. of source timeslices                   
+		 );
+  
+  int calc_XiXi4pt_type1(std::vector<dcomplex> &XiXi4pt,
+			 const std::vector<Field_F> &xis_1, // noise1 (strange) 
+			 const std::vector<Field_F> &xil_1_mom, // noise1 (light) w/ or w/o mom                                                                         
+			 const std::vector<Field_F> &xis_2, // noise2 (strange)  
+			 const std::vector<Field_F> &xil_2_mom, // noise2 (light) w/ or w/o mom                                                                         
+			 const std::vector<int> &spin_list, // list of spin indices:                                                                                    
+			 //spin_list[0] = alpha, spin_list[1] = beta, spin_list[2] = alpha', spin_list[3] = beta'                                                       
+			 const int Nsrctime // #. of source timeslices           
+			 );
+  
+  int calc_XiXi4pt_type2(std::vector<dcomplex> &XiXi4pt,
+			 const std::vector<Field_F> &xis_1, // noise1 (strange) 
+			 const std::vector<Field_F> &xil_1_mom, // noise1 (light) w/ or w/o mom                                                                         
+			 const std::vector<Field_F> &xis_2, // noise2 (strange)  
+			 const std::vector<Field_F> &xil_2_mom, // noise2 (light) w/ or w/o mom                                                                         
+			 const std::vector<int> &spin_list, // list of spin indices:                                                                                    
+			 //spin_list[0] = alpha, spin_list[1] = beta, spin_list[2] = alpha', spin_list[3] = beta'                                                       
+			 const int Nsrctime // #. of source timeslices           
+			 );
+
+  int calc_XiXi4pt_type3(std::vector<dcomplex> &XiXi4pt,
+			 const std::vector<Field_F> &xis_1, // noise1 (strange) 
+			 const std::vector<Field_F> &xil_1_mom, // noise1 (light) w/ or w/o mom                                                                         
+			 const std::vector<Field_F> &xis_2, // noise2 (strange)  
+			 const std::vector<Field_F> &xil_2_mom, // noise2 (light) w/ or w/o mom                                                                         
+			 const std::vector<int> &spin_list, // list of spin indices:                                                                                    
+			 //spin_list[0] = alpha, spin_list[1] = beta, spin_list[2] = alpha', spin_list[3] = beta'                                                       
+			 const int Nsrctime // #. of source timeslices           
+			 );
+
+  int calc_XiXi4pt_type4(std::vector<dcomplex> &XiXi4pt,
+			 const std::vector<Field_F> &xis_1, // noise1 (strange) 
+			 const std::vector<Field_F> &xil_1_mom, // noise1 (light) w/ or w/o mom                                                                         
+			 const std::vector<Field_F> &xis_2, // noise2 (strange)  
+			 const std::vector<Field_F> &xil_2_mom, // noise2 (light) w/ or w/o mom                                                                         
+			 const std::vector<int> &spin_list, // list of spin indices:                                                                                    
+			 //spin_list[0] = alpha, spin_list[1] = beta, spin_list[2] = alpha', spin_list[3] = beta'                                                       
+			 const int Nsrctime // #. of source timeslices           
+			 );
+
+  int calc_XiXi4pt_type5(std::vector<dcomplex> &XiXi4pt,
+			 const std::vector<Field_F> &xis_1, // noise1 (strange) 
+			 const std::vector<Field_F> &xil_1_mom, // noise1 (light) w/ or w/o mom                                                                         
+			 const std::vector<Field_F> &xis_2, // noise2 (strange)  
+			 const std::vector<Field_F> &xil_2_mom, // noise2 (light) w/ or w/o mom                                                                         
+			 const std::vector<int> &spin_list, // list of spin indices:                                                                                    
+			 //spin_list[0] = alpha, spin_list[1] = beta, spin_list[2] = alpha', spin_list[3] = beta'                                                       
+			 const int Nsrctime // #. of source timeslices           
+			 );
+
+  int calc_XiXi4pt_type6(std::vector<dcomplex> &XiXi4pt,
+			 const std::vector<Field_F> &xis_1, // noise1 (strange) 
+			 const std::vector<Field_F> &xil_1_mom, // noise1 (light) w/ or w/o mom                                                                         
+			 const std::vector<Field_F> &xis_2, // noise2 (strange)  
+			 const std::vector<Field_F> &xil_2_mom, // noise2 (light) w/ or w/o mom                                                                         
+			 const std::vector<int> &spin_list, // list of spin indices:                                                                                    
+			 //spin_list[0] = alpha, spin_list[1] = beta, spin_list[2] = alpha', spin_list[3] = beta'                                                       
+			 const int Nsrctime // #. of source timeslices           
+			 );
+  
 }
 
 

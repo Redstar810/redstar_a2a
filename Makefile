@@ -46,7 +46,7 @@ a2a_include_path = $(a2a_src_path)/include
 # for I=2 pipi with non-zero total momentum
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boost_1p1p.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i2boost_2p0p.cpp
-src_main_core = $(a2a_main_path)/main_core_pipi_i2boost_CM1p1p.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_i2boost_CM1p1p.cpp
 
 # for kappa resonance study
 #src_main_core = $(a2a_main_path)/main_core_pik_sepconn.cpp
@@ -75,6 +75,10 @@ src_main_core = $(a2a_main_path)/main_core_pipi_i2boost_CM1p1p.cpp
 #src_main_core = $(a2a_main_path)/main_core_NN_4pt_oneend.cpp
 #src_main_core = $(a2a_main_path)/main_core_NN_4pt_oneend_eachtypes.cpp
 #src_main_core = $(a2a_main_path)/main_core_NN_4pt_wallsrc.cpp
+
+# for XiXi 4pt function calculation
+#src_main_core = $(a2a_main_path)/main_core_XiXi_4pt_oneend.cpp
+src_main_core = $(a2a_main_path)/main_core_XiXi_4pt_wallsrc.cpp
 
 # for consistency check (debug)
 #src_main_core = $(a2a_main_path)/a2a_nexttesti1pisep_smrdsink.cpp
