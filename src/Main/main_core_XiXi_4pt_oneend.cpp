@@ -465,81 +465,76 @@ int main_core(Parameters *params_conf_all)
   //////////////////////////////////////////////////////
   // ###  calc. 2pt correlator (for XiXi, using baryon one-end trick) ###
   
-  EpsilonTensor eps_src;
-  EpsilonTensor eps_sink;
-  
-  // calc. local sum for each combination of spin indices
+  EpsilonTensor eps;
+
+  // calc. local sum for each combination of spin indices                                                                    
   dcomplex *corr_local_Xi = new dcomplex[Nt*Nsrctime];
-  /*
-  for(int alpha=0;alpha<2;alpha++){ // loop of the sink spin index
-    int beta = alpha;
-    
+
+  for(int alpha=0;alpha<2;alpha++){ // loop of the sink spin index                                                           
+    int alpha_prime = alpha;
+
 #pragma omp parallel for
       for(int n=0;n<Nt*Nsrctime;n++){
-	corr_local_Xi[n] = cmplx(0.0,0.0);
+        corr_local_Xi[n] = cmplx(0.0,0.0);
       }
-      
+
       for(int t_src=0;t_src<Nsrctime;t_src++){
-	for(int t=0;t<Nt;t++){
-	  for(int i=0;i<Ndil_space;i++){
+        for(int t=0;t<Nt;t++){
+          for(int i=0;i<Ndil_space;i++){
+
+            for(int vs=0;vs<Nxyz;vs++){
+              for(int alpha_1=0;alpha_1<Nd;alpha_1++){
+                for(int alpha_1p=0;alpha_1p<Nd;alpha_1p++){
+                  for(int color_123=0;color_123<6;color_123++){
+                    for(int color_123p=0;color_123p<6;color_123p++){
+                      corr_local_Xi[t+Nt*t_src] +=
+                        cmplx((double)eps.epsilon_3_value(color_123) * (double)eps.epsilon_3_value(color_123p),0.0)
+                      * cgm5.value(alpha_1) * cgm5.value(alpha_1p)
+                      * (
+                         xis_1[i+Ndil_space*(alpha_1p   +Nd*(eps.epsilon_3_index(color_123p,0)+Nc*(t_src)))].cmp_ri(eps.epsilon_3_index(color_123,0),alpha_1,vs+Nxyz*t,0)
+                       * xis_1[i+Ndil_space*(alpha_prime+Nd*(eps.epsilon_3_index(color_123p,2)+Nc*(t_src)))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha,vs+Nxyz*t,0)
+                         -
+                         xis_1[i+Ndil_space*(alpha_prime+Nd*(eps.epsilon_3_index(color_123p,2)+Nc*(t_src)))].cmp_ri(eps.epsilon_3_index(color_123,0),alpha_1,vs+Nxyz*t,0)
+                       * xis_1[i+Ndil_space*(alpha_1p   +Nd*(eps.epsilon_3_index(color_123p,0)+Nc*(t_src)))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha,vs+Nxyz*t,0)
+                         )
+                       * xil_1[i+Ndil_space*(cgm5.index(alpha_1p)+Nd*(eps.epsilon_3_index(color_123,1)+Nc*(t_src)))].cmp_ri(eps.epsilon_3_index(color_123,1),cgm5.index(alpha_1),vs+Nxyz*t,0)
+                        +
+                        cmplx((double)eps.epsilon_3_value(color_123) * (double)eps.epsilon_3_value(color_123p),0.0)
+                      * cgm5.value(alpha_1) * cgm5.value(alpha_1p)
+                      * (
+                         xis_2[i+Ndil_space*(alpha_1p   +Nd*(eps.epsilon_3_index(color_123p,0)+Nc*(t_src)))].cmp_ri(eps.epsilon_3_index(color_123,0),alpha_1,vs+Nxyz*t,0)
+                       * xis_2[i+Ndil_space*(alpha_prime+Nd*(eps.epsilon_3_index(color_123p,2)+Nc*(t_src)))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha,vs+Nxyz*t,0)
+                         -
+                         xis_2[i+Ndil_space*(alpha_prime+Nd*(eps.epsilon_3_index(color_123p,2)+Nc*(t_src)))].cmp_ri(eps.epsilon_3_index(color_123,0),alpha_1,vs+Nxyz*t,0)
+                       * xis_2[i+Ndil_space*(alpha_1p   +Nd*(eps.epsilon_3_index(color_123p,0)+Nc*(t_src)))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha,vs+Nxyz*t,0)
+                         )
+                       * xil_2[i+Ndil_space*(cgm5.index(alpha_1p)+Nd*(eps.epsilon_3_index(color_123,1)+Nc*(t_src)))].cmp_ri(eps.epsilon_3_index(color_123,1),cgm5.index(alpha_1),vs+Nxyz*t,0);
+
+                    }
+                  }
+                }
+              }
 	      
-	    for(int vs=0;vs<Nxyz;vs++){
-	      for(int spin_gamma=0;spin_gamma<Nd;spin_gamma++){
-		for(int spin_mu=0;spin_mu<Nd;spin_mu++){
-		  for(int color_sink=0;color_sink<6;color_sink++){
-		    for(int color_src=0;color_src<6;color_src++){
-		      corr_local_Xi[t+Nt*t_src] +=
-			xi1[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
-			xi1[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
-			xi1[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
-			cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
-			cgm5.value(spin_gamma) * cgm5.value(spin_mu)
-			  
-			-xi1[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
-			xi1[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
-			xi1[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
-			cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
-			cgm5.value(spin_gamma) * cgm5.value(spin_mu)
-
-			+
-
-			xi2[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
-			xi2[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
-			xi2[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
-			cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
-			cgm5.value(spin_gamma) * cgm5.value(spin_mu)
-			  
-			-xi2[i+Ndil_space*(beta+Nd*(eps_src.epsilon_3_index(color_src,2)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,0),alpha,vs+Nxyz*t,0)*
-			xi2[i+Ndil_space*(spin_mu+Nd*(eps_src.epsilon_3_index(color_src,0)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,1),spin_gamma,vs+Nxyz*t,0)*
-			xi2[i+Ndil_space*(cgm5.index(spin_mu)+Nd*(eps_src.epsilon_3_index(color_src,1)+Nc*(t_src)))].cmp_ri(eps_sink.epsilon_3_index(color_sink,2),cgm5.index(spin_gamma),vs+Nxyz*t,0)*
-			cmplx((double)eps_src.epsilon_3_value(color_src) * (double)eps_sink.epsilon_3_value(color_sink),0.0) *
-			cgm5.value(spin_gamma) * cgm5.value(spin_mu);
-
-		    }
-		  }
-		}
-	      }
-		    
-	    }
-	  }
-	}
+            }
+          }
+        }
       }
 
 #pragma omp parallel for
       for(int n=0;n<Nt*Nsrctime;n++){
-	corr_local_Xi[n] /= (double)2;
+        corr_local_Xi[n] /= (double)2;
       }
       
-      //output 2pt correlator test
+      //output 2pt correlator test                                   
       string output_2pt_base("/2pt_Xi_%d%d_");
       char output_2pt[100];
-      snprintf(output_2pt, sizeof(output_2pt), output_2pt_base.c_str(), alpha, beta);
+      snprintf(output_2pt, sizeof(output_2pt), output_2pt_base.c_str(), alpha, alpha_prime);
       string output_2pt_final(output_2pt);
       a2a::output_2ptcorr(corr_local_Xi, timeslice_list, outdir_name+output_2pt_final+timeave);
-
       
-  } // for alpha
-  */
+      
+  } // for alpha          
+      
   
   ////////////////////////////////////////////////////////////
   // ### calc. 4pt correlator (for XiXi, using baryon one-end trick) ### //
