@@ -70,4 +70,5 @@ File_io:
   #outdir         : ./test_i0pp_tribox_output
   #outdir         : ./test_NN4pt_oneend_wmom
   #outdir         : ./test_XiXi4pt_wall
-  #outdir         : ./test_XiXi4pt_oneend 
+  #outdir         : ./test_XiXi4pt_oneend
+  outdir          : ./test_XiXi4pt_smallmemusage

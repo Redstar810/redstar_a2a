@@ -358,14 +358,15 @@ int main_core(Parameters *params_conf_all)
   //one_end::space4096_dil_sprs8(dil_noise,tcddil_noise,index_group);
   //std::vector<Field_F>().swap(tcddil_noise);
   
-  // for noise 1                                                                        
+  // for noise 1
   double rnum = floor( 512.0 * rand->get() );
   int index_group = (int)rnum;
   vout.general("=== noise 1 ===\n");
   vout.general(" index_group = %d\n",index_group);
   one_end::space4096_dil_sprs8(dil_noise1,tcddil_noise1,index_group);
   std::vector<Field_F>().swap(tcddil_noise1);
-  // for noise 2                                                                        
+  
+  // for noise 2
   rnum = floor( 512.0 * rand->get() );
   index_group = (int)rnum;
   vout.general("=== noise 2 ===\n");
@@ -467,10 +468,10 @@ int main_core(Parameters *params_conf_all)
   
   EpsilonTensor eps;
 
-  // calc. local sum for each combination of spin indices                                                                    
+  // calc. local sum for each combination of spin indices
   dcomplex *corr_local_Xi = new dcomplex[Nt*Nsrctime];
 
-  for(int alpha=0;alpha<2;alpha++){ // loop of the sink spin index                                                           
+  for(int alpha=0;alpha<2;alpha++){ // loop of the sink spin index
     int alpha_prime = alpha;
 
 #pragma omp parallel for
@@ -542,7 +543,15 @@ int main_core(Parameters *params_conf_all)
   // each types are implemented in "calc_XiXi4pt_type#" functions.
   // each results are putted on std::vector<dcomplex> array. (Nvol * 2 * 2 * 2 * 2 * Nsrctime)
   // ** IMPORTANT: assuming Nnoise = 1 (no noise ave.) in the following calculation. **
-
+  
+    for(int spin_sink=0;spin_sink<2;++spin_sink){
+    for(int spin_src=0;spin_src<2;++spin_src){
+    std::vector<int> spin_list(4);
+    spin_list[0] = spin_sink % 2;
+    spin_list[1] = (spin_sink+1) % 2;
+    spin_list[2] = spin_src % 2;
+    spin_list[3] = (spin_src+1) % 2;
+    /*
   for(int alpha=0;alpha<2;++alpha){
     for(int beta=0;beta<2;++beta){
       for(int alpha_prime=0;alpha_prime<2;++alpha_prime){
@@ -552,7 +561,7 @@ int main_core(Parameters *params_conf_all)
 	  spin_list[1] = beta;
 	  spin_list[2] = alpha_prime;
 	  spin_list[3] = beta_prime;
-	  
+    */	  
 	  // ## type 1 ## //
 	  std::vector<dcomplex> XiXi4pt_type1(Nvol*Nsrctime);
 	  if(mom[0] == 0 && mom[1] == 0 && mom[2] == 0){
@@ -616,13 +625,7 @@ int main_core(Parameters *params_conf_all)
 	  std::vector<Field_F>().swap(xi2_mom);
 	  }
 	  */
-	  /*  
-  // ## all summation and output ## //
-  for(int beta_src=0;beta_src<2;++beta_src){
-    for(int alpha_src=0;alpha_src<2;++alpha_src){
-      for(int beta_sink=0;beta_sink<2;++beta_sink){
-        for(int alpha_sink=0;alpha_sink<2;++alpha_sink){
-	  */
+
 	  // summation
           dcomplex XiXi4pt_all[Nvol*Nsrctime];
           for(int t=0;t<Nsrctime;++t){
@@ -645,15 +648,17 @@ int main_core(Parameters *params_conf_all)
 	  // output
           string output_4pt_base("/NBS_XiXi_sink%d%dsrc%d%d_");
           char output_4pt[256];
-          snprintf(output_4pt, sizeof(output_4pt), output_4pt_base.c_str(), alpha, beta, alpha_prime, beta_prime);
+          snprintf(output_4pt, sizeof(output_4pt), output_4pt_base.c_str(), spin_list[0], spin_list[1], spin_list[2], spin_list[3]);
           string output_4pt_final(output_4pt);
           a2a::output_NBS_srctave(&XiXi4pt_all[0], timeslice_list, outdir_name+output_4pt_final+timeave);
-	  
+	  /*	  
         }
       }
     }
   }
-
+	  */
+    }
+    } 
   std::vector<Field_F>().swap(xil_1);
   std::vector<Field_F>().swap(xil_2);
   std::vector<Field_F>().swap(xis_1);

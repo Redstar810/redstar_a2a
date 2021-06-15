@@ -286,59 +286,42 @@ int one_end::calc_XiXi4pt_type2(std::vector<dcomplex> &XiXi4pt,
   FFT_3d_parallel3d fft3;
   double sign = -1.0;
 
-  // initialize
-#pragma omp parallel for
-  for(int n=0;n<Nvol*Nsrctime;++n){
-    XiXi4pt[n] = cmplx(0.0,0.0);
-  }
-
-  Field proton_block;
-  proton_block.reset(2, Nvol, Nc*Nc*Nd);
-  Field neutron_block;
-  neutron_block.reset(2, Nvol, Nc*Nc*Nd);
-
-  Field proton_block_mspc;
-  proton_block_mspc.reset(2, Nvol, Nc*Nc*Nd);
-  Field neutron_block_mspc;
-  neutron_block_mspc.reset(2, Nvol, Nc*Nc*Nd);
-
-  Field Fmspc;
-  Fmspc.reset(2, Nvol, 1);
-
-  Field F;
-  F.reset(2, Nvol, 1);
-
   for(int tsrc=0;tsrc<Nsrctime;++tsrc){
-    for(int i=0;i<Ndil_space;++i){
-      for(int j=0;j<Ndil_space;++j){
+     
+    Field proton_block;
+    proton_block.reset(2, Nvol, Nc*Nc*Nd*Ndil_space*Ndil_space);
+    Field neutron_block;
+    neutron_block.reset(2, Nvol, Nc*Nc*Nd*Ndil_space*Ndil_space);
 
-	vout.general("i = %d, j = %d \n",i,j);
-    
-	proton_block.set(0.0);
-	neutron_block.set(0.0);
+    Field proton_block_mspc;
+    proton_block_mspc.reset(2, Nvol, Nc*Nc*Nd*Ndil_space*Ndil_space);
+    Field neutron_block_mspc;
+    neutron_block_mspc.reset(2, Nvol, Nc*Nc*Nd*Ndil_space*Ndil_space);
 
- 	proton_block_mspc.set(0.0);
-	neutron_block_mspc.set(0.0);
+    Field Fmspc;
+    Fmspc.reset(2, Nvol, 1);
 
-	Fmspc.set(0.0);
-	F.set(0.0);
+    Field F;
+    F.reset(2, Nvol, 1);
 
-	// construct proton_block
-	btimer.start();
+    // construct proton_block
+    btimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns =  Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns =  Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int color_123=0;color_123<6;++color_123){
 	      for(int color_123p=0;color_123p<6;++color_123p){
 		for(int alpha_1=0;alpha_1<Nd;++alpha_1){ 
 		  for(int alpha_1p=0;alpha_1p<Nd;++alpha_1p){ 
 		    for(int alpha_4p=0;alpha_4p<Nd;++alpha_4p){
 		      for(int c_4p=0;c_4p<Nc;++c_4p){
-			
+		      
 			dcomplex pb_tmp =
 			  cmplx((double)eps.epsilon_3_value(color_123),0.0) * cgm5.value(alpha_1) *
 			  cmplx((double)eps.epsilon_3_value(color_123p),0.0) * cgm5.value(alpha_1p) *
@@ -350,8 +333,8 @@ int one_end::calc_XiXi4pt_type2(std::vector<dcomplex> &XiXi4pt,
 			 * xis_1[i+Ndil_space*(alpha_1p+Nd*(eps.epsilon_3_index(color_123p,0)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha,v,0)
 			   )
 			 * xil_1_mom[i+Ndil_space*(cgm5.index(alpha_1p)+Nd*(eps.epsilon_3_index(color_123p,1)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,1),cgm5.index(alpha_1),v,0);
-			proton_block.add(0,v,eps.epsilon_3_index(color_123p,2)+Nc*(c_4p+Nc*(alpha_4p)), real(pb_tmp));
-			proton_block.add(1,v,eps.epsilon_3_index(color_123p,2)+Nc*(c_4p+Nc*(alpha_4p)), imag(pb_tmp));
+			proton_block.add(0,v,eps.epsilon_3_index(color_123p,2)+Nc*(c_4p+Nc*(alpha_4p+Nd*(i+Ndil_space*j))), real(pb_tmp));
+			proton_block.add(1,v,eps.epsilon_3_index(color_123p,2)+Nc*(c_4p+Nc*(alpha_4p+Nd*(i+Ndil_space*j))), imag(pb_tmp));
 			
 		      }
 		    }
@@ -359,21 +342,25 @@ int one_end::calc_XiXi4pt_type2(std::vector<dcomplex> &XiXi4pt,
 		}
 	      }
 	    }
-	  } // for 
+	  }
+	}
+      } // for 
 
-	} // pragma omp parallel
-	Communicator::sync_global();
-	btimer.stop();
+    } // pragma omp parallel
+    btimer.stop();
+    Communicator::sync_global();
 
-	// construct neutron_block
-	btimer.start();
+    // construct neutron_block
+    btimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns =  Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns =  Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int color_456=0;color_456<6;++color_456){
 	      for(int color_456p=0;color_456p<6;++color_456p){
 		for(int alpha_4=0;alpha_4<Nd;++alpha_4){ 
@@ -391,83 +378,88 @@ int one_end::calc_XiXi4pt_type2(std::vector<dcomplex> &XiXi4pt,
 			 * xis_1[i+Ndil_space*(alpha_p+Nd*(c_3p                             +Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,2),beta,v,0)
 			   )
 			 * xil_2_mom[j+Ndil_space*(cgm5.index(alpha_4p)+Nd*(eps.epsilon_3_index(color_456p,1)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,1),cgm5.index(alpha_4),v,0);
-			neutron_block.add(0,v,c_3p+Nc*(eps.epsilon_3_index(color_456p,0)+Nc*(alpha_4p)), real(nb_tmp));
-			neutron_block.add(1,v,c_3p+Nc*(eps.epsilon_3_index(color_456p,0)+Nc*(alpha_4p)), imag(nb_tmp));
+			neutron_block.add(0,v,c_3p+Nc*(eps.epsilon_3_index(color_456p,0)+Nc*(alpha_4p+Nd*(i+Ndil_space*j))), real(nb_tmp));
+			neutron_block.add(1,v,c_3p+Nc*(eps.epsilon_3_index(color_456p,0)+Nc*(alpha_4p+Nd*(i+Ndil_space*j))), imag(nb_tmp));
 			
 		    }
 		  }
 		}
 	      }
 	    }
-	  } // for 
+	  }
+	}
+      } // for 
 
-	} // pragma omp parallel
-	Communicator::sync_global();
-
+    } // pragma omp parallel
+    btimer.stop();
+    Communicator::sync_global();
     
-	btimer.stop();
-	ffttimer.start();
-	fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
-	fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-	ffttimer.stop();
-	Communicator::sync_global();
 
-	// contraction in momentum space
-	conttimer.start();
+    ffttimer.start();
+    fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
+    fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
+    ffttimer.stop();
+    Communicator::sync_global();
+
+    // contraction in momentum space
+    Fmspc.set(0.0);
+    conttimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns = Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns = Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int alpha_4p=0;alpha_4p<Nd;++alpha_4p){
 	      for(int c_4p=0;c_4p<Nc;++c_4p){
 		for(int c_3p=0;c_3p<Nc;++c_3p){
 	
 		  Fmspc.add(0,v,0,
-			    proton_block_mspc.cmp(0,v,c_3p+Nc*(c_4p+Nc*(alpha_4p)))
-			    * neutron_block_mspc.cmp(0,v,c_3p+Nc*(c_4p+Nc*(alpha_4p)))
+			    proton_block_mspc.cmp(0,v,c_3p+Nc*(c_4p+Nc*(alpha_4p+Nd*(i+Ndil_space*j))))
+			    * neutron_block_mspc.cmp(0,v,c_3p+Nc*(c_4p+Nc*(alpha_4p+Nd*(i+Ndil_space*j))))
 			    -
-			    proton_block_mspc.cmp(1,v,c_3p+Nc*(c_4p+Nc*(alpha_4p)))
-			    * neutron_block_mspc.cmp(1,v,c_3p+Nc*(c_4p+Nc*(alpha_4p)))
+			    proton_block_mspc.cmp(1,v,c_3p+Nc*(c_4p+Nc*(alpha_4p+Nd*(i+Ndil_space*j))))
+			    * neutron_block_mspc.cmp(1,v,c_3p+Nc*(c_4p+Nc*(alpha_4p+Nd*(i+Ndil_space*j))))
 			    );
 		
 		  Fmspc.add(1,v,0,
-			    proton_block_mspc.cmp(0,v,c_3p+Nc*(c_4p+Nc*(alpha_4p)))
-			    * neutron_block_mspc.cmp(1,v,c_3p+Nc*(c_4p+Nc*(alpha_4p)))
+			    proton_block_mspc.cmp(0,v,c_3p+Nc*(c_4p+Nc*(alpha_4p+Nd*(i+Ndil_space*j))))
+			    * neutron_block_mspc.cmp(1,v,c_3p+Nc*(c_4p+Nc*(alpha_4p+Nd*(i+Ndil_space*j))))
 			    +
-			    proton_block_mspc.cmp(1,v,c_3p+Nc*(c_4p+Nc*(alpha_4p)))
-			    * neutron_block_mspc.cmp(0,v,c_3p+Nc*(c_4p+Nc*(alpha_4p)))
+			    proton_block_mspc.cmp(1,v,c_3p+Nc*(c_4p+Nc*(alpha_4p+Nd*(i+Ndil_space*j))))
+			    * neutron_block_mspc.cmp(0,v,c_3p+Nc*(c_4p+Nc*(alpha_4p+Nd*(i+Ndil_space*j))))
 			    );
 		}
 	      }
 	    }
-	  } // for
-	} // pragma omp parallel
-	Communicator::sync_global();
-	
-	conttimer.stop();
-	ffttimer.start();
-	fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-	ffttimer.stop();
-	Communicator::sync_global();
-	
-	// output
-#pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns = Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
-	    XiXi4pt[v+Nvol*tsrc] += cmplx(sign*F.cmp(0,v,0),sign*F.cmp(1,v,0));
 	  }
-	} // pragma omp parallel
+	}
+      } // for
+    } // pragma omp parallel
     Communicator::sync_global();
 
+    conttimer.stop();
+    ffttimer.start();
+    fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
+    ffttimer.stop();
+    Communicator::sync_global();
+    
+    // output
+#pragma omp parallel
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns = Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	XiXi4pt[v+Nvol*tsrc] = cmplx(sign*F.cmp(0,v,0),sign*F.cmp(1,v,0));
       }
-    }  
+    } // pragma omp parallel
+    Communicator::sync_global();
+
   } // for Nsrctime
   
   calctimer.stop();
@@ -537,52 +529,35 @@ int one_end::calc_XiXi4pt_type3(std::vector<dcomplex> &XiXi4pt,
   FFT_3d_parallel3d fft3;
   double sign = -1.0;
 
-  Field proton_block;
-  proton_block.reset(2, Nvol, Nc*Nc);
-  Field neutron_block;
-  neutron_block.reset(2, Nvol, Nc*Nc);
-  
-  Field proton_block_mspc;
-  proton_block_mspc.reset(2, Nvol, Nc*Nc);
-  Field neutron_block_mspc;
-  neutron_block_mspc.reset(2, Nvol, Nc*Nc);
-  
-  Field Fmspc;
-  Fmspc.reset(2, Nvol, 1);
-  
-  Field F;
-  F.reset(2, Nvol, 1);
-
-  // initialize
-#pragma omp parallel for
-  for(int n=0;n<Nvol*Nsrctime;++n){
-    XiXi4pt[n] = cmplx(0.0,0.0);
-  }
-
   for(int tsrc=0;tsrc<Nsrctime;++tsrc){
-    for(int i=0;i<Ndil_space;++i){
-      for(int j=0;j<Ndil_space;++j){
+     
+    Field proton_block;
+    proton_block.reset(2, Nvol, Nc*Nc*Ndil_space*Ndil_space);
+    Field neutron_block;
+    neutron_block.reset(2, Nvol, Nc*Nc*Ndil_space*Ndil_space);
 
-	vout.general("i = %d, j = %d \n",i,j);
-		
-	proton_block.set(0.0);
-	neutron_block.set(0.0);
+    Field proton_block_mspc;
+    proton_block_mspc.reset(2, Nvol, Nc*Nc*Ndil_space*Ndil_space);
+    Field neutron_block_mspc;
+    neutron_block_mspc.reset(2, Nvol, Nc*Nc*Ndil_space*Ndil_space);
 
-	proton_block_mspc.set(0.0);
-	neutron_block_mspc.set(0.0);
+    Field Fmspc;
+    Fmspc.reset(2, Nvol, 1);
 
-	Fmspc.set(0.0);
-	F.set(0.0);
+    Field F;
+    F.reset(2, Nvol, 1);
 
-	// construct proton_block
-	btimer.start();
+    // construct proton_block
+    btimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns =  Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns =  Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int color_123=0;color_123<6;++color_123){
 	      for(int color_123p=0;color_123p<6;++color_123p){
 		for(int alpha_1=0;alpha_1<Nd;++alpha_1){ 
@@ -600,29 +575,33 @@ int one_end::calc_XiXi4pt_type3(std::vector<dcomplex> &XiXi4pt,
 		       * xis_1[i+Ndil_space*(alpha_1p+Nd*(eps.epsilon_3_index(color_123p,0)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha,v,0)
 			 )
 		       * xil_1_mom[i+Ndil_space*(cgm5.index(alpha_1p)+Nd*(eps.epsilon_3_index(color_123p,1)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,1),cgm5.index(alpha_1),v,0);
-		      proton_block.add(0,v,eps.epsilon_3_index(color_123p,2)+Nc*(c_6p), real(pb_tmp));
-		      proton_block.add(1,v,eps.epsilon_3_index(color_123p,2)+Nc*(c_6p), imag(pb_tmp));
+		      proton_block.add(0,v,eps.epsilon_3_index(color_123p,2)+Nc*(c_6p+Nc*(i+Ndil_space*j)), real(pb_tmp));
+		      proton_block.add(1,v,eps.epsilon_3_index(color_123p,2)+Nc*(c_6p+Nc*(i+Ndil_space*j)), imag(pb_tmp));
 			
 		    }
 		  }
 		}
 	      }
 	    }
-	  } // for 
-	  
-	} // pragma omp parallel
-	Communicator::sync_global();
-	btimer.stop();
+	  }
+	}
+      } // for 
+      
+    } // pragma omp parallel
+    btimer.stop();
+    Communicator::sync_global();
 
-	// construct neutron_block
-	btimer.start();
+    // construct neutron_block
+    btimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns =  Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns =  Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int color_456=0;color_456<6;++color_456){
 	      for(int color_456p=0;color_456p<6;++color_456p){
 		for(int alpha_4=0;alpha_4<Nd;++alpha_4){ 
@@ -640,83 +619,87 @@ int one_end::calc_XiXi4pt_type3(std::vector<dcomplex> &XiXi4pt,
 		       * xis_2[j+Ndil_space*(alpha_4p+Nd*(eps.epsilon_3_index(color_456p,0)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,2),beta,v,0)
 			 )
 		       * xil_2_mom[j+Ndil_space*(cgm5.index(alpha_4p)+Nd*(eps.epsilon_3_index(color_456p,1)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,1),cgm5.index(alpha_4),v,0);
-		      neutron_block.add(0,v,c_3p+Nc*(eps.epsilon_3_index(color_456p,2)), real(nb_tmp));
-		      neutron_block.add(1,v,c_3p+Nc*(eps.epsilon_3_index(color_456p,2)), imag(nb_tmp));
+		      neutron_block.add(0,v,c_3p+Nc*(eps.epsilon_3_index(color_456p,2)+Nc*(i+Ndil_space*j)), real(nb_tmp));
+		      neutron_block.add(1,v,c_3p+Nc*(eps.epsilon_3_index(color_456p,2)+Nc*(i+Ndil_space*j)), imag(nb_tmp));
 			
 		    }
 		  }
 		}
 	      }
 	    }
-	  } // for 
-	  
-	} // pragma omp parallel
-	Communicator::sync_global();
+	  }
+	}
+      } // for 
+      
+    } // pragma omp parallel
+    Communicator::sync_global();
 
     
-	btimer.stop();
-	ffttimer.start();
-	fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
-	fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-	ffttimer.stop();
-	Communicator::sync_global();
+    btimer.stop();
+    ffttimer.start();
+    fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
+    fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
+    ffttimer.stop();
+    Communicator::sync_global();
 
-	// contraction in momentum space
-
-	conttimer.start();
+    // contraction in momentum space
+    Fmspc.set(0.0);
+    conttimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns = Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns = Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int c_6p=0;c_6p<Nc;++c_6p){
 	      for(int c_3p=0;c_3p<Nc;++c_3p){
 	
 		  Fmspc.add(0,v,0,
-			    proton_block_mspc.cmp(0,v,c_3p+Nc*(c_6p))
-			    * neutron_block_mspc.cmp(0,v,c_3p+Nc*(c_6p))
+			    proton_block_mspc.cmp(0,v,c_3p+Nc*(c_6p+Nc*(i+Ndil_space*j)))
+			    * neutron_block_mspc.cmp(0,v,c_3p+Nc*(c_6p+Nc*(i+Ndil_space*j)))
 			    -
-			    proton_block_mspc.cmp(1,v,c_3p+Nc*(c_6p))
-			    * neutron_block_mspc.cmp(1,v,c_3p+Nc*(c_6p))
+			    proton_block_mspc.cmp(1,v,c_3p+Nc*(c_6p+Nc*(i+Ndil_space*j)))
+			    * neutron_block_mspc.cmp(1,v,c_3p+Nc*(c_6p+Nc*(i+Ndil_space*j)))
 			    );
 		
 		  Fmspc.add(1,v,0,
-			    proton_block_mspc.cmp(0,v,c_3p+Nc*(c_6p))
-			    * neutron_block_mspc.cmp(1,v,c_3p+Nc*(c_6p))
+			    proton_block_mspc.cmp(0,v,c_3p+Nc*(c_6p+Nc*(i+Ndil_space*j)))
+			    * neutron_block_mspc.cmp(1,v,c_3p+Nc*(c_6p+Nc*(i+Ndil_space*j)))
 			    +
-			    proton_block_mspc.cmp(1,v,c_3p+Nc*(c_6p))
-			    * neutron_block_mspc.cmp(0,v,c_3p+Nc*(c_6p))
+			    proton_block_mspc.cmp(1,v,c_3p+Nc*(c_6p+Nc*(i+Ndil_space*j)))
+			    * neutron_block_mspc.cmp(0,v,c_3p+Nc*(c_6p+Nc*(i+Ndil_space*j)))
 			    );
 		
 	      }
 	    }
-	  } // for
-	} // pragma omp parallel
-	Communicator::sync_global();
-
-	conttimer.stop();
-	ffttimer.start();
-	fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-	ffttimer.stop();
-	Communicator::sync_global();
-    
-	// output
-#pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns = Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
-	    XiXi4pt[v+Nvol*tsrc] += cmplx(sign*F.cmp(0,v,0),sign*F.cmp(1,v,0));
 	  }
-	} // pragma omp parallel
-	Communicator::sync_global();
+	}
+      } // for
+    } // pragma omp parallel
+    Communicator::sync_global();
 
+    conttimer.stop();
+    ffttimer.start();
+    fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
+    ffttimer.stop();
+    Communicator::sync_global();
+    
+    // output
+#pragma omp parallel
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns = Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	XiXi4pt[v+Nvol*tsrc] = cmplx(sign*F.cmp(0,v,0),sign*F.cmp(1,v,0));
       }
-    }
+    } // pragma omp parallel
+    Communicator::sync_global();
+
   } // for Nsrctime
   
   calctimer.stop();
@@ -787,54 +770,35 @@ int one_end::calc_XiXi4pt_type4(std::vector<dcomplex> &XiXi4pt,
   FFT_3d_parallel3d fft3;
   double sign = -1.0;
 
-  Field proton_block;
-  proton_block.reset(2, Nvol, Nc*Nc*Nd*Nd);
-  Field neutron_block;
-  neutron_block.reset(2, Nvol, Nc*Nc*Nd*Nd);
-  
-  Field proton_block_mspc;
-  proton_block_mspc.reset(2, Nvol, Nc*Nc*Nd*Nd);
-  Field neutron_block_mspc;
-  neutron_block_mspc.reset(2, Nvol, Nc*Nc*Nd*Nd);
-  
-  Field Fmspc;
-  Fmspc.reset(2, Nvol, 1);
-  
-  Field F;
-  F.reset(2, Nvol, 1);
-
-  // initialize
-#pragma omp parallel for
-  for(int n=0;n<Nvol*Nsrctime;++n){
-    XiXi4pt[n] = cmplx(0.0,0.0);
-  }
-
-
   for(int tsrc=0;tsrc<Nsrctime;++tsrc){
-    for(int i=0;i<Ndil_space;++i){
-      for(int j=0;j<Ndil_space;++j){
-	
-	vout.general("i = %d, j = %d \n",i,j);
-	
-	proton_block.set(0.0);
-	neutron_block.set(0.0);
-
-	proton_block_mspc.set(0.0);
-	neutron_block_mspc.set(0.0);
-
-	Fmspc.set(0.0);
-	F.set(0.0);
-
      
-	// construct proton_block
-	btimer.start();
+    Field proton_block;
+    proton_block.reset(2, Nvol, Nc*Nc*Nd*Nd*Ndil_space*Ndil_space);
+    Field neutron_block;
+    neutron_block.reset(2, Nvol, Nc*Nc*Nd*Nd*Ndil_space*Ndil_space);
+
+    Field proton_block_mspc;
+    proton_block_mspc.reset(2, Nvol, Nc*Nc*Nd*Nd*Ndil_space*Ndil_space);
+    Field neutron_block_mspc;
+    neutron_block_mspc.reset(2, Nvol, Nc*Nc*Nd*Nd*Ndil_space*Ndil_space);
+
+    Field Fmspc;
+    Fmspc.reset(2, Nvol, 1);
+
+    Field F;
+    F.reset(2, Nvol, 1);
+
+    // construct proton_block
+    btimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns =  Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns =  Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int color_123=0;color_123<6;++color_123){
 	      for(int color_123p=0;color_123p<6;++color_123p){
 		for(int alpha_1=0;alpha_1<Nd;++alpha_1){ 
@@ -853,8 +817,8 @@ int one_end::calc_XiXi4pt_type4(std::vector<dcomplex> &XiXi4pt,
 			 * xis_2[j+Ndil_space*(alpha_4p+Nd*(c_4p                             +Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha,v,0)
 			   )
 			 * xil_1_mom[i+Ndil_space*(cgm5.index(alpha_1p)+Nd*(eps.epsilon_3_index(color_123p,1)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,1),cgm5.index(alpha_1),v,0);
-			proton_block.add(0,v,eps.epsilon_3_index(color_123p,0)+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p))), real(pb_tmp));
-			proton_block.add(1,v,eps.epsilon_3_index(color_123p,0)+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p))), imag(pb_tmp));
+			proton_block.add(0,v,eps.epsilon_3_index(color_123p,0)+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p+Nd*(i+Ndil_space*j)))), real(pb_tmp));
+			proton_block.add(1,v,eps.epsilon_3_index(color_123p,0)+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p+Nd*(i+Ndil_space*j)))), imag(pb_tmp));
 
 		      }
 		    }
@@ -862,21 +826,25 @@ int one_end::calc_XiXi4pt_type4(std::vector<dcomplex> &XiXi4pt,
 		}
 	      }
 	    }
-	  } // for 
+	  }
+	}
+      } // for 
       
-	} // pragma omp parallel
-	Communicator::sync_global();
-	btimer.stop();
+    } // pragma omp parallel
+    Communicator::sync_global();
+    btimer.stop();
 
-	// construct neutron_block
-	btimer.start();
+    // construct neutron_block
+    btimer.start();
     #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns =  Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns =  Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int color_456=0;color_456<6;++color_456){
 	      for(int color_456p=0;color_456p<6;++color_456p){
 		for(int alpha_4=0;alpha_4<Nd;++alpha_4){ 
@@ -895,8 +863,8 @@ int one_end::calc_XiXi4pt_type4(std::vector<dcomplex> &XiXi4pt,
 			 * xis_1[i+Ndil_space*(alpha_1p+Nd*(c_1p                             +Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,2),beta,v,0)
 			   )
 			 * xil_2_mom[j+Ndil_space*(cgm5.index(alpha_4p)+Nd*(eps.epsilon_3_index(color_456p,1)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,1),cgm5.index(alpha_4),v,0);
-			neutron_block.add(0,v,c_1p+Nc*(eps.epsilon_3_index(color_456p,0)+Nc*(alpha_1p+Nd*(alpha_4p))), real(nb_tmp));
-			neutron_block.add(1,v,c_1p+Nc*(eps.epsilon_3_index(color_456p,0)+Nc*(alpha_1p+Nd*(alpha_4p))), imag(nb_tmp));
+			neutron_block.add(0,v,c_1p+Nc*(eps.epsilon_3_index(color_456p,0)+Nc*(alpha_1p+Nd*(alpha_4p+Nd*(i+Ndil_space*j)))), real(nb_tmp));
+			neutron_block.add(1,v,c_1p+Nc*(eps.epsilon_3_index(color_456p,0)+Nc*(alpha_1p+Nd*(alpha_4p+Nd*(i+Ndil_space*j)))), imag(nb_tmp));
 
 		      }
 		    }
@@ -904,77 +872,82 @@ int one_end::calc_XiXi4pt_type4(std::vector<dcomplex> &XiXi4pt,
 		}
 	      }
 	    }
-	  } // for 
+	  }
+	}
+      } // for 
       
-	} // pragma omp parallel
-	Communicator::sync_global();
+    } // pragma omp parallel
+    Communicator::sync_global();
 
     
-	btimer.stop();
-	ffttimer.start();
-	fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
-	fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-	ffttimer.stop();
-	Communicator::sync_global();
+    btimer.stop();
+    ffttimer.start();
+    fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
+    fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
+    ffttimer.stop();
+    Communicator::sync_global();
 
-	// contraction in momentum space
-	conttimer.start();
+    // contraction in momentum space
+    Fmspc.set(0.0);
+    conttimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns = Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns = Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int c_1p=0;c_1p<Nc;++c_1p){
 	      for(int c_4p=0;c_4p<Nc;++c_4p){
 		for(int alpha_1p=0;alpha_1p<Nd;++alpha_1p){
 		  for(int alpha_4p=0;alpha_4p<Nd;++alpha_4p){
 		    Fmspc.add(0,v,0,
-			      proton_block_mspc.cmp(0,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p))))
-			      * neutron_block_mspc.cmp(0,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p))))
+			      proton_block_mspc.cmp(0,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p+Nd*(i+Ndil_space*j)))))
+			      * neutron_block_mspc.cmp(0,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p+Nd*(i+Ndil_space*j)))))
 			      -
-			      proton_block_mspc.cmp(1,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p))))
-			      * neutron_block_mspc.cmp(1,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p))))
+			      proton_block_mspc.cmp(1,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p+Nd*(i+Ndil_space*j)))))
+			      * neutron_block_mspc.cmp(1,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p+Nd*(i+Ndil_space*j)))))
 			      );
 		
 		    Fmspc.add(1,v,0,
-			      proton_block_mspc.cmp(0,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p))))
-			      * neutron_block_mspc.cmp(1,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p))))
+			      proton_block_mspc.cmp(0,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p+Nd*(i+Ndil_space*j)))))
+			      * neutron_block_mspc.cmp(1,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p+Nd*(i+Ndil_space*j)))))
 			      +
-			      proton_block_mspc.cmp(1,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p))))
-			      * neutron_block_mspc.cmp(0,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p))))
+			      proton_block_mspc.cmp(1,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p+Nd*(i+Ndil_space*j)))))
+			      * neutron_block_mspc.cmp(0,v,c_1p+Nc*(c_4p+Nc*(alpha_1p+Nd*(alpha_4p+Nd*(i+Ndil_space*j)))))
 			      );
 		    
 		  }
 		}
 	      }
 	    }
-	  } // for
-	} // pragma omp parallel
-	Communicator::sync_global();
-
-	conttimer.stop();
-	ffttimer.start();
-	fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-	ffttimer.stop();
-	Communicator::sync_global();
-    
-	// output
-#pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns = Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
-	    XiXi4pt[v+Nvol*tsrc] += cmplx(sign*F.cmp(0,v,0),sign*F.cmp(1,v,0));
 	  }
-	} // pragma omp parallel
-	Communicator::sync_global();
+	}
+      } // for
+    } // pragma omp parallel
+    Communicator::sync_global();
 
+    conttimer.stop();
+    ffttimer.start();
+    fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
+    ffttimer.stop();
+    Communicator::sync_global();
+    
+    // output
+#pragma omp parallel
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns = Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	XiXi4pt[v+Nvol*tsrc] = cmplx(sign*F.cmp(0,v,0),sign*F.cmp(1,v,0));
       }
-    }
+    } // pragma omp parallel
+    Communicator::sync_global();
+
   } // for Nsrctime
   
   calctimer.stop();
@@ -1045,53 +1018,36 @@ int one_end::calc_XiXi4pt_type5(std::vector<dcomplex> &XiXi4pt,
   EpsilonTensor eps;
   FFT_3d_parallel3d fft3;
   double sign = -1.0;
-  
-  Field proton_block;
-  proton_block.reset(2, Nvol, Nc*Nc*Nd);
-  Field neutron_block;
-  neutron_block.reset(2, Nvol, Nc*Nc*Nd);
-  
-  Field proton_block_mspc;
-  proton_block_mspc.reset(2, Nvol, Nc*Nc*Nd);
-  Field neutron_block_mspc;
-  neutron_block_mspc.reset(2, Nvol, Nc*Nc*Nd);
-  
-  Field Fmspc;
-  Fmspc.reset(2, Nvol, 1);
-  
-  Field F;
-  F.reset(2, Nvol, 1);
-
-  // initialize
-#pragma omp parallel for
-  for(int n=0;n<Nvol*Nsrctime;++n){
-    XiXi4pt[n] = cmplx(0.0,0.0);
-  }
 
   for(int tsrc=0;tsrc<Nsrctime;++tsrc){
-    for(int i=0;i<Ndil_space;++i){
-      for(int j=0;j<Ndil_space;++j){
-      
-	vout.general("i = %d, j = %d \n",i,j);
-	
-	proton_block.set(0.0);
-	neutron_block.set(0.0);
+     
+    Field proton_block;
+    proton_block.reset(2, Nvol, Nc*Nc*Nd*Ndil_space*Ndil_space);
+    Field neutron_block;
+    neutron_block.reset(2, Nvol, Nc*Nc*Nd*Ndil_space*Ndil_space);
 
-	proton_block_mspc.set(0.0);
-	neutron_block_mspc.set(0.0);
+    Field proton_block_mspc;
+    proton_block_mspc.reset(2, Nvol, Nc*Nc*Nd*Ndil_space*Ndil_space);
+    Field neutron_block_mspc;
+    neutron_block_mspc.reset(2, Nvol, Nc*Nc*Nd*Ndil_space*Ndil_space);
 
-	Fmspc.set(0.0);
-	F.set(0.0);
-	
-	// construct neutron_block
-	btimer.start();
+    Field Fmspc;
+    Fmspc.reset(2, Nvol, 1);
+
+    Field F;
+    F.reset(2, Nvol, 1);
+
+    // construct neutron_block
+    btimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns =  Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns =  Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int color_456=0;color_456<6;++color_456){
 	      for(int color_456p=0;color_456p<6;++color_456p){
 		for(int alpha_4=0;alpha_4<Nd;++alpha_4){ 
@@ -1110,8 +1066,8 @@ int one_end::calc_XiXi4pt_type5(std::vector<dcomplex> &XiXi4pt,
 			 * xis_2[j+Ndil_space*(alpha_4p+Nd*(eps.epsilon_3_index(color_456p,0)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,2),beta,v,0)
 			   )
 			 * xil_2_mom[j+Ndil_space*(cgm5.index(alpha_4p)+Nd*(eps.epsilon_3_index(color_456p,1)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,1),cgm5.index(alpha_4),v,0);
-			neutron_block.add(0,v,c_1p+Nc*(eps.epsilon_3_index(color_456p,2)+Nc*(alpha_1p)), real(nb_tmp));
-			neutron_block.add(1,v,c_1p+Nc*(eps.epsilon_3_index(color_456p,2)+Nc*(alpha_1p)), imag(nb_tmp));
+			neutron_block.add(0,v,c_1p+Nc*(eps.epsilon_3_index(color_456p,2)+Nc*(alpha_1p+Nd*(i+Ndil_space*j))), real(nb_tmp));
+			neutron_block.add(1,v,c_1p+Nc*(eps.epsilon_3_index(color_456p,2)+Nc*(alpha_1p+Nd*(i+Ndil_space*j))), imag(nb_tmp));
 			
 		      }
 		    }
@@ -1119,21 +1075,25 @@ int one_end::calc_XiXi4pt_type5(std::vector<dcomplex> &XiXi4pt,
 		}
 	      }
 	    }
-	  } // for 
+	  }
+	}
+      } // for 
 
-	} // pragma omp parallel
-	Communicator::sync_global();
-	btimer.stop();
-	
-	// construct proton_block
-	btimer.start();
+    } // pragma omp parallel
+    Communicator::sync_global();
+    btimer.stop();
+    
+    // construct proton_block
+    btimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns =  Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns =  Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int color_123=0;color_123<6;++color_123){
 	      for(int color_123p=0;color_123p<6;++color_123p){
 		for(int alpha_1=0;alpha_1<Nd;++alpha_1){ 
@@ -1151,82 +1111,88 @@ int one_end::calc_XiXi4pt_type5(std::vector<dcomplex> &XiXi4pt,
 			 * xis_2[j+Ndil_space*(beta_p +Nd*(c_6p                             +Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha,v,0)
 			   )
 			 * xil_1_mom[i+Ndil_space*(cgm5.index(alpha_1p)+Nd*(eps.epsilon_3_index(color_123p,1)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,1),cgm5.index(alpha_1),v,0);
-			proton_block.add(0,v,eps.epsilon_3_index(color_123p,0)+Nc*(c_6p+Nc*(alpha_1p)), real(pb_tmp));
-			proton_block.add(1,v,eps.epsilon_3_index(color_123p,0)+Nc*(c_6p+Nc*(alpha_1p)), imag(pb_tmp));
+			proton_block.add(0,v,eps.epsilon_3_index(color_123p,0)+Nc*(c_6p+Nc*(alpha_1p+Nd*(i+Ndil_space*j))), real(pb_tmp));
+			proton_block.add(1,v,eps.epsilon_3_index(color_123p,0)+Nc*(c_6p+Nc*(alpha_1p+Nd*(i+Ndil_space*j))), imag(pb_tmp));
 			
 		    }
 		  }
 		}
 	      }
 	    }
-	  } // for 
-	  
-	} // pragma omp parallel
-	Communicator::sync_global();
+	  }
+	}
+      } // for 
+
+    } // pragma omp parallel
+    Communicator::sync_global();
 
     
-	btimer.stop();
-	ffttimer.start();
-	fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
-	fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-	ffttimer.stop();
-	Communicator::sync_global();
+    btimer.stop();
+    ffttimer.start();
+    fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
+    fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
+    ffttimer.stop();
+    Communicator::sync_global();
 
-	// contraction in momentum space
-	conttimer.start();
+    // contraction in momentum space
+    Fmspc.set(0.0);
+    conttimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns = Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns = Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int alpha_1p=0;alpha_1p<Nd;++alpha_1p){
 	      for(int c_6p=0;c_6p<Nc;++c_6p){
 		for(int c_1p=0;c_1p<Nc;++c_1p){
 	
 		  Fmspc.add(0,v,0,
-			    proton_block_mspc.cmp(0,v,c_1p+Nc*(c_6p+Nc*(alpha_1p)))
-			    * neutron_block_mspc.cmp(0,v,c_1p+Nc*(c_6p+Nc*(alpha_1p)))
+			    proton_block_mspc.cmp(0,v,c_1p+Nc*(c_6p+Nc*(alpha_1p+Nd*(i+Ndil_space*j))))
+			    * neutron_block_mspc.cmp(0,v,c_1p+Nc*(c_6p+Nc*(alpha_1p+Nd*(i+Ndil_space*j))))
 			    -
-			    proton_block_mspc.cmp(1,v,c_1p+Nc*(c_6p+Nc*(alpha_1p)))
-			    * neutron_block_mspc.cmp(1,v,c_1p+Nc*(c_6p+Nc*(alpha_1p)))
+			    proton_block_mspc.cmp(1,v,c_1p+Nc*(c_6p+Nc*(alpha_1p+Nd*(i+Ndil_space*j))))
+			    * neutron_block_mspc.cmp(1,v,c_1p+Nc*(c_6p+Nc*(alpha_1p+Nd*(i+Ndil_space*j))))
 			    );
 		
 		  Fmspc.add(1,v,0,
-			    proton_block_mspc.cmp(0,v,c_1p+Nc*(c_6p+Nc*(alpha_1p)))
-			    * neutron_block_mspc.cmp(1,v,c_1p+Nc*(c_6p+Nc*(alpha_1p)))
+			    proton_block_mspc.cmp(0,v,c_1p+Nc*(c_6p+Nc*(alpha_1p+Nd*(i+Ndil_space*j))))
+			    * neutron_block_mspc.cmp(1,v,c_1p+Nc*(c_6p+Nc*(alpha_1p+Nd*(i+Ndil_space*j))))
 			    +
-			    proton_block_mspc.cmp(1,v,c_1p+Nc*(c_6p+Nc*(alpha_1p)))
-			    * neutron_block_mspc.cmp(0,v,c_1p+Nc*(c_6p+Nc*(alpha_1p)))
+			    proton_block_mspc.cmp(1,v,c_1p+Nc*(c_6p+Nc*(alpha_1p+Nd*(i+Ndil_space*j))))
+			    * neutron_block_mspc.cmp(0,v,c_1p+Nc*(c_6p+Nc*(alpha_1p+Nd*(i+Ndil_space*j))))
 			    );
 		}
 	      }
 	    }
-	  } // for
-	} // pragma omp parallel
-	Communicator::sync_global();
-
-	conttimer.stop();
-	ffttimer.start();
-	fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-	ffttimer.stop();
-	Communicator::sync_global();
-    
-	// output
-#pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns = Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
-	    XiXi4pt[v+Nvol*tsrc] += cmplx(sign*F.cmp(0,v,0),sign*F.cmp(1,v,0));
 	  }
-	} // pragma omp parallel
-	Communicator::sync_global();
+	}
+      } // for
+    } // pragma omp parallel
+    Communicator::sync_global();
+
+    conttimer.stop();
+    ffttimer.start();
+    fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
+    ffttimer.stop();
+    Communicator::sync_global();
+    
+    // output
+#pragma omp parallel
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns = Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	XiXi4pt[v+Nvol*tsrc] = cmplx(sign*F.cmp(0,v,0),sign*F.cmp(1,v,0));
       }
-    }
+    } // pragma omp parallel
+    Communicator::sync_global();
+
   } // for Nsrctime
   
   calctimer.stop();
@@ -1296,52 +1262,35 @@ int one_end::calc_XiXi4pt_type6(std::vector<dcomplex> &XiXi4pt,
   FFT_3d_parallel3d fft3;
   double sign = 1.0;
 
-  Field proton_block;
-  proton_block.reset(2, Nvol, Nc*Nc*Nd*Nd);
-  Field neutron_block;
-  neutron_block.reset(2, Nvol, Nc*Nc*Nd*Nd);
-  
-  Field proton_block_mspc;
-  proton_block_mspc.reset(2, Nvol, Nc*Nc*Nd*Nd);
-  Field neutron_block_mspc;
-  neutron_block_mspc.reset(2, Nvol, Nc*Nc*Nd*Nd);
-  
-  Field Fmspc;
-  Fmspc.reset(2, Nvol, 1);
-  
-  Field F;
-  F.reset(2, Nvol, 1);
-
-  // initialize
-#pragma omp parallel for
-  for(int n=0;n<Nvol*Nsrctime;++n){
-    XiXi4pt[n] = cmplx(0.0,0.0);
-  }
-
   for(int tsrc=0;tsrc<Nsrctime;++tsrc){
-    for(int i=0;i<Ndil_space;++i){
-      for(int j=0;j<Ndil_space;++j){
-	
-	vout.general("i = %d, j = %d \n",i,j);
-	
-	proton_block.set(0.0);
-	neutron_block.set(0.0);
-	
-	proton_block_mspc.set(0.0);
-	neutron_block_mspc.set(0.0);
-	
-	Fmspc.set(0.0);
-	F.set(0.0);
+     
+    Field proton_block;
+    proton_block.reset(2, Nvol, Nc*Nc*Nd*Nd*Ndil_space*Ndil_space);
+    Field neutron_block;
+    neutron_block.reset(2, Nvol, Nc*Nc*Nd*Nd*Ndil_space*Ndil_space);
 
-	// construct proton_block
-	btimer.start();
+    Field proton_block_mspc;
+    proton_block_mspc.reset(2, Nvol, Nc*Nc*Nd*Nd*Ndil_space*Ndil_space);
+    Field neutron_block_mspc;
+    neutron_block_mspc.reset(2, Nvol, Nc*Nc*Nd*Nd*Ndil_space*Ndil_space);
+
+    Field Fmspc;
+    Fmspc.reset(2, Nvol, 1);
+
+    Field F;
+    F.reset(2, Nvol, 1);
+
+    // construct proton_block
+    btimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns =  Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns =  Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int color_123=0;color_123<6;++color_123){
 	      for(int color_456p=0;color_456p<6;++color_456p){
 		for(int alpha_1=0;alpha_1<Nd;++alpha_1){ 
@@ -1360,8 +1309,8 @@ int one_end::calc_XiXi4pt_type6(std::vector<dcomplex> &XiXi4pt,
 			 * xis_2[j+Ndil_space*(alpha_4p+Nd*(eps.epsilon_3_index(color_456p,0)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,2),alpha,v,0)
 			   )
 			 * xil_1_mom[i+Ndil_space*(alpha_2p+Nd*(c_2p+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_123,1),cgm5.index(alpha_1),v,0);
-			proton_block.add(0,v,c_2p+Nc*(eps.epsilon_3_index(color_456p,1)+Nc*(alpha_2p+Nd*(cgm5.index(alpha_4p)))), real(pb_tmp));
-			proton_block.add(1,v,c_2p+Nc*(eps.epsilon_3_index(color_456p,1)+Nc*(alpha_2p+Nd*(cgm5.index(alpha_4p)))), imag(pb_tmp));
+			proton_block.add(0,v,c_2p+Nc*(eps.epsilon_3_index(color_456p,1)+Nc*(alpha_2p+Nd*(cgm5.index(alpha_4p)+Nd*(i+Ndil_space*j)))), real(pb_tmp));
+			proton_block.add(1,v,c_2p+Nc*(eps.epsilon_3_index(color_456p,1)+Nc*(alpha_2p+Nd*(cgm5.index(alpha_4p)+Nd*(i+Ndil_space*j)))), imag(pb_tmp));
 
 		      }
 		    }
@@ -1369,21 +1318,24 @@ int one_end::calc_XiXi4pt_type6(std::vector<dcomplex> &XiXi4pt,
 		}
 	      }
 	    }
-	  } // for 
-	  
-	} // pragma omp parallel
-	Communicator::sync_global();
-	btimer.stop();
-
-	// construct neutron_block
-	btimer.start();
+	  }
+	}
+      } // for 
+      
+    } // pragma omp parallel
+    Communicator::sync_global();
+    btimer.stop();
+    // construct neutron_block
+    btimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns =  Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns =  Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int color_456=0;color_456<6;++color_456){
 	      for(int color_123p=0;color_123p<6;++color_123p){
 		for(int alpha_4=0;alpha_4<Nd;++alpha_4){ 
@@ -1402,8 +1354,8 @@ int one_end::calc_XiXi4pt_type6(std::vector<dcomplex> &XiXi4pt,
 		       * xis_1[i+Ndil_space*(alpha_1p+Nd*(eps.epsilon_3_index(color_123p,0)+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,2),beta,v,0)
 			 )
 		       * xil_2_mom[j+Ndil_space*(alpha_5p+Nd*(c_5p+Nc*tsrc))].cmp_ri(eps.epsilon_3_index(color_456,1),cgm5.index(alpha_4),v,0);
-		      neutron_block.add(0,v,eps.epsilon_3_index(color_123p,1)+Nc*(c_5p+Nc*(cgm5.index(alpha_1p)+Nd*(alpha_5p))), real(nb_tmp));
-		      neutron_block.add(1,v,eps.epsilon_3_index(color_123p,1)+Nc*(c_5p+Nc*(cgm5.index(alpha_1p)+Nd*(alpha_5p))), imag(nb_tmp));
+		      neutron_block.add(0,v,eps.epsilon_3_index(color_123p,1)+Nc*(c_5p+Nc*(cgm5.index(alpha_1p)+Nd*(alpha_5p+Nd*(i+Ndil_space*j)))), real(nb_tmp));
+		      neutron_block.add(1,v,eps.epsilon_3_index(color_123p,1)+Nc*(c_5p+Nc*(cgm5.index(alpha_1p)+Nd*(alpha_5p+Nd*(i+Ndil_space*j)))), imag(nb_tmp));
 
 		      }
 		    }
@@ -1411,77 +1363,83 @@ int one_end::calc_XiXi4pt_type6(std::vector<dcomplex> &XiXi4pt,
 		}
 	      }
 	    }
-	  } // for 
+	  }
+	}
+      } // for 
       
-	} // pragma omp parallel
-	Communicator::sync_global();
+    } // pragma omp parallel
+    Communicator::sync_global();
 
-	
-	btimer.stop();
-	ffttimer.start();
-	fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
-	fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
-	ffttimer.stop();
-	Communicator::sync_global();
+    
+    btimer.stop();
+    ffttimer.start();
+    fft3.fft(proton_block_mspc,proton_block,FFT_3d_parallel3d::FORWARD);
+    fft3.fft(neutron_block_mspc,neutron_block,FFT_3d_parallel3d::BACKWARD);
+    ffttimer.stop();
+    Communicator::sync_global();
 
-	// contraction in momentum space
-	conttimer.start();
+    // contraction in momentum space
+    Fmspc.set(0.0);
+    conttimer.start();
 #pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns = Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns = Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	for(int i=0;i<Ndil_space;++i){
+	  for(int j=0;j<Ndil_space;++j){
 	    for(int alpha_5p=0;alpha_5p<Nd;++alpha_5p){
 	      for(int alpha_2p=0;alpha_2p<Nd;++alpha_2p){
 		for(int c_5p=0;c_5p<Nc;++c_5p){
 		  for(int c_2p=0;c_2p<Nc;++c_2p){
 		    
 		    Fmspc.add(0,v,0,
-			      proton_block_mspc.cmp(0,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p))))
-			      * neutron_block_mspc.cmp(0,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p))))
+			      proton_block_mspc.cmp(0,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p+Nd*(i+Ndil_space*j)))))
+			      * neutron_block_mspc.cmp(0,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p+Nd*(i+Ndil_space*j)))))
 			      -
-			      proton_block_mspc.cmp(1,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p))))
-			      * neutron_block_mspc.cmp(1,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p))))
+			      proton_block_mspc.cmp(1,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p+Nd*(i+Ndil_space*j)))))
+			      * neutron_block_mspc.cmp(1,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p+Nd*(i+Ndil_space*j)))))
 			      );
 		
 		    Fmspc.add(1,v,0,
-			      proton_block_mspc.cmp(0,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p))))
-			      * neutron_block_mspc.cmp(1,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p))))
+			      proton_block_mspc.cmp(0,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p+Nd*(i+Ndil_space*j)))))
+			      * neutron_block_mspc.cmp(1,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p+Nd*(i+Ndil_space*j)))))
 			      +
-			      proton_block_mspc.cmp(1,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p))))
-			      * neutron_block_mspc.cmp(0,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p))))
+			      proton_block_mspc.cmp(1,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p+Nd*(i+Ndil_space*j)))))
+			      * neutron_block_mspc.cmp(0,v,c_2p+Nc*(c_5p+Nc*(alpha_2p+Nd*(alpha_5p+Nd*(i+Ndil_space*j)))))
 			      );
 		    
 		  }
 		}
 	      }
 	    }
-	  } // for
-	} // pragma omp parallel
-	Communicator::sync_global();
-
-	conttimer.stop();
-	ffttimer.start();
-	fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
-	ffttimer.stop();
-	Communicator::sync_global();
-	
-	// output
-#pragma omp parallel
-	{
-	  int Nthread = ThreadManager_OpenMP::get_num_threads();
-	  int i_thread = ThreadManager_OpenMP::get_thread_id();
-	  int is = Nvol * i_thread / Nthread;
-	  int ns = Nvol * (i_thread + 1) / Nthread;
-	  for(int v=is;v<ns;++v){
-	    XiXi4pt[v+Nvol*tsrc] += cmplx(sign*F.cmp(0,v,0),sign*F.cmp(1,v,0));
 	  }
-	} // pragma omp parallel
-	Communicator::sync_global();
+	}
+      } // for
+    } // pragma omp parallel
+    Communicator::sync_global();
+
+    conttimer.stop();
+    ffttimer.start();
+    fft3.fft(F,Fmspc,FFT_3d_parallel3d::BACKWARD);
+    ffttimer.stop();
+    Communicator::sync_global();
+    
+    // output
+#pragma omp parallel
+    {
+      int Nthread = ThreadManager_OpenMP::get_num_threads();
+      int i_thread = ThreadManager_OpenMP::get_thread_id();
+      int is = Nvol * i_thread / Nthread;
+      int ns = Nvol * (i_thread + 1) / Nthread;
+      for(int v=is;v<ns;++v){
+	XiXi4pt[v+Nvol*tsrc] = cmplx(sign*F.cmp(0,v,0),sign*F.cmp(1,v,0));
       }
-    }
+    } // pragma omp parallel
+    Communicator::sync_global();
+
   } // for Nsrctime
   
   calctimer.stop();
