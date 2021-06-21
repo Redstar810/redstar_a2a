@@ -473,16 +473,16 @@ int main_core(Parameters *params_conf_all)
 
   //////////////////////////////////////////////////////////////////////////////
   // ### calc. 2pt correlator (test) ### //
-  /*
-  // ** sigma 2pt is under construction **
   
+  // ** sigma 2pt is under construction **
+  /*
   // calc. local sum
-  dcomplex *corr_local_pi = new dcomplex[Nt*Nsrc_t];
-  //dcomplex *corr_local_sigma = new dcomplex[Nt*Nsrc_t];
+  //dcomplex *corr_local_pi = new dcomplex[Nt*Nsrc_t];
+  dcomplex *corr_local_sigma = new dcomplex[Nt*Nsrc_t];
 #pragma omp parallel for
   for(int n=0;n<Nt*Nsrc_t;n++){
-    corr_local_pi[n] = cmplx(0.0,0.0);
-    //corr_local_sigma[n] = cmplx(0.0,0.0);
+    //corr_local_pi[n] = cmplx(0.0,0.0);
+    corr_local_sigma[n] = cmplx(0.0,0.0);
   }
 
 #pragma omp parallel
@@ -493,40 +493,38 @@ int main_core(Parameters *params_conf_all)
     int ns =  Nsrc_t * (i_thread + 1) / Nthread;
 
   
-  for(int r=0;r<Nnoise;r++){
-    //for(int t_src=0;t_src<Nsrc_t;t_src++){
-    for(int t_src=is;t_src<ns;t_src++){
-      for(int t=0;t<Nt;t++){
-	for(int i=0;i<Ndil_tslice;i++){
-	  for(int vs=0;vs<Nxyz;vs++){
-	    for(int d=0;d<Nd;d++){
-	      for(int c=0;c<Nc;c++){
-		//corr_local[t+Nt*t_src] += xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0) * conj(xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0));
-		corr_local_pi[t+Nt*t_src] += cmplx( xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) + xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0),
-						 xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) * xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) - xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_r(c,d,vs+Nxyz*t,0) * xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_i(c,d,vs+Nxyz*t,0) );
-
+    for(int r=0;r<Nnoise;r++){
+      //for(int t_src=0;t_src<Nsrc_t;t_src++){
+      for(int t_src=is;t_src<ns;t_src++){
+	for(int t=0;t<Nt;t++){
+	  for(int i=0;i<Ndil_tslice;i++){
+	    for(int vs=0;vs<Nxyz;vs++){
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  corr_local_sigma[t+Nt*t_src] += gm_5.value(d)
+		    * xi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,gm_5.index(d),vs+Nxyz*t,0)
+		    * conj(chi_smrdsink[i+Ndil_tslice*(t_src+Nsrc_t*r)].cmp_ri(c,d,vs+Nxyz*t,0));
+		}
 	      }
 	    }
 	  }
 	}
       }
     }
-  }
 
   } // pragma omp parallel
 
 #pragma omp parallel for
   for(int n=0;n<Nt*Nsrc_t;n++){
-    corr_local_pi[n] /= (double)Nnoise;
+    corr_local_sigma[n] /= (double)Nnoise;
   }
 
   //output 2pt correlator test
-  string output_2pt_pi("/2pt_pi_");
-  a2a::output_2ptcorr(corr_local_pi, Nsrc_t, &timeslice_list[0], outdir_name+output_2pt_pi+timeave);
+  string output_2pt_sigma("/2pt_sigma_");
+  a2a::output_2ptcorr(corr_local_sigma, Nsrc_t, &timeslice_list[0], outdir_name+output_2pt_sigma+timeave);
 
-  delete[] corr_local_pi;
-  */
-  
+  delete[] corr_local_sigma;
+  */  
   ///////////////////////////////////////////////////////////////////////
   /////////////// triangle diagram 1 (eigen part) ////////////////////////
   Communicator::sync_global();

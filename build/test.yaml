@@ -67,7 +67,7 @@ File_io:
   #outdir         : ./test_NN4pt_wall
   #outdir         : ./test_i0pp_disc
   #outdir         : ./test_i0pp_tri
-  #outdir         : ./test_i0pp_tribox_output
+  outdir         : ./test_i0pp_tribox_output2
   #outdir         : ./test_NN4pt_oneend_wmom
   #outdir         : ./test_XiXi4pt_wall
   #outdir         : ./test_XiXi4pt_oneend
