@@ -56,7 +56,7 @@ Momentum(src): # momentum projection
   momentum     : [0,0,0] # 3 dim momentum [px, py, pz]
 
 File_io:
-  #outdir       : ./test_output
+  outdir       : ./test_output
   #outdir       : ./consistency_check_pik_sepconn_threadtest
   #outdir        : ./consistency_check_pipi_tri_rev
   #outdir        : ./consistency_check_boosteqt_1unitmom
@@ -67,8 +67,8 @@ File_io:
   #outdir         : ./test_NN4pt_wall
   #outdir         : ./test_i0pp_disc
   #outdir         : ./test_i0pp_tri
-  outdir         : ./test_i0pp_tribox_output2
+  #outdir         : ./test_i0pp_tribox_output2
   #outdir         : ./test_NN4pt_oneend_wmom
   #outdir         : ./test_XiXi4pt_wall
   #outdir         : ./test_XiXi4pt_oneend
-  outdir          : ./test_XiXi4pt_smallmemusage
+  #outdir          : ./test_XiXi4pt_smallmemusage

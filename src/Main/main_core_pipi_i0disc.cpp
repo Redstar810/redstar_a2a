@@ -509,6 +509,7 @@ int main_core(Parameters *params_conf_all)
 
   int srcpt_exa[3];
   dcomplex *Fdisc_sink_p2a = new dcomplex[Nvol];
+  dcomplex *Fdisc_sigmasink_p2a = new dcomplex[Nvol];
   Field_F *point_src_exa = new Field_F[Nc*Nd*Lt];
 
   // construct projected source vectors
@@ -583,6 +584,7 @@ int main_core(Parameters *params_conf_all)
 #pragma omp parallel for
   for(int n=0;n<Nvol;n++){
     Fdisc_sink_p2a[n] = cmplx(0.0,0.0);
+    Fdisc_sigmasink_p2a[n] = cmplx(0.0,0.0);
   }
 
   int grid_coords[4];
@@ -594,34 +596,55 @@ int main_core(Parameters *params_conf_all)
       int is = Nxyz * i_thread / Nthread;
       int ns =  Nxyz * (i_thread + 1) / Nthread; 
 
-  for(int t=0;t<Nt;++t){
-    int t_glbl = t + Nt * grid_coords[3];
-    //for(int vs=0;vs<Nxyz;++vs){
-    for(int vs=is;vs<ns;++vs){
-      for(int d_sink=0;d_sink<Nd;++d_sink){
-	for(int c_sink=0;c_sink<Nc;++c_sink){
-	  for(int d=0;d<Nd;d++){
-	    for(int c=0;c<Nc;c++){
-	      Fdisc_sink_p2a[vs+Nxyz*t] +=
-		Dinv_smrdsink[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0) *
-		conj(Dinv_smrdsink[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0));
+      for(int t=0;t<Nt;++t){
+	int t_glbl = t + Nt * grid_coords[3];
+	//for(int vs=0;vs<Nxyz;++vs){
+	for(int vs=is;vs<ns;++vs){
+	  for(int d_sink=0;d_sink<Nd;++d_sink){
+	    for(int c_sink=0;c_sink<Nc;++c_sink){
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  Fdisc_sink_p2a[vs+Nxyz*t] +=
+		    Dinv_smrdsink[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0) *
+		    conj(Dinv_smrdsink[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0));
+
+		}
+	      }
 	    }
 	  }
 	}
       }
-    }
-  }
+
+      for(int t=0;t<Nt;++t){
+	int t_glbl = t + Nt * grid_coords[3];
+	//for(int vs=0;vs<Nxyz;++vs){
+	for(int vs=is;vs<ns;++vs){
+	  for(int d=0;d<Nd;d++){
+	    for(int c=0;c<Nc;c++){
+	      Fdisc_sigmasink_p2a[vs+Nxyz*t] +=
+		Dinv_smrdsink[c+Nc*(d+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0);
+
+	    }
+	  }
+	}
+      }
+
 
     }
 
   delete[] Dinv_smrdsink;
   
   // output sink part (exact point)
-  string fname_baseexa("/NBS_disc_sink_exact");
+  string fname_baseexa("/NBS_disc_pipisink_exact");
   string fname_exa = outdir_name + fname_baseexa;
   int srct_list_sink[1];
   srct_list_sink[0] = 0;
   a2a::output_NBS_CAA_srctave(Fdisc_sink_p2a, 1, srct_list_sink, srcpt_exa, srcpt_exa, fname_exa);
+
+  // output sink part (exact point, sigma sink)
+  string fname_baseexa_sig("/NBS_disc_sigmasink_exact");
+  string fname_exa_sig = outdir_name + fname_baseexa_sig;
+  a2a::output_NBS_CAA_srctave(Fdisc_sigmasink_p2a, 1, srct_list_sink, srcpt_exa, srcpt_exa, fname_exa_sig);
   // output NBS end
 
   // for test
@@ -648,6 +671,7 @@ int main_core(Parameters *params_conf_all)
   }
   */
   delete[] Fdisc_sink_p2a;
+  delete[] Fdisc_sigmasink_p2a;
   cont_sink_exa.stop();
 
   ////////////////////////////////////////////////////// 
@@ -740,9 +764,11 @@ int main_core(Parameters *params_conf_all)
 
     // contraction
     dcomplex *Fdisc_sink_p2arel = new dcomplex[Nvol];
+    dcomplex *Fdisc_sigmasink_p2arel = new dcomplex[Nvol];
 #pragma omp parallel for
     for(int n=0;n<Nvol;n++){
       Fdisc_sink_p2arel[n] = cmplx(0.0,0.0);
+      Fdisc_sigmasink_p2arel[n] = cmplx(0.0,0.0);
     }
 
     int grid_coords[4];
@@ -755,34 +781,53 @@ int main_core(Parameters *params_conf_all)
       int ns =  Nxyz * (i_thread + 1) / Nthread; 
 
     
-    for(int t=0;t<Nt;++t){
-      int t_glbl = t + Nt * grid_coords[3];
-      //for(int vs=0;vs<Nxyz;++vs){
-      for(int vs=is;vs<ns;++vs){
-	for(int d_sink=0;d_sink<Nd;++d_sink){
-	  for(int c_sink=0;c_sink<Nc;++c_sink){
-	    for(int d=0;d<Nd;d++){
-	      for(int c=0;c<Nc;c++){
-		Fdisc_sink_p2arel[vs+Nxyz*t] +=
-		  Dinv_smrdsink_rel[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0) *
-		  conj(Dinv_smrdsink_rel[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0));
+      for(int t=0;t<Nt;++t){
+	int t_glbl = t + Nt * grid_coords[3];
+	//for(int vs=0;vs<Nxyz;++vs){
+	for(int vs=is;vs<ns;++vs){
+	  for(int d_sink=0;d_sink<Nd;++d_sink){
+	    for(int c_sink=0;c_sink<Nc;++c_sink){
+	      for(int d=0;d<Nd;d++){
+		for(int c=0;c<Nc;c++){
+		  Fdisc_sink_p2arel[vs+Nxyz*t] +=
+		    Dinv_smrdsink_rel[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0) *
+		    conj(Dinv_smrdsink_rel[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0));
+		}
 	      }
 	    }
 	  }
 	}
       }
-    }
+
+      for(int t=0;t<Nt;++t){
+	int t_glbl = t + Nt * grid_coords[3];
+	//for(int vs=0;vs<Nxyz;++vs){
+	for(int vs=is;vs<ns;++vs){
+	  for(int d=0;d<Nd;d++){
+	    for(int c=0;c<Nc;c++){
+	      Fdisc_sigmasink_p2arel[vs+Nxyz*t] +=
+		Dinv_smrdsink_rel[c+Nc*(d+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0);
+		
+	    }
+	  }
+	}
+      }
+
 
     }
     
     delete[] Dinv_smrdsink_rel;
     
     // output sink part (relaxed point)
-    string fname_baserel("/NBS_disc_sink_rel");
+    string fname_baserel("/NBS_disc_pipisink_rel");
     string fname_rel = outdir_name + fname_baserel;
     int srct_list_sink[1];
     srct_list_sink[0] = 0;
     a2a::output_NBS_CAA_srctave(Fdisc_sink_p2arel, 1, srct_list_sink, srcpt, srcpt_exa, fname_rel);
+
+    string fname_baserel_sig("/NBS_disc_sigmasink_rel");
+    string fname_rel_sig = outdir_name + fname_baserel_sig;
+    a2a::output_NBS_CAA_srctave(Fdisc_sigmasink_p2arel, 1, srct_list_sink, srcpt, srcpt_exa, fname_rel_sig);
     // output NBS end
 
     // for test
@@ -812,6 +857,7 @@ int main_core(Parameters *params_conf_all)
     Communicator::sync_global();
 
     delete[] Fdisc_sink_p2arel;
+    delete[] Fdisc_sigmasink_p2arel;
     cont_sink_rel.stop();
   } // for Nsrcpt
 
