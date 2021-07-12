@@ -73,7 +73,7 @@ File_io:
   #outdir         : ./test_XiXi4pt_oneend
   #outdir          : ./test_XiXi4pt_smallmemusage
   #outdir          : ./test_i0pp_output_boost_parallel
-  #outdir_solution : ./test_i0pp_output_boost_parallel
+  outdir_solution : ./test_i0pp_output_boost_parallel
   #outdir_caa      : ./test_i0pp_output_boost_parallel
   #outdir          : ./test_i0pp_output_boost_serial_eig10
   #outdir_solution : ./test_i0pp_output_boost_serial_eig10

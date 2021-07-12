@@ -267,21 +267,23 @@ int main_core(Parameters *params_conf_all)
 
   // output
   {
-    char precision_base[] = "%2.2e";
-    char precision[128];
-    snprintf(precision,sizeof(precision),precision_base,std::to_string(eigen_prec));
+    //char precision_base[] = "%2.2e";
+    //char precision[128];
+    //snprintf(precision,sizeof(precision),precision_base,std::to_string(eigen_prec));
 
     // output eigenvectors                                                                                                
     string fname_base_evec("/evec_");
     string Neigen_str = std::to_string(Neigen);
-    string fname_evec = outdir_name_solution + fname_base_evec + precision + "_" + Neigen_str;
+    //string fname_evec = outdir_name_solution + fname_base_evec + precision + "_" + Neigen_str;
+    string fname_evec = outdir_name_solution + fname_base_evec + Neigen_str;
     a2a::vector_io(evec_in, Neigen, fname_evec.c_str(), 0);
     Communicator::sync_global();
 
     // output eigenvalues
     if(Communicator::nodeid() == 0){
       string fname_base_eval("/eval_");
-      string fname_eval = outdir_name_solution + fname_base_eval + precision + "_" + Neigen_str;
+      //string fname_eval = outdir_name_solution + fname_base_eval + precision + "_" + Neigen_str;
+      string fname_eval = outdir_name_solution + fname_base_eval + Neigen_str;
       std::ofstream ofs_eval(fname_eval, std::ios::binary);
       
       vout.general("writing eigenvalue data...\n");
@@ -377,10 +379,11 @@ int main_core(Parameters *params_conf_all)
   {
     // output diluted vectors                                                                                                
     string fname_base_xi("/xi_P001_");
-    char precision_base[] = "%2.2e";
-    char precision[128];
-    snprintf(precision,sizeof(precision),precision_base,std::to_string(inv_prec_full));
-    string fname_xi = outdir_name_solution + fname_base_xi + precision + "_" + timeave;
+    //char precision_base[] = "%2.2e";
+    //char precision[128];
+    //snprintf(precision,sizeof(precision),precision_base,std::to_string(inv_prec_full));
+    //string fname_xi = outdir_name_solution + fname_base_xi + precision + "_" + timeave;
+    string fname_xi = outdir_name_solution + fname_base_xi + timeave;
     a2a::vector_io(xi, Nnoise*Ndil_red, fname_xi.c_str(), 0);
     Communicator::sync_global();
 
@@ -429,8 +432,7 @@ int main_core(Parameters *params_conf_all)
 
     vout.general("=== source_op value === \n");
     for(int t_src=0;t_src<Nsrc_t;++t_src){
-      vout.general("t = %d | real = %12.6e, imag = %12.6e \n", timeslice_list[t_src], real(source_op[t_src]), imag(source_op\
-[t_src]) );
+      vout.general("t = %d | real = %12.6e, imag = %12.6e \n", timeslice_list[t_src], real(source_op[t_src]), imag(source_op[t_src]) );
     }
 
     // output                                                                                                                
