@@ -229,6 +229,13 @@ namespace a2a
   int contraction_connected_boost(Field* of, const Field_F* isrcv11, const Field_F* isrcv12, const Field_F* isrcv21, const Field_F* isrcv22,const int* idx_noise, const int Nex_tslice, const int Nsrc_time, const int* total_mom, const int dt);
 
 
+  // ### boosted frame calculation with CAA algorithms ###
+  // lowmode sink-to-sink contraction part with non-zero total momenta
+  int contraction_s2s_lowmode_boost(Field* of1, Field* of2, const Field_F* ievec, const double* ieval, const int Neigen, const Field_F* isrcv1, const Field_F* isrcv2, const int Nex_tslice, const int Nsrc_time, const int *total_mom, const int dt);
+
+  // sink-to-sink contraction part (fixed point) with non-zero total momenta         
+  int contraction_s2s_fxdpt_boost(Field* of1, Field* of2, const Field_F* iHinv, const int* srcpt,  const Field_F* isrcv1, const Field_F* isrcv2, const int Nex_tslice, const int Nsrc_time, const int *total_mom, const int dt);
+
   // ### class for exponential smearing (w/ FFT) ###
   /*!
     This is a class for exponential smearing (Tsukuba-type)

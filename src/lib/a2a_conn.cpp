@@ -184,9 +184,9 @@ int a2a::contraction_connected_boost(Field* of, const Field_F* isrcv11, const Fi
 
   Timer cont_conn("contraction (connected diagram)");
 
-  if(dt / 2 != 0){
+  if(dt % 2 != 0){
     vout.general("error: odd dt is not supported in boosted frame calculation.\n");
-    EXIT_FAILURE;
+    exit(EXIT_FAILURE);
   }
 
   vout.general("dt = %d\n", dt);

@@ -267,17 +267,21 @@ int main_core(Parameters *params_conf_all)
 
   // output
   {
+    char precision_base[] = "%2.2e";
+    char precision[128];
+    snprintf(precision,sizeof(precision),precision_base,std::to_string(eigen_prec));
+
     // output eigenvectors                                                                                                
     string fname_base_evec("/evec_");
     string Neigen_str = std::to_string(Neigen);
-    string fname_evec = outdir_name_solution + fname_base_evec + Neigen_str;
+    string fname_evec = outdir_name_solution + fname_base_evec + precision + "_" + Neigen_str;
     a2a::vector_io(evec_in, Neigen, fname_evec.c_str(), 0);
     Communicator::sync_global();
 
     // output eigenvalues
     if(Communicator::nodeid() == 0){
       string fname_base_eval("/eval_");
-      string fname_eval = outdir_name_solution + fname_base_eval + Neigen_str;
+      string fname_eval = outdir_name_solution + fname_base_eval + precision + "_" + Neigen_str;
       std::ofstream ofs_eval(fname_eval, std::ios::binary);
       
       vout.general("writing eigenvalue data...\n");
@@ -368,25 +372,83 @@ int main_core(Parameters *params_conf_all)
 			       Nmaxiter, Nmaxres);
   invtimer.stop();
   Communicator::sync_global();
-  
-  // making xi and chi (for triangle diagram)
+
+  // output solution vectors
+  {
+    // output diluted vectors                                                                                                
+    string fname_base_xi("/xi_P001_");
+    char precision_base[] = "%2.2e";
+    char precision[128];
+    snprintf(precision,sizeof(precision),precision_base,std::to_string(inv_prec_full));
+    string fname_xi = outdir_name_solution + fname_base_xi + precision + "_" + timeave;
+    a2a::vector_io(xi, Nnoise*Ndil_red, fname_xi.c_str(), 0);
+    Communicator::sync_global();
+
+    // output diluted vectors                                                                                                
+    string fname_base_noise("/dil_noise_");
+    string fname_noise = outdir_name_solution + fname_base_noise + timeave;
+    a2a::vector_io(dil_noise, Nnoise*Ndil_red, fname_noise.c_str(), 0);
+    Communicator::sync_global();
+  }
+
+  /*
   // input dil_noise and xi_mom
   Field_F *xi_in = new Field_F[Nnoise*Ndil_red];
   Field_F *dil_noise_in = new Field_F[Nnoise*Ndil_red];
   {
-    // input diluted vectors                                                                                                
-    string fname_base_xi("/xi_P001_");
-    string fname_xi = outdir_name_solution + fname_base_xi + timeave;
-    a2a::vector_io(xi_in, Nnoise*Ndil_red, fname_xi.c_str(), 1);
-    Communicator::sync_global();
+  // input diluted vectors                                                                                                
+  string fname_base_xi("/xi_P001_");
+  string fname_xi = outdir_name_solution + fname_base_xi + timeave;
+  a2a::vector_io(xi_in, Nnoise*Ndil_red, fname_xi.c_str(), 1);
+  Communicator::sync_global();
 
-    // input diluted vectors                                                                                                
-    string fname_base_noise("/dil_noise_");
-    string fname_noise = outdir_name_solution + fname_base_noise + timeave;
-    a2a::vector_io(dil_noise_in, Nnoise*Ndil_red, fname_noise.c_str(), 1);
-    Communicator::sync_global();
+  // input diluted vectors                                                                                                
+  string fname_base_noise("/dil_noise_");
+  string fname_noise = outdir_name_solution + fname_base_noise + timeave;
+  a2a::vector_io(dil_noise_in, Nnoise*Ndil_red, fname_noise.c_str(), 1);
+  Communicator::sync_global();
   }
+  */
+
+  // disconnected diagram (source part)
+  // for 3pi disc                                                                                                            
+  {
+    unique_ptr<dcomplex[]> source_op(new dcomplex[Nsrc_t]);
+    for(int t_src=0;t_src<Nsrc_t;++t_src){
+      source_op[t_src] = cmplx(0.0,0.0);
+      for(int inoise=0;inoise<Nnoise;++inoise){
+        for(int i=0;i<Ndil_tslice;++i){
+          //source_op[t_src] += dotc(dil_noise[i+Ndil_tslice*(t_src+Nsrc_t*inoise)],                                         
+          //                       xi_expfactor[i+Ndil_tslice*(t_src+Nsrc_t*inoise)]) / (double)Nnoise;                      
+          source_op[t_src] += dotc(dil_noise[i+Ndil_tslice*(t_src+Nsrc_t*inoise)],
+                                   xi[i+Ndil_tslice*(t_src+Nsrc_t*inoise)]) / (double)Nnoise;
+
+        }
+      }
+    }
+
+    vout.general("=== source_op value === \n");
+    for(int t_src=0;t_src<Nsrc_t;++t_src){
+      vout.general("t = %d | real = %12.6e, imag = %12.6e \n", timeslice_list[t_src], real(source_op[t_src]), imag(source_op\
+[t_src]) );
+    }
+
+    // output                                                                                                                
+    if(Communicator::nodeid()==0){
+      string fname_base_srcop("/NBS_disc_src_3pt_1p0p_");
+      string fname_srcop = outdir_name + fname_base_srcop + timeave;
+      std::ofstream ofs_srcop(fname_srcop.c_str(), std::ios::binary);
+      for(int tsrc=0;tsrc<Nsrc_t;++tsrc){
+        ofs_srcop.write((char*)&source_op[tsrc], sizeof(double)*2);
+      }
+      ofs_srcop.close();
+    }
+
+  } // scope of 3pt source calc.                                                                                             
+  Communicator::sync_global();
+
   
+  // making chis (for triangle diagram)
   Field_F *dil_noise_GM5 = new Field_F[Nnoise*Ndil_red];
   // for I=0 triangle diagram
   for(int n=0;n<Ndil_red*Nnoise;n++){
@@ -491,7 +553,7 @@ int main_core(Parameters *params_conf_all)
   invtimer.stop();
   delete[] seq_src_smr;
   */
-  //delete smear_src;
+  delete smear_src;
   
   // sink smearing
   a2a::Exponential_smearing *smear = new a2a::Exponential_smearing;
@@ -586,6 +648,7 @@ int main_core(Parameters *params_conf_all)
   delete[] corr_local_sigsig;
   delete[] corr_local_sigpipi;
   */
+  
   ///////////////////////////////////////////////////////////////////////
   /////////////// triangle diagram 1 (eigen part) ////////////////////////
   Communicator::sync_global();
@@ -895,6 +958,8 @@ int main_core(Parameters *params_conf_all)
   smear->smear(smrd_src_exa, point_src_exa, Nc*Nd*Lt);
   delete[] point_src_exa;
 
+  // projection -> inversion
+  /*
   // P1 projection
   a2a::eigenmode_projection(smrd_src_exa,Nc*Nd*Lt,evec_in,Neigen);
 
@@ -914,6 +979,238 @@ int main_core(Parameters *params_conf_all)
 			       Nmaxiter, Nmaxres);
   invtimer_caaexa.stop();
   delete[] smrd_src_exagm5;
+  */
+
+  // inversion -> projection
+
+  // solve inversion 
+  Field_F *Hinv = new Field_F[Nc*Nd*Lt]; // H^-1 for each src point
+ 
+  Field_F *smrd_src_exagm5 = new Field_F[Nc*Nd*Lt];
+  for(int i=0;i<Nc*Nd*Lt;i++){
+    smrd_src_exagm5[i].reset(Nvol,1);
+    mult_GM(smrd_src_exagm5[i],gm_5,smrd_src_exa[i]);
+  }
+  delete[] smrd_src_exa; 
+  
+  invtimer_caaexa.start();
+  a2a::inversion_alt_Clover_eo(Hinv, smrd_src_exagm5, U, kappa_l, csw, bc,
+			       Nc*Nd*Lt, inv_prec_full,
+			       Nmaxiter, Nmaxres);
+  invtimer_caaexa.stop();
+  delete[] smrd_src_exagm5;
+
+  // disconnected sink-to-sink part calculation
+  {
+    vout.general("\n");
+    vout.general("=== disconnected sink-to-sink calculation (exact) START ===\n");
+    // exp factor for sink                                                  
+    double pdtx = 2 * M_PI / (double)Lx * (total_mom[0] * srcpt_exa[0]) + 2 * M_PI / (double)Ly * (total_mom[1] * srcpt_exa[1]) + 2 * M_PI / (double)Lz * (total_mom[2] * srcpt_exa[2]);
+    dcomplex factor_exa_disc = cmplx(std::cos(pdtx),-std::sin(pdtx));
+    vout.general("exp factor : (%f,%f)\n",real(factor_exa_disc),imag(factor_exa_disc));
+  
+    dcomplex *Fdisc_sink_p2a = new dcomplex[Nvol];
+    //smearing
+    Field_F *Hinv_fulleig_smrdsink = new Field_F[Nc*Nd*Lt];
+    smear->smear(Hinv_fulleig_smrdsink, Hinv, Nc*Nd*Lt);
+
+    int grid_coords[4];
+    Communicator::grid_coord(grid_coords, Communicator::nodeid());
+
+    ShiftField_lex shift;
+
+    Communicator::sync_global();
+
+    // ### dt = 0 ### //
+    {
+      vout.general("=== dt = 0 ===\n");
+#pragma omp parallel for
+      for(int n=0;n<Nvol;n++){
+	Fdisc_sink_p2a[n] = cmplx(0.0,0.0);
+      }
+
+#pragma omp parallel
+      {
+	int Nthread = ThreadManager_OpenMP::get_num_threads();
+	int i_thread = ThreadManager_OpenMP::get_thread_id();
+	int is = Nxyz * i_thread / Nthread;
+	int ns =  Nxyz * (i_thread + 1) / Nthread;
+	
+	for(int t=0;t<Nt;++t){
+	  int t_glbl = t + Nt * grid_coords[3];
+	  //for(int vs=0;vs<Nxyz;++vs){                                                                                          
+	  for(int vs=is;vs<ns;++vs){
+	    for(int d_sink=0;d_sink<Nd;++d_sink){
+	      for(int c_sink=0;c_sink<Nc;++c_sink){
+		for(int d=0;d<Nd;d++){
+		  for(int c=0;c<Nc;c++){
+		    Fdisc_sink_p2a[vs+Nxyz*t] +=
+		      Hinv_fulleig_smrdsink[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0) *
+		      conj(Hinv_fulleig_smrdsink[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0));
+
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+	
+      } // pragma omp parallel
+      Communicator::sync_global();
+      
+#pragma omp parallel for
+      for(int n=0;n<Nvol;n++){
+	Fdisc_sink_p2a[n] = factor_exa_disc * Fdisc_sink_p2a[n];
+      }
+      Communicator::sync_global();
+      
+      // output sink part (exact point)                            
+      string fname_baseexa_dt0("/NBS_disc_pipisink_exact_dt0");
+      string fname_exa_dt0 = outdir_name + fname_baseexa_dt0;
+      int srct_list_sink[1];
+      srct_list_sink[0] = 0;
+      a2a::output_NBS_CAA_srctave(Fdisc_sink_p2a, 1, srct_list_sink, srcpt_exa, srcpt_exa, fname_exa_dt0);
+
+      Communicator::sync_global();
+    } // dt = 0
+
+    // ### dt = 2 ### //
+    {
+      vout.general("=== dt = +2 ===\n");
+#pragma omp parallel for
+      for(int n=0;n<Nvol;n++){
+	Fdisc_sink_p2a[n] = cmplx(0.0,0.0);
+      }
+
+      // time-shift +2
+      Field_F *Hinv_smrdsink_tshift = new Field_F[Nc*Nd*Lt];
+      for(int i=0;i<Nc*Nd*Lt;++i){
+	Field_F tshift_tmp;
+	tshift_tmp.reset(Nvol,1);
+	shift.backward(tshift_tmp, Hinv_fulleig_smrdsink[i], 3); // +1
+	shift.backward(Hinv_smrdsink_tshift[i], tshift_tmp, 3); // +2
+      }
+
+#pragma omp parallel
+      {
+	int Nthread = ThreadManager_OpenMP::get_num_threads();
+	int i_thread = ThreadManager_OpenMP::get_thread_id();
+	int is = Nxyz * i_thread / Nthread;
+	int ns =  Nxyz * (i_thread + 1) / Nthread;
+	
+	for(int t=0;t<Nt;++t){
+	  int t_glbl = t + Nt * grid_coords[3];
+	  //for(int vs=0;vs<Nxyz;++vs){                                                                                          
+	  for(int vs=is;vs<ns;++vs){
+	    for(int d_sink=0;d_sink<Nd;++d_sink){
+	      for(int c_sink=0;c_sink<Nc;++c_sink){
+		for(int d=0;d<Nd;d++){
+		  for(int c=0;c<Nc;c++){
+		    Fdisc_sink_p2a[vs+Nxyz*t] +=
+		      Hinv_smrdsink_tshift[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0) *
+		      conj(Hinv_smrdsink_tshift[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0));
+
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+	
+      } // pragma omp parallel
+      Communicator::sync_global();
+      delete[] Hinv_smrdsink_tshift;
+      
+#pragma omp parallel for
+      for(int n=0;n<Nvol;n++){
+	Fdisc_sink_p2a[n] = factor_exa_disc * Fdisc_sink_p2a[n];
+      }
+      Communicator::sync_global();
+      
+      // output sink part (exact point)                            
+      string fname_baseexa_shift("/NBS_disc_pipisink_exact_dt2");
+      string fname_exa_shift = outdir_name + fname_baseexa_shift;
+      int srct_list_sink[1];
+      srct_list_sink[0] = 0;
+      a2a::output_NBS_CAA_srctave(Fdisc_sink_p2a, 1, srct_list_sink, srcpt_exa, srcpt_exa, fname_exa_shift);
+
+      Communicator::sync_global();
+    } // dt = +2
+
+    // ### dt = -2 ### //
+    {
+      vout.general("=== dt = -2 ===\n");
+#pragma omp parallel for
+      for(int n=0;n<Nvol;n++){
+	Fdisc_sink_p2a[n] = cmplx(0.0,0.0);
+      }
+
+      // time-shift -2
+      Field_F *Hinv_smrdsink_tshift = new Field_F[Nc*Nd*Lt];
+      for(int i=0;i<Nc*Nd*Lt;++i){
+	Field_F tshift_tmp;
+	tshift_tmp.reset(Nvol,1);
+	shift.forward(tshift_tmp, Hinv_fulleig_smrdsink[i], 3); // +1
+	shift.forward(Hinv_smrdsink_tshift[i], tshift_tmp, 3); // +2
+      }
+
+#pragma omp parallel
+      {
+	int Nthread = ThreadManager_OpenMP::get_num_threads();
+	int i_thread = ThreadManager_OpenMP::get_thread_id();
+	int is = Nxyz * i_thread / Nthread;
+	int ns =  Nxyz * (i_thread + 1) / Nthread;
+	
+	for(int t=0;t<Nt;++t){
+	  int t_glbl = t + Nt * grid_coords[3];
+	  //for(int vs=0;vs<Nxyz;++vs){                                                                                          
+	  for(int vs=is;vs<ns;++vs){
+	    for(int d_sink=0;d_sink<Nd;++d_sink){
+	      for(int c_sink=0;c_sink<Nc;++c_sink){
+		for(int d=0;d<Nd;d++){
+		  for(int c=0;c<Nc;c++){
+		    Fdisc_sink_p2a[vs+Nxyz*t] +=
+		      Hinv_smrdsink_tshift[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0) *
+		      conj(Hinv_smrdsink_tshift[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0));
+
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+	
+      } // pragma omp parallel
+      Communicator::sync_global();
+      delete[] Hinv_smrdsink_tshift;
+      
+#pragma omp parallel for
+      for(int n=0;n<Nvol;n++){
+	Fdisc_sink_p2a[n] = factor_exa_disc * Fdisc_sink_p2a[n];
+      }
+      Communicator::sync_global();
+      
+      // output sink part (exact point)                            
+      string fname_baseexa_shift("/NBS_disc_pipisink_exact_dtm2");
+      string fname_exa_shift = outdir_name + fname_baseexa_shift;
+      int srct_list_sink[1];
+      srct_list_sink[0] = 0;
+      a2a::output_NBS_CAA_srctave(Fdisc_sink_p2a, 1, srct_list_sink, srcpt_exa, srcpt_exa, fname_exa_shift);
+
+      Communicator::sync_global();
+    } // dt = -2
+    
+    delete[] Fdisc_sink_p2a;
+    delete[] Hinv_fulleig_smrdsink;
+
+    vout.general("=== disconnected sink-to-sink calculation (exact) END ===\n");
+    vout.general("\n");
+    Communicator::sync_global();
+  }
+  // disconnected sink-to-sink part calculation
+
+  // P1 projection
+  a2a::eigenmode_projection(Hinv,Nc*Nd*Lt,evec_in,Neigen);
 
   //smearing
   Field_F *Hinv_smrdsink = new Field_F[Nc*Nd*Lt];
@@ -1216,7 +1513,9 @@ int main_core(Parameters *params_conf_all)
     // smearing    
     Field_F *smrd_src_rel = new Field_F[Nc*Nd*Lt];
     smear->smear(smrd_src_rel, point_src_rel, Nc*Nd*Lt);
-    
+
+    // projection -> inversion
+    /*
     // P1 projection
     a2a::eigenmode_projection(smrd_src_rel,Nc*Nd*Lt,evec_in,Neigen);
 
@@ -1236,7 +1535,240 @@ int main_core(Parameters *params_conf_all)
 				 Nmaxiter, Nmaxres);
     invtimer_caarel.stop();
     delete[] smrd_src_relgm5;
+    */
 
+    // inversion -> projection
+    
+    // solve inversion 
+    Field_F *Hinv_rel = new Field_F[Nc*Nd*Lt]; // H^-1 for each src point  
+    
+    Field_F *smrd_src_relgm5 = new Field_F[Nc*Nd*Lt];
+    for(int i=0;i<Nc*Nd*Lt;i++){
+      smrd_src_relgm5[i].reset(Nvol,1);
+      mult_GM(smrd_src_relgm5[i],gm_5,smrd_src_rel[i]);
+    }
+    delete[] smrd_src_rel;
+
+    invtimer_caarel.start();
+    a2a::inversion_alt_Clover_eo(Hinv_rel, smrd_src_relgm5, U, kappa_l, csw, bc,
+				 Nc*Nd*Lt, inv_prec_caa,
+				 Nmaxiter, Nmaxres);
+    invtimer_caarel.stop();
+    delete[] smrd_src_relgm5;
+
+    // disconnected sink-to-sink part calculation
+    {
+      vout.general("\n");
+      vout.general("=== disconnected sink-to-sink calculation (relaxed part) START ===\n");
+      // exp factor for sink                                                  
+      double pdtx = 2 * M_PI / (double)Lx * (total_mom[0] * srcpt[0]) + 2 * M_PI / (double)Ly * (total_mom[1] * srcpt[1]) + 2 * M_PI / (double)Lz * (total_mom[2] * srcpt[2]);
+      dcomplex factor_rel_disc = cmplx(std::cos(pdtx),-std::sin(pdtx));
+      vout.general("exp factor : (%f,%f)\n",real(factor_rel_disc),imag(factor_rel_disc));
+      
+      dcomplex *Fdisc_sink_p2arel = new dcomplex[Nvol];
+      //smearing
+      Field_F *Hinv_fulleig_smrdsink = new Field_F[Nc*Nd*Lt];
+      smear->smear(Hinv_fulleig_smrdsink, Hinv_rel, Nc*Nd*Lt);
+
+      int grid_coords[4];
+      Communicator::grid_coord(grid_coords, Communicator::nodeid());
+      
+      ShiftField_lex shift;
+      
+      Communicator::sync_global();
+
+      // ### dt = 0 ### //
+      {
+	vout.general("=== dt = 0 ===\n");
+#pragma omp parallel for
+	for(int n=0;n<Nvol;n++){
+	  Fdisc_sink_p2arel[n] = cmplx(0.0,0.0);
+	}
+
+#pragma omp parallel
+	{
+	  int Nthread = ThreadManager_OpenMP::get_num_threads();
+	  int i_thread = ThreadManager_OpenMP::get_thread_id();
+	  int is = Nxyz * i_thread / Nthread;
+	  int ns =  Nxyz * (i_thread + 1) / Nthread;
+	
+	  for(int t=0;t<Nt;++t){
+	    int t_glbl = t + Nt * grid_coords[3];
+	    //for(int vs=0;vs<Nxyz;++vs){                                                                                          
+	    for(int vs=is;vs<ns;++vs){
+	      for(int d_sink=0;d_sink<Nd;++d_sink){
+		for(int c_sink=0;c_sink<Nc;++c_sink){
+		  for(int d=0;d<Nd;d++){
+		    for(int c=0;c<Nc;c++){
+		      Fdisc_sink_p2arel[vs+Nxyz*t] +=
+			Hinv_fulleig_smrdsink[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0) *
+			conj(Hinv_fulleig_smrdsink[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0));
+
+		    }
+		  }
+		}
+	      }
+	    }
+	  }
+	
+	} // pragma omp parallel
+	Communicator::sync_global();
+      
+#pragma omp parallel for
+	for(int n=0;n<Nvol;n++){
+	  Fdisc_sink_p2arel[n] = factor_rel_disc * Fdisc_sink_p2arel[n];
+	}
+	Communicator::sync_global();
+      
+	// output sink part (rel point)                            
+	string fname_baserel_dt0("/NBS_disc_pipisink_rel_dt0");
+	string fname_rel_dt0 = outdir_name + fname_baserel_dt0;
+	int srct_list_sink[1];
+	srct_list_sink[0] = 0;
+	a2a::output_NBS_CAA_srctave(Fdisc_sink_p2arel, 1, srct_list_sink, srcpt, srcpt_exa, fname_rel_dt0);
+
+	Communicator::sync_global();
+      } // dt = 0
+      
+      // ### dt = 2 ### //
+      {
+	vout.general("=== dt = +2 ===\n");
+#pragma omp parallel for
+	for(int n=0;n<Nvol;n++){
+	  Fdisc_sink_p2arel[n] = cmplx(0.0,0.0);
+	}
+
+	// time-shift +2
+	Field_F *Hinv_smrdsink_tshift = new Field_F[Nc*Nd*Lt];
+	for(int i=0;i<Nc*Nd*Lt;++i){
+	  Field_F tshift_tmp;
+	  tshift_tmp.reset(Nvol,1);
+	  shift.backward(tshift_tmp, Hinv_fulleig_smrdsink[i], 3); // +1
+	  shift.backward(Hinv_smrdsink_tshift[i], tshift_tmp, 3); // +2
+	}
+
+#pragma omp parallel
+	{
+	  int Nthread = ThreadManager_OpenMP::get_num_threads();
+	  int i_thread = ThreadManager_OpenMP::get_thread_id();
+	  int is = Nxyz * i_thread / Nthread;
+	  int ns =  Nxyz * (i_thread + 1) / Nthread;
+	
+	  for(int t=0;t<Nt;++t){
+	    int t_glbl = t + Nt * grid_coords[3];
+	    //for(int vs=0;vs<Nxyz;++vs){                                                                                          
+	    for(int vs=is;vs<ns;++vs){
+	      for(int d_sink=0;d_sink<Nd;++d_sink){
+		for(int c_sink=0;c_sink<Nc;++c_sink){
+		  for(int d=0;d<Nd;d++){
+		    for(int c=0;c<Nc;c++){
+		      Fdisc_sink_p2arel[vs+Nxyz*t] +=
+			Hinv_smrdsink_tshift[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0) *
+			conj(Hinv_smrdsink_tshift[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0));
+
+		    }
+		  }
+		}
+	      }
+	    }
+	  }
+	
+	} // pragma omp parallel
+	Communicator::sync_global();
+	delete[] Hinv_smrdsink_tshift;
+      
+#pragma omp parallel for
+	for(int n=0;n<Nvol;n++){
+	  Fdisc_sink_p2arel[n] = factor_rel_disc * Fdisc_sink_p2arel[n];
+	}
+	Communicator::sync_global();
+      
+	// output sink part (exact point)                            
+	string fname_baserel_shift("/NBS_disc_pipisink_rel_dt2");
+	string fname_rel_shift = outdir_name + fname_baserel_shift;
+	int srct_list_sink[1];
+	srct_list_sink[0] = 0;
+	a2a::output_NBS_CAA_srctave(Fdisc_sink_p2arel, 1, srct_list_sink, srcpt, srcpt_exa, fname_rel_shift);
+
+	Communicator::sync_global();
+      } // dt = +2
+      
+      // ### dt = -2 ### //
+      {
+	vout.general("=== dt = -2 ===\n");
+#pragma omp parallel for
+	for(int n=0;n<Nvol;n++){
+	  Fdisc_sink_p2arel[n] = cmplx(0.0,0.0);
+	}
+
+	// time-shift -2
+	Field_F *Hinv_smrdsink_tshift = new Field_F[Nc*Nd*Lt];
+	for(int i=0;i<Nc*Nd*Lt;++i){
+	  Field_F tshift_tmp;
+	  tshift_tmp.reset(Nvol,1);
+	  shift.forward(tshift_tmp, Hinv_fulleig_smrdsink[i], 3); // +1
+	  shift.forward(Hinv_smrdsink_tshift[i], tshift_tmp, 3); // +2
+	}
+
+#pragma omp parallel
+	{
+	  int Nthread = ThreadManager_OpenMP::get_num_threads();
+	  int i_thread = ThreadManager_OpenMP::get_thread_id();
+	  int is = Nxyz * i_thread / Nthread;
+	  int ns =  Nxyz * (i_thread + 1) / Nthread;
+	
+	  for(int t=0;t<Nt;++t){
+	    int t_glbl = t + Nt * grid_coords[3];
+	    //for(int vs=0;vs<Nxyz;++vs){                                                                                          
+	    for(int vs=is;vs<ns;++vs){
+	      for(int d_sink=0;d_sink<Nd;++d_sink){
+		for(int c_sink=0;c_sink<Nc;++c_sink){
+		  for(int d=0;d<Nd;d++){
+		    for(int c=0;c<Nc;c++){
+		      Fdisc_sink_p2arel[vs+Nxyz*t] +=
+			Hinv_smrdsink_tshift[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0) *
+			conj(Hinv_smrdsink_tshift[c_sink+Nc*(d_sink+Nd*t_glbl)].cmp_ri(c,d,vs+Nxyz*t,0));
+
+		    }
+		  }
+		}
+	      }
+	    }
+	  }
+	
+	} // pragma omp parallel
+	Communicator::sync_global();
+	delete[] Hinv_smrdsink_tshift;
+      
+#pragma omp parallel for
+	for(int n=0;n<Nvol;n++){
+	  Fdisc_sink_p2arel[n] = factor_rel_disc * Fdisc_sink_p2arel[n];
+	}
+	Communicator::sync_global();
+      
+	// output sink part (exact point)                            
+	string fname_baserel_shift("/NBS_disc_pipisink_rel_dtm2");
+	string fname_rel_shift = outdir_name + fname_baserel_shift;
+	int srct_list_sink[1];
+	srct_list_sink[0] = 0;
+	a2a::output_NBS_CAA_srctave(Fdisc_sink_p2arel, 1, srct_list_sink, srcpt, srcpt_exa, fname_rel_shift);
+
+	Communicator::sync_global();
+      } // dt = -2
+      
+      delete[] Fdisc_sink_p2arel;
+      delete[] Hinv_fulleig_smrdsink;
+      
+      vout.general("=== disconnected sink-to-sink calculation (rel) END ===\n");
+      vout.general("\n");
+      Communicator::sync_global();
+      
+    }
+    // disconnected sink-to-sink part calculation
+
+    // P1 projection
+    a2a::eigenmode_projection(Hinv_rel,Nc*Nd*Lt,evec_in,Neigen);
+    
     // smearing
     Field_F *Hinv_smrdsink_rel = new Field_F[Nc*Nd*Lt];
     smear->smear(Hinv_smrdsink_rel, Hinv_rel, Nc*Nd*Lt);

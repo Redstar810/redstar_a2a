@@ -63,8 +63,9 @@ a2a_include_path = $(a2a_src_path)/include
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0sepconn.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0box.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0tribox.cpp
-src_main_core = $(a2a_main_path)/main_core_pipi_i0boost_tri_1p0p.cpp
+#src_main_core = $(a2a_main_path)/main_core_pipi_i0boost_tri_1p0p.cpp
 #src_main_core = $(a2a_main_path)/main_core_pipi_i0boost_disc_1p0p.cpp
+src_main_core = $(a2a_main_path)/main_core_pipi_i0boost_3pt_1p0p.cpp
 
 # for the test of baryonic one-end trick
 #src_main_core = $(a2a_main_path)/main_core_NN_2pt_oneend.cpp

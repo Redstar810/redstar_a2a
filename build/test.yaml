@@ -10,11 +10,11 @@ Conf:
   boundary     : [1,1,1,1] # boundary condition (1: periodic, 0: dirichlet)
 
 Noise:
-  noise_seed   : 1234567
-  timeslice    : [0,1,2,3,4,5,6,7]
-  timeave      : fulltave
-  #timeslice    : [0]
-  #timeave      : t0
+  noise_seed   : 12345678
+  #timeslice    : [0,1,2,3,4,5,6,7]
+  #timeave      : fulltave
+  timeslice    : [0]
+  timeave      : t0
   #timeslice    : [0,4]
   #timeave      : 0mod4
   
@@ -37,9 +37,9 @@ Inversion:
   Nmaxres      : 100
 
 CAA:
-  caa_grid     : [4,4,4] # 3 dim caa grid (translation)
+  caa_grid     : [1,1,1] # 3 dim caa grid (translation)
   Solver_type  : Double_eo # {Double_eo, Mixed, Mixed_eo}
-  Precision    : 1.0e-24
+  Precision    : 9.0e-6
   Precision_in : 3.0e-3
   point_seed   : 950
 
@@ -72,4 +72,13 @@ File_io:
   #outdir         : ./test_XiXi4pt_wall
   #outdir         : ./test_XiXi4pt_oneend
   #outdir          : ./test_XiXi4pt_smallmemusage
-  outdir          : ./test_i0pp_output_boost
+  #outdir          : ./test_i0pp_output_boost_parallel
+  #outdir_solution : ./test_i0pp_output_boost_parallel
+  #outdir_caa      : ./test_i0pp_output_boost_parallel
+  #outdir          : ./test_i0pp_output_boost_serial_eig10
+  #outdir_solution : ./test_i0pp_output_boost_serial_eig10
+  #outdir_caa      : ./test_i0pp_output_boost_serial_eig10
+  #outdir          : ./test_i0pp_output_boost_3pt_serial_eig100
+  #outdir_solution : ./test_i0pp_output_boost_3pt_serial_eig100
+  #outdir_caa      : ./test_i0pp_output_boost_3pt_serial_eig100
+  
