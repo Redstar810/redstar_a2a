@@ -483,6 +483,8 @@ int a2a::contraction_s2s_lowmode_boost(Field* of1, Field* of2, const Field_F* ie
   Timer cont_setfmom("set Fmom");
   Timer cont_fftfmom("fft Fmom");
 
+  ShiftField_lex *shift = new ShiftField_lex;
+
   if(dt % 2 != 0){
     vout.general("error: odd dt is not supported in boosted frame calculation.\n");
     exit(EXIT_FAILURE);
@@ -502,46 +504,19 @@ int a2a::contraction_s2s_lowmode_boost(Field* of1, Field* of2, const Field_F* ie
 
   
   cont_low.start();
-  // generate temporal matrices                      
-  Field *tmp1 = new Field;
-  Field *tmp2 = new Field;
-  tmp1->reset(2,Nvol,Neigen*Nex_tslice);
-  tmp2->reset(2,Nvol,Neigen*Nex_tslice);
-  /*
-  Field tmp1_mom;
-  Field tmp2_mom;
-  tmp1_mom.reset(2,Nvol,Neigen*Nex_tslice);
-  tmp2_mom.reset(2,Nvol,Neigen*Nex_tslice);
-
-  Field F_mom;
-  F_mom.reset(2,Nvol,1);
-  */
-  FFT_3d_parallel3d fft3;
+  FFT_3d_parallel3d fft3;    
 
   for(int srct=0;srct<Nsrc_time;srct++){
+    
+    // generate temporal matrices                      
+    Field *tmp1 = new Field;
+    Field *tmp2 = new Field;
+    tmp1->reset(2,Nvol,Neigen*Nex_tslice);
+    tmp2->reset(2,Nvol,Neigen*Nex_tslice);
+  
     tmp1->set(0.0);
     tmp2->set(0.0);
     cont_settmp.start();
-    //#pragma omp parallel for
-    /*    
-    for(int j=0;j<Neigen;j++){
-      for(int i=0;i<Nex_tslice;i++){
-	for(int t=0;t<Nt;t++){
-	  for(int vs=0;vs<Nxyz;vs++){
-	    for(int d=0;d<Nd;d++){
-	      for(int c=0;c<Nc;c++){
-		tmp1.add(0,vs+Nxyz*t,i+Nex_tslice*j,real(ievec[j].cmp_ri(c,d,vs+Nxyz*t,0) * conj(isrcv2[i+Nex_tslice*srct].cmp_ri(c,d,vs+Nxyz*t,0)))/ieval[j]);
-		tmp1.add(1,vs+Nxyz*t,i+Nex_tslice*j,imag(ievec[j].cmp_ri(c,d,vs+Nxyz*t,0) * conj(isrcv2[i+Nex_tslice*srct].cmp_ri(c,d,vs+Nxyz*t,0)))/ieval[j]);
-		
-		tmp2.add(0,vs+Nxyz*t,i+Nex_tslice*j,real(isrcv1[i+Nex_tslice*srct].cmp_ri(c,d,vs+Nxyz*t,0) * conj(ievec[j].cmp_ri(c,d,vs+Nxyz*t,0))));
-		tmp2.add(1,vs+Nxyz*t,i+Nex_tslice*j,imag(isrcv1[i+Nex_tslice*srct].cmp_ri(c,d,vs+Nxyz*t,0) * conj(ievec[j].cmp_ri(c,d,vs+Nxyz*t,0))));
-	      }
-	    }
-	  }
-	}
-      }
-    }
-    */
     
     // improved implementation
 #pragma omp parallel
@@ -638,12 +613,6 @@ int a2a::contraction_s2s_lowmode_boost(Field* of1, Field* of2, const Field_F* ie
 
     // momentum shift and dt shift 
 
-    ShiftField_lex *shift = new ShiftField_lex;
-    //Field *tmpmtx2_mom_shifted = new Field;
-    //tmpmtx2_mom_shifted->reset(2,Nvol,Nex_tslice*Nex_tslice*Nsrc_time);
-    //copy(*tmpmtx2_mom_shifted,*tmpmtx2_mom);
-    //delete tmpmtx2_mom;
-
     // momentum shift (total_mom)
     if(total_mom[0] != 0){
       for(int num_shift=0;num_shift<total_mom[0];++num_shift){
@@ -705,7 +674,6 @@ int a2a::contraction_s2s_lowmode_boost(Field* of1, Field* of2, const Field_F* ie
       }
     }
     // shift end
-    delete shift;
 
     cont_setfmom.start();
     Field F_mom;
@@ -719,19 +687,15 @@ int a2a::contraction_s2s_lowmode_boost(Field* of1, Field* of2, const Field_F* ie
       int is = Nvol * i_thread / Nthread;
       int ns = Nvol * (i_thread + 1) / Nthread;
     
-    for(int j=0;j<Neigen;j++){
-      for(int i=0;i<Nex_tslice;i++){
-	for(int v=is;v<ns;v++){
-	  //for(int v=0;v<Nvol;v++){
-	  //dcomplex Fmom_value = cmplx(tmp1_mom.cmp(0,v,i+Nex_tslice*j),tmp1_mom.cmp(1,v,i+Nex_tslice*j)) * cmplx(tmp2_mom.cmp(0,v,i+Nex_tslice*j),tmp2_mom.cmp(1,v,i+Nex_tslice*j));
-	  //F_mom.add(0,v,0,real(Fmom_value));
-	  //F_mom.add(1,v,0,imag(Fmom_value));
+      for(int j=0;j<Neigen;j++){
+	for(int i=0;i<Nex_tslice;i++){
+	  for(int v=is;v<ns;v++){
 
-	  F_mom.add(0,v,0,tmp1_mom->cmp(0,v,i+Nex_tslice*j)*tmp2_mom->cmp(0,v,i+Nex_tslice*j)-tmp1_mom->cmp(1,v,i+Nex_tslice*j)*tmp2_mom->cmp(1,v,i+Nex_tslice*j) );
-	  F_mom.add(1,v,0,tmp1_mom->cmp(0,v,i+Nex_tslice*j)*tmp2_mom->cmp(1,v,i+Nex_tslice*j)+tmp1_mom->cmp(1,v,i+Nex_tslice*j)*tmp2_mom->cmp(0,v,i+Nex_tslice*j));
+	    F_mom.add(0,v,0,tmp1_mom->cmp(0,v,i+Nex_tslice*j)*tmp2_mom->cmp(0,v,i+Nex_tslice*j)-tmp1_mom->cmp(1,v,i+Nex_tslice*j)*tmp2_mom->cmp(1,v,i+Nex_tslice*j) );
+	    F_mom.add(1,v,0,tmp1_mom->cmp(0,v,i+Nex_tslice*j)*tmp2_mom->cmp(1,v,i+Nex_tslice*j)+tmp1_mom->cmp(1,v,i+Nex_tslice*j)*tmp2_mom->cmp(0,v,i+Nex_tslice*j));
+	  }
 	}
       }
-    }
     }
 
     delete tmp1_mom;
