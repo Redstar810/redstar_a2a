@@ -544,8 +544,8 @@ int main_core(Parameters *params_conf_all)
   // each results are putted on std::vector<dcomplex> array. (Nvol * 2 * 2 * 2 * 2 * Nsrctime)
   // ** IMPORTANT: assuming Nnoise = 1 (no noise ave.) in the following calculation. **
   
-    for(int spin_sink=0;spin_sink<2;++spin_sink){
-    for(int spin_src=0;spin_src<2;++spin_src){
+    for(int spin_sink=0;spin_sink<1;++spin_sink){
+    for(int spin_src=0;spin_src<1;++spin_src){
     std::vector<int> spin_list(4);
     spin_list[0] = spin_sink % 2;
     spin_list[1] = (spin_sink+1) % 2;
